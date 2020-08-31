@@ -1,0 +1,25 @@
+---
+# Configuration for PicInch Gallery server
+#  - Edit and rename to configuration.yml
+#  - Take care to keep indentation unchanged when editing. Do not use tabs.
+
+db-password: test-only
+
+admin-name: admin@picinch.com
+admin-password: admin-test-only
+
+# The following is needed for certificate registration with Let's Encrypt
+domains:
+  - example.com
+  - www.example.com
+
+# Address to be notified of problems with certificates
+certificate-email: you@example.com
+
+# A random 32 character key used to encrypt users session data
+# For example, start with this one and change a lot of the individual characters.
+session-secret: Hk4TEiDgq8JaCNR?WaPeWBf4QQYNUjMR
+
+# Administrator, to be added to the database
+admin-name: admin@example.com
+admin-password: <your-password>

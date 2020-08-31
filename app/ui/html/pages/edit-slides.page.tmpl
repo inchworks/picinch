@@ -1,0 +1,219 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2020.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}Edit Slideshow{{end}}
+
+{{define "pagemeta"}}
+    <meta name="robots" content="noindex, nofollow">
+{{end}}
+
+{{define "page"}}
+
+	<div class="container">
+
+		<h2>{{ .Title }}</h2>
+
+		<form action='/edit-slides/{{ .NShow }}' method='POST' enctype="multipart/form-data" >
+            <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
+ 			{{with .Form}}
+
+				<div id="formChildren">
+					{{range .Children}}
+						<div class='childForm' {{ .ChildStyle }}>
+							<div style='display:none'>
+								<input type='number' name='index' value='{{ .ChildIndex }}'>								
+							</div>
+							<div class="form-group row">
+								<label class="col-md-1 col-form-label">SLIDE</label>
+								<div class="col-md-1">
+									<input type='number' class='form-control showOrder {{.ChildValid "showOrder"}}' name='showOrder' style='width:60px; margin-right:540px' value='{{ .ShowOrder }}'>
+									<div class='invalid-feedback'>{{ .ChildError "showOrder"}}</div>
+								</div>
+								<div class="input-group col-md-8">
+									<div class="input-group-prepend">
+   										<span class='input-group-text'>{{.ImageName}}</span>
+										<div class="custom-file">
+											<input type='hidden' class="imageName" name='imageName' value='{{.ImageName}}'>
+											<input type='file' class='custom-file-input {{.ChildValid "image"}} {{.ChildValid "imageName"}}'>
+											<label class='custom-file-label'><div class='invalid-feedback d-inline'>{{ .ChildError "imageName"}}</div>Choose photo...</label>
+										</div>
+									</div>
+								</div>
+								<div class="col-md-2">
+									<a href="#" class="btn btn-secondary btnDeleteChild">Delete</a>
+								</div>
+							</div>
+							<div class="form-group row upload" style='display:none'>
+								<div class="offset-md-2 col-md-5 progress">
+									<div class="progress-bar" style="width:50%; height:100%"></div>
+								</div>
+								<div class='col-md-3 alert upload-status'>{{ .ChildError "image"}}</div>
+							</div>
+							<div class="form-group row">
+								<label class="offset-md-1 col-md-1 col-form-label">Title</label>
+								<div class="col-md-8">
+									<input type='text' class='form-control {{.ChildValid "title"}}' name='title' value='{{ .Title }}'>
+									<div class='invalid-feedback'>{{ .ChildError "title"}}</div>
+								</div>
+							</div>
+							<div class="form-group row">
+								<label class="offset-md-1 col-md-1 col-form-label">Caption</label>
+								<div class="col-md-8">
+									<textarea name='caption' class='form-control {{.ChildValid "caption"}}'>{{ .Caption }}</textarea>
+									<div class='invalid-feedback'>{{ .ChildError "caption"}}</div>
+								</div>
+							</div>
+						</div>
+					{{end}}
+				</div>
+
+				<div class="form-group row">
+					<div class="offset-md-10 col-md-2">
+						<a href="#" class="btn btn-secondary btnAddChild">New Slide</a>
+					</div>
+				</div>
+				<div class="form-group row">
+					<div class="offset-md-2	col-md-2">
+						<button type='submit' class="btn btn-primary" id='submit'>Update</button>
+					</div>
+				</div>
+			{{end}}
+		</form>
+
+		<p>Note: Photos are uploaded immediately, but you must click the Update button to save your changes. That includes adding slides,
+		uploading photos and text, and deleting slides.</p>
+	</div>
+
+{{end}}
+
+{{ define "pagescripts" }}
+   <script type="text/javascript" src='/static/js/setup-01.js'></script>
+   <script>
+		// page-specific processing
+
+		function pageReady() {
+
+			// Set name of the photo, and upload on select
+
+			$(".custom-file-input").on("change", function() {
+				saveFile($(this));
+			});
+		}
+
+		function childAdded($prototype, $newForm) {
+
+			// add change handler (not copied with prototype, it seems)
+			$newForm.find(".custom-file-input").on("change", function() {
+				saveFile($(this));
+			});
+
+			// increment showOrder in prototype
+			$f = $prototype.find(".showOrder");
+			$f.val(Number($f.val())+1);
+		}
+
+		// image specified for uploading
+
+		function saveFile($inp) {
+
+			var fileName = $inp.val().split("\\").pop();
+
+			// in form entry, as confirmation to user ..
+			$inp.siblings(".custom-file-label").addClass("selected").html(fileName);
+
+			// and in hidden field, so we can match the image to the slide
+			$inp.siblings(".imageName").val(fileName);
+
+			// clear previous status
+			reset($inp);
+
+			// show progress and status
+			$inp.closest(".childForm").find(".upload").show();
+
+			// upload file with AJAX
+			var fd = new FormData();
+			fd.append('csrf_token', {{.CSRFToken}});
+			fd.append('image', $inp[0].files[0]);
+  
+			$.ajax({
+				url: '/upload/{{ .NShow }}',  
+				type: 'POST',
+				data: fd,
+				dataType: 'json',
+				success:function(reply, rqStatus, jq){ uploaded($inp, reply, rqStatus) },
+				error:function(jq, rqStatus, error){ uploadFailed($inp, rqStatus, error) },
+				cache: false,
+				contentType: false,
+				processData: false,
+				xhr: function() { return xhrWithProgress($inp); }
+			});
+		}
+
+		// XHR object with progress monitoring
+
+		function xhrWithProgress($inp) {
+    		var xhr = $.ajaxSettings.xhr();
+			var $p = $inp.closest(".childForm").find(".progress-bar");
+        	xhr.upload.onprogress = function (e) {
+            	if (e.lengthComputable) {
+					var percent = (e.loaded / e.total) * 100;
+					$p.width(percent + '%');
+            	}
+        	};
+        	return xhr;	
+		}
+
+		// upload request done
+
+		function uploaded($inp, reply, rqStatus) {
+			var $alert = $inp.closest(".childForm").find(".alert")
+			if (reply.error == "")
+				setStatus($alert, "uploaded", "alert-success");
+			else
+				setStatus($alert,reply.error, "alert-danger");
+		}
+
+		// upload failed
+
+		function uploadFailed($inp, rqStatus, error) {
+			var $alert = $inp.closest(".childForm").find(".alert")
+			setStatus($alert, rqStatus + " : " + error, "alert-danger")
+		}
+
+		// reset upload bar and status
+
+		function reset($inp) {
+			$inp.closest(".childForm").find(".progress-bar").width(0);
+
+ 			var $alert = $inp.closest(".childForm").find(".alert")
+			$alert.text("");
+			$alert.removeClass("alert-success alert-danger");
+		}
+
+		// set upload status
+
+		function setStatus($alert, status, highlight) {
+			$alert.text(status);
+			$alert.addClass(highlight);
+		}
+
+    </script>
+{{end}}

@@ -1,0 +1,32 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2020.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{define "menu-admin"}}
+    <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">ADMIN</a>
+        <div class="dropdown-menu" aria-labelledby="navbarDropdown" style="background-color: #ccc;">
+	        <a class="dropdown-item" href="/setup">SETUP</a>
+	        <a class="dropdown-item" href="/topics">TOPICS</a>
+	        <a class="dropdown-item" href="/edit-users">USERS</a>
+            <div class="dropdown-divider"></div>
+	        <a class="dropdown-item" href="/usage-days">DAYS</a>
+	        <a class="dropdown-item" href="/usage-months">MONTHS</a>
+        </div>
+    </li>
+{{end}}

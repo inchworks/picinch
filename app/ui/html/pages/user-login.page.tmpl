@@ -1,0 +1,41 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2020.
+
+  Copying and distribution of this file, with or without modification, are permitted in any
+  medium without royalty, provided the copyright notice and this notice are preserved.
+  This file is offered as-is, without any warranty.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}Login{{end}}
+
+{{define "pagemeta"}}
+	<meta name="description" content="Login to view club photos.">
+    <meta name="robots" content="noindex, nofollow">
+{{end}}
+
+{{define "page"}}
+    <div class="container">
+        <p>Login to {{block "website" .}}PicInch Gallery{{end}}.</p>
+        <form action='/user/login' method='POST' novalidate>
+ 
+            <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
+            {{with .Form}}
+                {{with .Errors.Get "generic"}}
+                    <div class='alert alert-danger'>{{.}}</div>
+                {{end}}
+                <div class="form-group col-md-6">
+                    <label for='usr'>Username</label>
+                    <input type='email' class="form-control" id='usr' name='username' autocomplete='username' value='{{.Get "username"}}'>
+                    <small class="form-text text-muted">Your email address.</small>
+                </div>
+                <div class="form-group col-md-6">
+                    <label for='pwd'>Password</label>
+                    <input type='password' class="form-control" id='pwd' name='password' autocomplete='current-password'>
+                </div>
+             {{end}}
+            <button type='submit' class='btn btn-primary'>Login</button>
+        </form>
+    </div>
+{{end}}

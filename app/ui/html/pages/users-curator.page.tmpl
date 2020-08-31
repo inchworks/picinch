@@ -1,0 +1,50 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2020.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}Users{{end}}
+
+{{define "pagemeta"}}
+    <meta name="robots" content="noindex, nofollow">
+{{end}}
+
+{{define "page"}}
+
+	<div class="container">
+		<h3>Users</h3>
+
+       <div>
+            {{range .Users}}
+                <div class="row">
+                    <div class="col-xl-6 col-lg-5 col-md-4 col-sm-5">
+                        <span class="input-group-text">{{ .Name }}</span>
+                    </div>
+                    <div class="col-xl-2 col-lg-3 col-md-3 col-sm-3">
+                        <span class="input-group-text">{{userStatus .Status}}</span>
+                    </div>
+                    <div class="col-sm-3 col-md-2">
+                        <a class='btn btn-light' href='/slideshows-user/{{ .Id }}'>Slideshows</a>
+                    </div>
+                </div>
+            {{end}}
+        </div>
+	</div>	
+
+{{end}}

@@ -1,0 +1,69 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2020.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}Edit Gallery{{end}}
+
+{{define "pagemeta"}}
+    <meta name="robots" content="noindex, nofollow">
+{{end}}
+
+{{define "page"}}
+	<div class="container">
+		<h3>Setup Gallery</h3>
+
+		<form action='/setup' method='POST'>
+            <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
+ 			{{with .Form}}
+				<div class="form-group col-md-6">
+					<label>Organiser</label>
+					<input type='text' class='form-control {{.Errors.Valid "organiser"}}' name='organiser' value='{{.Get "organiser"}}'>
+					{{with .Errors.Get "organiser"}}
+						<div class='invalid-feedback'>{{.}}</div>
+					{{end}}
+				</div>
+				<div class="form-group col-md-2">
+					<label>Max. slides</label>
+					<input type='number' class='form-control {{.Errors.Valid "nMaxSlides"}}' name='nMaxSlides' value='{{.Get "nMaxSlides"}}'>
+					{{with .Errors.Get "nMaxSlides"}}
+						<div class='invalid-feedback'>{{.}}</div>
+					{{end}}
+				</div>
+				<div class="form-group col-md-2">
+					<label>Showcased for club, per user</label>
+					<input type='number' class='form-control {{.Errors.Valid "nShowcased"}}' name='nShowcased' value='{{.Get "nShowcased"}}'>
+					{{with .Errors.Get "nShowcased"}}
+						<div class='invalid-feedback'>{{.}}</div>
+					{{end}}
+				</div>
+				<button type='submit' class="btn btn-primary" id='submit'>Save</button>
+			{{end}}
+		</form>
+	</div>	
+{{end}}
+
+{{ define "pagescripts" }}
+   <script type="text/javascript" src='/static/js/setup-01.js'></script>
+   <script>
+		// page-specific item data
+		function childAdded($prototype, $newForm) {}
+		function pageReady() {}
+    </script>
+{{end}}

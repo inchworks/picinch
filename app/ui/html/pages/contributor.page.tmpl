@@ -1,0 +1,68 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2020.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}{{ .DisplayName }} - Slideshows{{end}}
+
+{{define "pagemeta"}}
+	<meta name="description" content="Slideshows by {{ .DisplayName }}.">
+    <meta name="robots" content="noindex, nofollow">
+{{end}}
+
+{{define "page"}}
+	<div class="container">
+		<h2>{{ .DisplayName }}</h2>
+	</div>
+
+	<div class="container photo-thumbnails rounded">
+
+		<div class="row photos ">
+		{{range .Highlights}}
+			{{ if eq .Format 2 }}
+				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="/photos/{{ .Image }}" data-lightbox="photos" data-title="{{ .Title }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
+			{{ else if eq .Format 3 }}
+				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="/photos/{{ .Image }}" data-lightbox="photos" data-title="{{ .Title }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
+			{{ else if eq .Format 6 }}
+				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="/photos/{{ .Image }}" data-lightbox="photos" data-title="{{ .Title }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
+			{{ else if eq .Format 7 }}
+				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="/photos/{{ .Image }}" data-lightbox="photos" data-title="{{ .Title }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
+			{{ end }}
+		{{end}}
+		</div>
+	</div>
+
+	<div class="container">
+		<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 mb-4">
+
+			{{range .SlideshowsClub}}
+				<div class="col mb-4">
+					<div class="card text-white bg-dark mb-4 h-100">
+						<div class="card-body">
+							<a class="card-link text-light" href="/slideshow/{{ .Id }}">
+								<img class="card-img-top" src="{{thumbnail .Image }}">
+								<h5 class="card-title">{{ .Title }}</h5>
+							</a>
+						</div>
+					</div>
+				</div>
+			{{end}}
+		</div>
+	</div>
+{{end}}

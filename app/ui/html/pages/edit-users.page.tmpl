@@ -1,0 +1,103 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2020.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}Edit Users{{end}}
+
+{{define "pagemeta"}}
+    <meta name="robots" content="noindex, nofollow">
+{{end}}
+
+{{define "page"}}
+	<div class="container">
+
+		<h3>Users</h3>
+
+		<form action='/edit-users' method='POST'>
+            <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
+ 			{{with .Form}}
+				{{ $statusOpts := .StatusOpts }}
+
+				<div id="formChildren">
+					{{range .Children}}
+						<div class='childForm' {{ .ChildStyle }}>
+							<div style='display:none'>
+								<input type='number' name='index' value='{{ .ChildIndex }}'>								
+							</div>
+							<div class="form-group row">
+								<label class="sr-only">Name</label>
+								<div class="col-md-3">
+									<input type='text' class='form-control {{.ChildValid "displayName"}}' placeholder='Display name' name='displayName' value='{{ .DisplayName }}'>
+									<div class='invalid-feedback'>{{.ChildError "displayName"}}</div>
+								</div>
+								<label class="sr-only">Username</label>
+								<div class="col-md-3">
+									<input type='text' class='form-control {{.ChildValid "username"}}' placeholder='User name' name='username' value='{{ .Username }}'>
+									<div class='invalid-feedback'>{{ .ChildError "username"}}</div>
+								</div>
+								<div class="col-md-2">
+									<label class="sr-only">Status</label>
+									<select class='custom-select {{.ChildValid "status"}}' name='status'>
+										{{ $status := .Status }}
+										{{ range $i, $opt := $statusOpts }}
+											<option value='{{ $i }}' {{ if eq $i $status }} selected{{ end }}>{{ $opt }}</option>
+										{{end}}
+									</select>
+									<div class='invalid-feedback'>{{.ChildError "status"}}</div>
+								</div>
+								<div class="col-md-2">
+									<a href="#" class="btn btn-secondary btnConfirmDelChild">Delete</a>
+								</div>
+								<div class="col-md-2">
+									<a class='btn btn-light notOnNew' href='/slideshows-user/{{ .NUser }}'>Slideshows</a>
+								</div>
+							</div>
+						</div>
+					{{end}}
+				</div>
+
+				<div class="form-group row">
+					<div class="offset-md-8 col-md-2">
+						<a href="#" class="btn btn-secondary btnAddChild">New User</a>
+					</div>
+				</div>
+				<div class="form-group row">
+					<div class="col-md-2">
+						<input type='submit' class="btn btn-primary" value='Save Users' id='submit'>
+					</div>
+				</div>
+			{{end}}
+		</form>
+	</div>	
+{{end}}
+
+{{ define "pagescripts" }}
+   <script type="text/javascript" src='/static/js/setup-01.js'></script>
+   <script>
+		// page-specific item data
+		function childAdded($prototype, $newForm) {}
+		function pageReady() {}
+
+		function confirmAsk($child) {
+			return 'Remove access and delete images for ' + $child.find('input[name="displayName"]').val() + '?';
+		}
+    </script>
+
+{{end}}

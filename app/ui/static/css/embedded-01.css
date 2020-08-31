@@ -1,0 +1,22 @@
+.photo-gallery {
+  color: #313437;
+  background-color: #ddd;
+}
+  
+.photo-gallery .item {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  flex-wrap: wrap;
+  }
+
+.row > [class*='col-'] {
+  display: flex;
+  flex-direction: column;
+}

@@ -1,0 +1,25 @@
+version: '3'
+
+  # For debugging - PicInch app runs native on local system
+
+services:
+
+  db:
+    image: mariadb:10.4
+    container_name: picinch_db
+    ports:
+      - 3306:3306
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root-test-only
+      MYSQL_DATABASE: picinch
+      MYSQL_USER: server
+      MYSQL_PASSWORD: test-only
+    volumes:
+       - ./mysql:/var/lib/mysql
+
+  adminer:
+    image: adminer
+    ports:
+      - 9080:8080
+    restart: unless-stopped
