@@ -1,56 +1,58 @@
 # Template Examples
 This example file reproduces the content of the default website.
-	{{define "banner"}}PICINCH GALLERY{{end}}
+```{{define "banner"}}PICINCH GALLERY{{end}}
+
+{{define "copyrightNotice"}}
+    <h2>Copyright Notice</h2>
+    <p>The copyright for all images and and slideshows on this website belongs to the individual contributors. You may not use the content of the website for any purpose, except to view it on your web browser.</p>
+
+    <p>Contributors to the web site are reminded that they must not upload any images or text unless they personally hold the copyright for the items submitted.</p>
+{{end}}
 	
-	{{define "copyrightNotice"}}
-	    <h2>Copyright Notice</h2>
-	    <p>The copyright for all images and and slideshows on this website belongs to the individual contributors. You may not use the content of the website for any purpose, except to view it on your web browser.</p>
+{{define "dataPrivacyNotice"}}
+    <h2>Data Privacy</h2>
+    <p>This website is designed to comply with the EU ePrivacy Directive.</p>
 	
-	    <p>Contributors to the web site are reminded that they must not upload any images or text unless they personally hold the copyright for the items submitted.</p>
-	{{end}}
+    <h3>Information Recorded</h3>
+	<p>This website does not gather any personal information about visitors or users.</p>
+    <p>The website logs usage data such as pages accessed, numbers of users and referring websites. This information is anonymised at the instant of collection and aggregated into statistical reports that cannot identify individuals.</p>
+    <p>It records IP addresses only where needed to detect and block attempts at unauthorised access.</p>
 	
-	{{define "dataPrivacyNotice"}}
-	    <h2>Data Privacy</h2>
-	    <p>This website is designed to comply with the EU ePrivacy Directive.</p>
+    <h3>Cookies</h3>
+    <p>The only cookies this website uses are those "strictly necessary" for website operation, for which consent is not required. There are two:
+    <ul>
+        <li><b>csrf_token:</b> This is for website security, and helps protect against unauthorised access using Cross-Site Request Forgery. It is removed when you close your browser.</li>
+        <li><b>session:</b> This holds the information needed to manage logged-in users. It also enables per-user messages to be displayed. It is not set until you sign-up or log-in, and it expires after one day.</li>
+    </ul>
+    </p>
+{{end}}
+
+{{define "homePage"}}
+	<p>This website allows the members of a photography club to share their photos with the public and with each other.</p>
+{{end}}
 	
-	    <h3>Information Recorded</h3>
-		<p>This website does not gather any personal information about visitors or users.</p>
-	    <p>The website logs usage data such as pages accessed, numbers of users and referring websites. This information is anonymised at the instant of collection and aggregated into statistical reports that cannot identify individuals.</p>
-	    <p>It records IP addresses only where needed to detect and block attempts at unauthorised access.</p>
+{{define "homePageMeta"}}
+	<meta name="description" content="This is a club photo gallery.">
+    <meta name="robots" content="nofollow">
+{{end}}
 	
-	    <h3>Cookies</h3>
-	    <p>The only cookies this website uses are those "strictly necessary" for website operation, for which consent is not required. There are two:
-	    <ul>
-	        <li><b>csrf_token:</b> This is for website security, and helps protect against unauthorised access using Cross-Site Request Forgery. It is removed when you close your browser.</li>
-	        <li><b>session:</b> This holds the information needed to manage logged-in users. It also enables per-user messages to be displayed. It is not set until you sign-up or log-in, and it expires after one day.</li>
-	    </ul>
-	    </p>
-	{{end}}
+{{define "signupPage" .}}
+    <p>For invited users of PicInch Gallery only. See your invitation email for your username, and choose your own password.</p>
+{{end}}
 	
-	{{define "homePage"}}
-		<p>This website allows the members of a photography club to share their photos with the public and with each other.</p>
-	{{end}}
-	
-	{{define "homePageMeta"}}
-		<meta name="description" content="This is a club photo gallery.">
-	    <meta name="robots" content="nofollow">
-	{{end}}
-	
-	{{define "signupPage" .}}
-	    <p>For invited users of PicInch Gallery only. See your invitation email for your username, and choose your own password.</p>
-	{{end}}
-	
-	{{define "website"}}PicInch Gallery{{end}}
+{{define "website"}}PicInch Gallery{{end}}
+```
+
 If you wish to use a different set of favicon sizes, add and redefine this template.
-	{{define favicons}}        
-	    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-	    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
-	    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16.png">
-	    <link rel="manifest" href="/static/images/site.webmanifest">
-	    <link rel="mask-icon" href="/static/images/safari-pinned-tab.svg" color="#5bbad5">
-	    <link rel="shortcut icon" href="/favicon.ico">
-	    <meta name="msapplication-TileColor" content="#2b5797">
-	    <meta name="msapplication-config" content="/static/images/browserconfig.xml">
-	    <meta name="theme-color" content="#ffffff">
-	{{end}}
-	
+```{{define favicons}}        
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16.png">
+    <link rel="manifest" href="/static/images/site.webmanifest">
+    <link rel="mask-icon" href="/static/images/safari-pinned-tab.svg" color="#5bbad5">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <meta name="msapplication-TileColor" content="#2b5797">
+    <meta name="msapplication-config" content="/static/images/browserconfig.xml">
+    <meta name="theme-color" content="#ffffff">
+{{end}}
+```	
