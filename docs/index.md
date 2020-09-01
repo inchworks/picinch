@@ -1,5 +1,5 @@
 # PicInch Gallery
-PicInch aims to provide a simple way for a group of website members, such as a photography club, to display their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
+PicInch provides a simple way for a group of website members, such as a photography club, to display their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
 
 [Installation and Setup]({{ site.baseurl }}{% link installation-setup.md %})
 
@@ -38,6 +38,7 @@ Data privacy features:
 - Records no additional personal data, and uses only two “strictly necessary” cookies, so that no visitor consent popup is needed for GDPR compliance.
 - Contributors can limit slideshow visibility to signed-up website members.
 - Users without public images are not publicly identified.
+
 Security features:
 - Passwords are stored using bcrypt hashing.
 - Encrypted session data.
@@ -51,7 +52,7 @@ Security features:
 ## Limitations
 The following may be addressed in future updates:
 - Photos can be viewed individually without logging in, if their names can be guessed.
- - There is no password change or reset facility. However a user’s status can be reset to allow a new password to be specified on sign-up. Slideshows and images are preserved.
+- There is no password change or reset facility. However a user’s status can be reset to allow a new password to be specified on sign-up. Slideshows and images are preserved.
 - No option to restrict highlight visibility to signed-up users.
 - No option for public viewing of all highlights and public slideshows for a user, only the most recent ones shown on the home page.
 - There is no facility to comment on images or to rate them.
