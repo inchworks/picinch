@@ -10,7 +10,7 @@ services:
   image: mariadb:10.4
     container_name: gallery_db
     expose:
-      - 3306
+	  - 3306
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: "<root-password>"

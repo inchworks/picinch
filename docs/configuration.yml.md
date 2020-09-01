@@ -2,7 +2,7 @@
 Configuration parameters may be specified in this file, or as environment variables. Settings here will be overridden by environment variables in docker-compose.yml.
 This an example configuration file with just the essential settings.  
 
-```
+```yml
 # Example configuration for PicInch Gallery server.
 #  - Edit and rename to configuration.yml
 #  - Take care to keep indentation unchanged when editing. Do not use tabs.

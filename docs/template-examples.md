@@ -2,6 +2,7 @@
 This example file reproduces the content of the default website.
 
 ```html
+{% raw %}
 {{define "banner"}}PICINCH GALLERY{{end}}
 
 {{define "copyrightNotice"}}
@@ -43,11 +44,13 @@ This example file reproduces the content of the default website.
 {{end}}
 	
 {{define "website"}}PicInch Gallery{{end}}
+{% endraw %}
 ```
 
 If you wish to use a different set of favicon sizes, add and redefine this template.
 
 ```html
+{% raw %}
 {{define favicons}}        
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
@@ -59,4 +62,5 @@ If you wish to use a different set of favicon sizes, add and redefine this templ
     <meta name="msapplication-config" content="/static/images/browserconfig.xml">
     <meta name="theme-color" content="#ffffff">
 {{end}}
+{% endraw %}
 ```	
