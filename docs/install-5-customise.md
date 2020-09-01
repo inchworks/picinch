@@ -48,6 +48,6 @@ The following may be left unchanged (although realfavicongenerator.net will make
 You may also add any images you wish to include in customised templates. `site/images/filename` will be served as `static/images/filename`.
 
 ### Other Configuration
-Essential items are shown in docker-compose.yml. See (configuration.yml)  for the full set of options.
+The essential items are shown in docker-compose.yml. See [configuration.yml]({{ site.baseurl }}{% link configuration.yml.md %}) for the full set of options.
 
 [1]:	https://realfavicongenerator.net
