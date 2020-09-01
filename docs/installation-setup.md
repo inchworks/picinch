@@ -20,17 +20,18 @@ These instructions assume a Ubuntu Server host with Docker installed. A basic in
 [Site Administrator]({{ site.baseurl }}{% link administrator.md %})
 
 ## After installation
+
 5. Customise the appearance of the website using the optional files described below. Restart PicInch for changes to take effect. (See Commands.)
 [Customisation]({{ site.baseurl }}{% link install-5-customise.md %})
 
-6. Log in to PicInch as administrator and add potential users with status set to `known`. Send invitations to the users, inviting them to sign-in.
+1. Log in to PicInch as administrator and add potential users with status set to `known`. Send invitations to the users, inviting them to sign-in.
 [Site Administrator]({{ site.baseurl }}{% link administrator.md %})
 
-7. If desired, make one or more `active` (signed-up) users an `admin` or `curator`.
+1. If desired, make one or more `active` (signed-up) users an `admin` or `curator`.
 [Site Administrator]({{ site.baseurl }}{% link administrator.md %})
 
-8. Arrange for a regular backup of the database and photos. This may be an option from your hosting supplier, or you may need to do it regularly yourself.
+1. Arrange for a regular backup of the database and photos. This may be an option from your hosting supplier, or you may need to do it regularly yourself.
 [Backups]({{ site.baseurl }}{% link install-8-backups.md %})
 
-9. Review the security of your system.
+1. Review the security of your system.
 [Security]({{ site.baseurl }}{% link install-9-security.md %})
