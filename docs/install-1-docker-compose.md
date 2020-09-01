@@ -1,7 +1,7 @@
 # Step 1: docker-compose.yml
 Copy this example, and save it in `/srv/picinch` on your server.
 
-```
+```yml
 version: '3'
 
 services:

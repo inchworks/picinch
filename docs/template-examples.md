@@ -1,6 +1,7 @@
 # Template Examples
 This example file reproduces the content of the default website.
-```
+
+```html
 {{define "banner"}}PICINCH GALLERY{{end}}
 
 {{define "copyrightNotice"}}
@@ -45,7 +46,8 @@ This example file reproduces the content of the default website.
 ```
 
 If you wish to use a different set of favicon sizes, add and redefine this template.
-```
+
+```html
 {{define favicons}}        
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32.png">
