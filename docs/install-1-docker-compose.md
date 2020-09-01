@@ -49,6 +49,7 @@ Copy this example, and save it in `/srv/picinch` on your server.
 	    depends_on:
 	      - db
 ```
+
 Edit the example to change the following items. (Take care to keep indentation unchanged when editing. Do not use tabs.)
 - `MY_SQL_ROOT_PASWORD`
 - `MYSQL_PASSWORD` and `db-password` Make them the same.
