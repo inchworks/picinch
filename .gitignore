@@ -27,6 +27,8 @@ photos/
 site/
 videos/
 
+# Ulysses
+*.plist
 
 # Images and backups
 *.tar
