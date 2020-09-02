@@ -29,15 +29,15 @@ services:
     ports:
       - 9080:8080
 
-  gallery:
+  server:
     build: app/.
     ports:
       - 8000:8000
     restart: unless-stopped
     environment:
       domains: ""
-      db-password: test-only
       db-source: tcp(picinch_db:3306)/picinch
+      db-password: test-only
       admin-name: admin@picinch.com
       admin-password: admin-test-only
     volumes:

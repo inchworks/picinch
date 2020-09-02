@@ -23,7 +23,6 @@ The following templates are intended to be redefined, and you will probably want
 **signupPage** Welcome text on the signup page.
 
 **website** Website name, added to page titles and shown on log-in page.
-See (Template Examples) for details.
 
 Note that the default copyright and privacy statements were not written by someone with legal or data privacy expertise. You must review the text and decide if it is suitable for your website.  
 ### Graphics

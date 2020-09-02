@@ -43,11 +43,12 @@ import (
 
 // version and copyright
 const (
-	version = "2020.08.08"
+	version = "0.90"
 	notice = `
+	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
 	This is free software, and you are welcome to redistribute it under certain conditions.
-	For details see the source code on https://inchworks.github.io/picinch.
+	For details see the license on https://inchworks.github.io/picinch.
 `
 )
 

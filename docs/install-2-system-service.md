@@ -1,5 +1,5 @@
 ## Step 2: System service
-** /etc/systemd/service/picinch.service** Defines PicInch as a service. There is nothing special about PicInch requirements and this is provided as a convenience for those with little experience of Linux system operation.
+1. `/etc/systemd/system/picinch.service` defines PicInch as a service. There is nothing special about PicInch requirements and this is provided as a convenience for those with little experience of Linux system operation.
 
 ```
 # /etc/systemd/system/picinch.service
@@ -21,3 +21,7 @@ TimeoutStartSec=0
 [Install]
 WantedBy=multi-user.target
 ```
+
+1. Set access to the service file: `chmod 664 picinch.service`
+
+1. Set PicInch to start when the system is restarted: `systemctl enable picinch`

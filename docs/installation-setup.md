@@ -1,16 +1,16 @@
 # Installation and setup
 ## Before installation
-- Set up a host system with Docker and Docker-Compose installed. **TBD Digital Ocean reference**
+- Set up a host system with Docker and Docker-Compose installed. For example, using a DigitalOcean [Docker Droplet][1].
 - Aquire a domain name, or add a sub-domain to a domain you already own. Set the `A` record for the domain or subdomain to the IP address of your server.
-The following instructions assume a Ubuntu Server host. Other Linux distributions will be similar. **TBD CentOS warning**
+The following instructions assume a Ubuntu Server host. Other Linux distributions may be similar (but CentOS/RHEL 8 offers a different technology).
 
 ## Installation steps
-These instructions assume a Ubuntu Server host with Docker installed. A basic installation requires the creation of three files on the server.
+These instructions assume a Ubuntu Server host with Docker installed. A basic installation requires the creation of just two files on the server.
 
-1. Create and edit `/srv/picinch/docker-compose.yml` as described below. This Docker Compose file specifies the PicInch and MariaDB containers to be downloaded from Docker Hub, the settings to run them on the host system, and essential application parameters.
+1. Add `/srv/picinch/docker-compose.yml`. This Docker Compose file specifies the PicInch and MariaDB containers to be downloaded from Docker Hub, the settings to run them on the host system, and essential application parameters.
 [Docker Setup]({{ site.baseurl }}{% link install-1-docker-compose.md %})
 
-1. Add  `/srv/systemd/service/picinch.service` This file defines PicInch  as a service in the host system, and sets it to run at system startup. Make it executable. I.e. `chmod 664 picinch.service`.
+1. Add  `/srv/systemd/service/picinch.service` This file defines PicInch  as a service in the host system.
 [System Service Setup]({{ site.baseurl }}{% link install-2-system-service.md %})
 
 1. Run `systemctl start picinch.service` When issued the first time, this fetches PicInch and MariahDB containers from Docker Hub, and starts PicInch. Then PicInch sets up the database, creates the folders to hold images and certificates (in`/srv/picinch/`), On later invocations, PicInch starts immediately.
@@ -35,3 +35,5 @@ These instructions assume a Ubuntu Server host with Docker installed. A basic in
 
 1. Review the security of your system.
 [Security]({{ site.baseurl }}{% link install-9-security.md %})
+
+[1]:	https://marketplace.digitalocean.com/apps/docker

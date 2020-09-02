@@ -1,5 +1,5 @@
 # PicInch Gallery
-PicInch provides a simple way for a group of website members, such as a photography club, to display their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
+PicInch provides a simple way for a group of members, such as a photography club, to display their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
 
 [Installation and Setup]({{ site.baseurl }}{% link installation-setup.md %})
 

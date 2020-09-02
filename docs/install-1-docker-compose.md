@@ -26,7 +26,7 @@ services:
         max-file: "5"
 
   gallery:
-    image: inchworks/picinch
+    image: inchworks/picinch:0.9
     ports:
       - 443:4000
       - 80:8000

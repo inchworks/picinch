@@ -1,5 +1,5 @@
 # PicInch Gallery
-PicInch provides a simple way for a group of website members, such as a photography club, to display their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
+PicInch provides a simple way for a group of website members, such as a photography club, to share their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
 
 - Contributors create simple slideshows. Each slide has a selection of title, photo and caption. Slides adjust in layout to match the content. There is a basic facility to edit and reorder slides.
 
@@ -16,5 +16,5 @@ PicInch provides a simple way for a group of website members, such as a photogra
 - Written in Go and may be deployed to a virtual machine using Docker, giving good performance, and easy setup. 
 
 For more information see:
-- https://inchworks.github.io/picinch for documentation,including setup and configuration.
+- https://inchworks.github.io/picinch for documentation, including setup and configuration.
 - https://sconephoto.club for an example.
