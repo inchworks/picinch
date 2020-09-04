@@ -25,7 +25,7 @@ __debug_bin
 /mysql-0/
 photos/
 site/
-videos/
+misc/
 
 # Ulysses
 *.plist

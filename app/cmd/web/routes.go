@@ -19,6 +19,7 @@ package main
 
 import (
 	"net/http"
+	"path"
 	"path/filepath"
 
 	"github.com/julienschmidt/httprouter"
@@ -42,12 +43,12 @@ func (app *Application) routes() http.Handler {
 	router.NotFound = app.logNotFound()
 
 	// public pages
-	router.Handler("GET", "/", dynHs.Append(public).ThenFunc(app.home))
-	router.Handler("GET", "/about", dynHs.Append(public).ThenFunc(app.about))
+	router.Handler("GET", "/", dynHs.Append(app.public).ThenFunc(app.home))
+	router.Handler("GET", "/about", dynHs.Append(app.public).ThenFunc(app.about))
 	
 	// embedding
-	router.Handler("GET", "/highlight/:prefix/:nImage", dynHs.Append(public).ThenFunc(app.highlight))
-	router.Handler("GET", "/highlights/:nImages", dynHs.Append(public).ThenFunc(app.highlights))
+	router.Handler("GET", "/highlight/:prefix/:nImage", dynHs.Append(app.public).ThenFunc(app.highlight))
+	router.Handler("GET", "/highlights/:nImages", dynHs.Append(app.public).ThenFunc(app.highlights))
 
 	// setup
 	router.Handler("GET", "/setup", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormGallery))
@@ -100,19 +101,20 @@ func (app *Application) routes() http.Handler {
 	router.GET("/robots.txt", robotsHandler)
 
 	// these are just a courtesy, say no immediately instead of redirecting to "/path/" first
+	misc := path.Join("/", app.cfg.MiscName)
+	router.Handler("GET", misc, http.NotFoundHandler())
 	router.Handler("GET", "/photos", http.NotFoundHandler())
 	router.Handler("GET", "/static", http.NotFoundHandler())
-	router.Handler("GET", "/videos", http.NotFoundHandler())
 
 	// file systems that block directory listing
 	fsStatic := noDirFileSystem{http.Dir(filepath.Join(UIPath, "static"))}
 	fsPhotos := noDirFileSystem{http.Dir(ImagePath)}
-	fsVideos := noDirFileSystem{http.Dir(VideoPath)}
+	fsMisc := noDirFileSystem{http.Dir(MiscPath)}
 
 	// serve static files and content
+	router.Handler("GET", path.Join(misc, "*filepath"), http.StripPrefix(misc, http.FileServer(fsMisc)))
 	router.Handler("GET", "/static/*filepath", http.StripPrefix("/static", http.FileServer(fsStatic)))
 	router.Handler("GET", "/photos/*filepath", http.StripPrefix("/photos", http.FileServer(fsPhotos)))
-	router.Handler("GET", "/videos/*filepath", http.StripPrefix("/videos", http.FileServer(fsVideos)))
 
 	// return 'standard' middleware chain followed by router
 	return commonHandlers.Then(router)

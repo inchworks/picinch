@@ -36,7 +36,6 @@ This example file reproduces the content of the default website.
 	
 {{define "homePageMeta"}}
 	<meta name="description" content="This is a club photo gallery.">
-    <meta name="robots" content="nofollow">
 {{end}}
 	
 {{define "signupPage" .}}
@@ -64,3 +63,5 @@ If you wish to use a different set of favicon sizes, add and redefine this templ
 {{end}}
 {% endraw %}
 ```	
+
+Take care when defining the templates, as syntax errors will prevent the service from starting.

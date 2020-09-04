@@ -9,7 +9,8 @@
 ## Docker
 If for any reason you have not defines PicInch as a service, you can also start it from `/srv/picinch` with the command `docker-compose up`, and stop it with `docker-compose down`.
 
-`docker-compose logs --tail=100` View the last 100 entries in application logs.
+`docker-compose logs --tail=100` View the last e.g. 100 entries in application logs.
+Look here for any startup errors, as well as details of security threats.
 
 ## Database
-If you wish to delete all site content and start again, stop the server, delete `/srv/picinch/mysql` and `/srv/picinch/photos` and restart the server,
+If you wish to delete all site content and start again, stop the server, delete `/srv/picinch/mysql` and `/srv/picinch/photos`, and restart the server,

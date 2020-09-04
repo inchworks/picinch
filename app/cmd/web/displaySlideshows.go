@@ -107,7 +107,7 @@ func (s *GalleryState) DisplayHome(member bool) (string, *DataHome) {
 
 	a := s.app
 
-	// ## parameterise no of highlight slides
+	// no of highlight slides
 	dHighlights := s.dataHighlights(a.cfg.MaxHighlightsTotal)
 
 	dTopicsPublic := s.dataTopicsPublished(a.TopicStore.Published(models.SlideshowPublic))
