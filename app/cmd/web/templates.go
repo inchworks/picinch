@@ -39,6 +39,7 @@ type TemplateData interface {
 }
 
 type DataCommon struct {
+	Canonical		string // canonical domain
 	CSRFToken       string
 	Flash           string // flash message
 	ParentHRef  	string
@@ -51,7 +52,7 @@ type DataCommon struct {
 
 func (d *DataCommon) addDefaultData(app *Application, r *http.Request) {
 
-	d.CSRFToken = nosurf.Token(r) // ## not yet, and only for forms - set nosurf.Token(r)
+	d.CSRFToken = nosurf.Token(r)
 	d.Flash = app.session.PopString(r, "flash")
 	d.IsAdmin = app.isAdmin(r)
 	d.IsAuthenticated = app.isAuthenticated(r)

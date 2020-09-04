@@ -84,6 +84,8 @@ Contributions on the home page are limited per-user.
 **slideshows-public** `1` public slideshows on home page, per user
 
 ## Website
+**misc-name** `misc` path in URL for miscelleneous files, as in `example.com/misc/file`
+
 **parent-highlights** `16` highlights available for parent website
 
 **thumbnail-refresh** `1h` refresh interval for topic thumbnails. Units m(inutes) or h(ours).

@@ -4,8 +4,6 @@ Add files in `/srv/picinch/site/` to customise your installation. You must resta
 Files in `templates/` define Go templates to specify static content for your site. All files with the name `*.tmpl` are processed. Typically a single `site.tmpl` file is sufficient. See [Template Files]({{ site.baseurl }}{% link template-examples.md %})
 .
 
-Go template files in `/serv/picinch/site/templates` specify static content for your website. Typically a single file, e.g. `site.tmpl` will be sufficient.
-
 The following templates are intended to be redefined, and you will probably want to change at least `banner`, `homePage` and `website`:
 
 **banner** Banner text on each page.
@@ -18,7 +16,7 @@ The following templates are intended to be redefined, and you will probably want
 
 **homePage** Site description shown on the home page.
 
-**homePageMeta** Metadata for the home page.
+**homePageMeta** Metadata for the home page. See [Search Engine Settings]({{ site.baseurl }}{% link search-engine-settings.md %}).
 
 **signupPage** Welcome text on the signup page.
 
@@ -44,9 +42,10 @@ The following may be left unchanged (although realfavicongenerator.net will make
 - browserconfig.xml
 - site.webmanifest
 
-You may also add any images you wish to include in customised templates. `site/images/filename` will be served as `static/images/filename`.
+You may also add any images you wish to include in customised templates. `site/images/filename` will be served as `static/images/filename`. These files are copied so large files, such as videos, should go in
+`/srv/picinch/misc`.
 
-### Other Configuration
+### Configuration Parameters
 The essential items are shown in docker-compose.yml. See [configuration.yml]({{ site.baseurl }}{% link configuration.yml.md %}) for the full set of options.
 
 [1]:	https://realfavicongenerator.net

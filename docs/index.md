@@ -6,7 +6,7 @@ PicInch provides a simple way for a group of members, such as a photography club
 ## Features
 Contributors create simple slideshows. Each slide has a selection of title, photo and caption. Slides adjust in layout to match the content. There is a basic facility to edit and reorder slides.
 
-Slideshows may be organised into topics. Topics may be defined in advance, or applied to existing slideshows. A topic can be viewed as a single slideshow, or as a page listing the individual contributions.
+Slideshows may be organised into topics defined by a curator. Topics may be defined in advance, or applied to existing slideshows. A topic can be viewed as a single slideshow, or as a page listing the individual contributions.
 
 Sign-up is restricted to a pre-set list of members, suitable for a club.
 
@@ -16,10 +16,11 @@ Individual photos can be added to a special topic “Highlights”, featured on 
 
 The home page shows the most recent highlights and slideshows for each user. The numbers of each shown are configurable. A page for each contributor shows all their highlights and slideshows.
 
-A set of recent highlight images are available for display on a parent website. See [Images for a Parent Website]({{ site.baseurl }}{% link images-for-parent.md %})
- for details.
+A set of recent highlight images are available for display on a parent website. See [Images for a Parent Website]({{ site.baseurl }}{% link images-for-parent.md %}) for details.
 
-Two user roles are defined. An admin can add, suspend and remove users. A curator can manage topics and create slideshows on behalf of users. An admin is also a curator.
+Two user roles are defined. A `curator` can manage topics and create slideshows on behalf of users. An `admin` can add, suspend and remove users, and is also a curator.
+
+A `misc` folder is provided to serve miscellaneous content such as videos.
 
 Basic usage statistics are recorded daily and aggregated by month.
 

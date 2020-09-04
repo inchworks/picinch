@@ -194,10 +194,18 @@ func noSurf(next http.Handler) http.Handler {
 	return csrfHandler
 }
 
-// Set headers for public web page
+// Set headers for public web pages and resources
 
-func public(next http.Handler) http.Handler {
+func (app *Application) public(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// set canical URL for search engines, if we accept more than one domain
+		if len(app.cfg.Domains) > 1 {
+			u := *r.URL
+			u.Host = app.cfg.Domains[1] // first listed domain
+			u.Scheme = "https"
+			w.Header().Set("Link", `<` + u.String() + `>; rel="canonical"`)
+		}
 
 		w.Header().Set("Cache-Control", "public, max-age=600")
 		next.ServeHTTP(w, r)

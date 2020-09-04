@@ -44,14 +44,13 @@ import (
 // version and copyright
 const (
 	version = "0.90"
-	notice = `
+	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
 	This is free software, and you are welcome to redistribute it under certain conditions.
-	For details see the license on https://inchworks.github.io/picinch.
+	For details see the license on https://github.com/inchworks/picinch.
 `
 )
-
 
 // file locations on server
 const (
@@ -60,7 +59,7 @@ const (
 	SitePath   = "../site"          // site-specific resources
 	StaticPath = "../app/ui/static" // static resources
 	UIPath     = "../app/ui"        // user inteface resources
-	VideoPath  = "../videos"        // videos
+	MiscPath   = "../misc"          // misc
 )
 
 // database operational parameters
@@ -90,7 +89,7 @@ type Configuration struct {
 	AddrHTTP  string `yaml:"http-addr" env:"http" env-default:":8000" env-description:"HTTP address"`
 	AddrHTTPS string `yaml:"https-addr" env:"https" env-default:":4000" env-description:"HTTPS address"`
 
-	Secret string `yaml:"session-secret" env:"session-secret" env-default:"YyKHei9QJTznT>+sNsbDNbJuhtvhTE4M" env-description:"Secret key for sessions"`
+	Secret string `yaml:"session-secret" env:"session-secret" env-default:"Hk4TEiDgq8JaCNR?WaPeWBf4QQYNUjMR" env-description:"Secret key for sessions"`
 
 	// new DSN
 	DBSource   string `yaml:"db-source" env:"db-source" env-default:"tcp(picinch_db:3306)/picinch"`
@@ -98,7 +97,7 @@ type Configuration struct {
 	DBPassword string `yaml:"db-password" env:"db-password" env-default:"<server-password>"`
 
 	// administrator
-	AdminName string `yaml:"admin-name" env:"admin-name" env-default:""`
+	AdminName     string `yaml:"admin-name" env:"admin-name" env-default:""`
 	AdminPassword string `yaml:"admin-password" env:"admin-password" env-default:"<your-password>"`
 
 	// image sizes
@@ -119,7 +118,8 @@ type Configuration struct {
 	MaxSlideshowsClub   int `yaml:"slideshows-club"  env-default:"2"`  // club slideshows on home page, per user
 	MaxSlideshowsPublic int `yaml:"slideshows-public" env-default:"1"` // public slideshows on home page, per user
 
-	SiteRefresh time.Duration `yaml:"thumbnail-refresh"  env-default:"1h"` // refresh interval for topic thumbnails. Units m or h.
+	MiscName    string        `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscelleneous files, as in "example.com/misc/file"
+	SiteRefresh time.Duration `yaml:"thumbnail-refresh"  env-default:"1h"`          // refresh interval for topic thumbnails. Units m or h.
 }
 
 // Application struct supplies application-wide dependencies.
@@ -279,7 +279,7 @@ func importFiles(toDir, fromDir string) error {
 
 	files, err := filepath.Glob(fromDir)
 	if err != nil {
-		return err  // no error if dir doesn't exist
+		return err // no error if dir doesn't exist
 	}
 
 	for _, file := range files {
@@ -334,7 +334,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	// setup new database and administrator, if needed
 	if err := mysql.Setup(app.UserStore, cfg.AdminName, cfg.AdminPassword); err != nil {
 		errorLog.Fatal(err)
-	} 
+	}
 
 	// initialise gallery state
 	if err := app.setupCache(); err != nil {

@@ -43,7 +43,7 @@ services:
     volumes:
       - ./photos:/photos
       - ./site:/site
-      - ./videos:/videos
+      - ./misc:/misc
     logging:
       driver: "json-file"
       options:
