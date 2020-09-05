@@ -1,7 +1,7 @@
 ## Step 8: Backups
 PicInch uses the following files and directories, under `/srv/picinch`:
 - `certs` Let’s Encrypt certificates. Backup not required.
-- `misc` Unused, except to serve files placed there. Backup originals.
+- `misc` Serves files placed there. Backup the originals.
 - `mysql` The live database. Not suitable for backup.
 - `photos` Users’s photos. Backup required.
 - `site` Site configuration. Backup whenever changes are made.
