@@ -20,7 +20,7 @@ A set of recent highlight images are available for display on a parent website. 
 
 Two user roles are defined. A `curator` can manage topics and create slideshows on behalf of users. An `admin` can add, suspend and remove users, and is also a curator.
 
-A `misc` folder is provided to serve miscellaneous content such as videos.
+A `misc` directory is provided to serve miscellaneous content such as videos.
 
 Basic usage statistics are recorded daily and aggregated by month.
 

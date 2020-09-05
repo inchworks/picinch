@@ -1,7 +1,7 @@
 
 # Step 3: Commands
 ## Service
-`systemctl start picinch` When issued the first time, sets up the database, creates the folders to hold images and certificates (in`/srv/picinch/`), and starts PicInch. On later invocations, just starts PicInch as a service.
+`systemctl start picinch` When issued the first time, sets up the database, creates the directories to hold content and certificates (in`/srv/picinch/`), and starts PicInch. On later invocations, just starts PicInch as a service.
 
 `systemctl stop picinch` Stops the PicInch service.
 
