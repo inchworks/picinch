@@ -354,7 +354,9 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// setup usage, with defaults
-	app.usage = usage.New(app.StatisticStore, 0, 0, 0, 0, 0)
+	if app.usage, err = usage.New(app.StatisticStore, 0, 0, 0, 0, 0); err != nil {
+		errorLog.Fatal(err)
+	}
 
 	// create worker channels
 	app.chImage = make(chan images.ReqSave, 20)

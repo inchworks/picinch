@@ -18,6 +18,6 @@ For a manual backup:
 
 To restore from backup:
 1. Install PicInch if necessary, or stop the service.
-2. Import a database backup: `cat backup.sql | docker exec -i picinch_db /usr/bin/mysql -u root -<root-password> picinch`
+2. Import a database backup: `docker exec -i picinch_db /usr/bin/mysql -u root -<root-password> picinch < backup.sql`
 3. Restore `/srv/picinch/photos` from backup.
 4. Restart the service.
