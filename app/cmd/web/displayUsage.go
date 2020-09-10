@@ -23,7 +23,7 @@ import (
 	"inchworks.com/gallery/pkg/usage"
 )
 
-// Daily and monthly usage statistics 
+// Daily and monthly usage statistics
 
 func (s *GalleryState) ForUsage(period int) *DataUsagePeriods {
 
@@ -46,7 +46,7 @@ func (s *GalleryState) ForUsage(period int) *DataUsagePeriods {
 	defer s.updatesNone()()
 
 	// get stats
-	stats := s.app.usage.Get(period)
+	stats := usage.Get(s.app.StatisticStore, period)
 	var dataUsage []*DataUsage
 
 	for _, s := range stats {

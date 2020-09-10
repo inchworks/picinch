@@ -49,7 +49,8 @@ const (
 
 	statsWhereBefore = statsSelect + ` WHERE start < ? AND period = ?`
 	statsWherePeriod = statsSelect + ` WHERE period = ?`
-	statsWhereSingle = statsSelect + ` WHERE event = ? AND start = ? AND period = ?`
+	statsWhereStart = statsSelect + ` WHERE event = ? AND start = ? AND period = ?`
+	statsWhereEvent = statsSelect + ` WHERE event = ? AND period = ?`
 
 	statsBeforeByCategory = statsWhereBefore + statsOrderCategory
 	statsBeforeByEvent = statsWhereBefore + statsOrderEvent
@@ -136,11 +137,24 @@ func (st *StatisticStore) DeleteIf(before time.Time, period int) error {
 
 // Get single statistic, need not exist
 
-func (st *StatisticStore) Get(event string, start time.Time, period int) *usage.Statistic {
+func (st *StatisticStore) GetEvent(event string, start time.Time, period int) *usage.Statistic {
 
 	var s usage.Statistic
 
-	if err := st.DBX.Get(&s, statsWhereSingle, event, start, period); err != nil {
+	if err := st.DBX.Get(&s, statsWhereStart, event, start, period); err != nil {
+		return nil
+	}
+
+	return &s
+}
+
+// Get lifetime statistic, need not exist
+
+func (st *StatisticStore) GetMark(event string) *usage.Statistic {
+
+	var s usage.Statistic
+
+	if err := st.DBX.Get(&s, statsWhereEvent, event, usage.Mark); err != nil {
 		return nil
 	}
 

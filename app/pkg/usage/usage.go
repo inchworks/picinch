@@ -43,6 +43,8 @@ const (
 	Base  = 1
 	Day   = 2
 	Month = 3
+	Year  = 4 // reserved, not used
+	Mark  = 5
 )
 
 type Statistic struct {
@@ -59,10 +61,11 @@ type Statistic struct {
 type StatisticStore interface {
 	BeforeByCategory(before time.Time, period int) []*Statistic // ordered by category and time
 	BeforeByEvent(before time.Time, period int) []*Statistic    // ordered by event and time
-	BeforeByTime(before time.Time, period int, ) []*Statistic   // ordered by time and perferred display order (e.g. count descending)
+	BeforeByTime(before time.Time, period int) []*Statistic     // ordered by time and perferred display order (e.g. count descending)
 	DeleteId(id int64) error
 	DeleteIf(before time.Time, period int) error
-	Get(event string, start time.Time, period int) *Statistic
+	GetEvent(event string, start time.Time, period int) *Statistic
+	GetMark(event string) *Statistic
 	Transaction() func()
 	Update(s *Statistic) error
 }
@@ -100,7 +103,7 @@ type Recorder struct {
 
 // Start recorder
 
-func New(st StatisticStore, base time.Duration, baseDays int, days int, detailMonths int, months int) *Recorder {
+func New(st StatisticStore, base time.Duration, baseDays int, days int, detailMonths int, months int) (*Recorder, error) {
 
 	// override silly parameters with defaults
 	if base < time.Hour || base > time.Hour*24 {
@@ -144,6 +147,22 @@ func New(st StatisticStore, base time.Duration, baseDays int, days int, detailMo
 		r.basePeriod = Day
 	}
 
+	// start of statistics recording
+	s := st.GetMark("goLive")
+	if s == nil {
+		s = &Statistic{
+			Event:    "goLive",
+			Category: "timeline",
+			Start:    r.now,
+			Period:   Mark,
+		}
+
+		defer st.Transaction()()
+		if err := st.Update(s); err != nil {
+			return nil, err
+		}
+	}
+
 	// next operations
 	r.periodStart = r.start(base)
 	r.volatileEnd = r.next(saveInterval)
@@ -153,7 +172,7 @@ func New(st StatisticStore, base time.Duration, baseDays int, days int, detailMo
 	// start saver
 	go r.saver(r.chSaver.C, r.chDone)
 
-	return r
+	return r, nil
 }
 
 // Count event
@@ -228,29 +247,57 @@ func FormatIP(addr string) string {
 }
 
 // Get statistics for days or months
-//
-// ## this has nothing to do with the recording function! Pass statisticStore as a parameter
 
-func (r *Recorder) Get(period int) [][]*Statistic {
+func Get(st StatisticStore, period int) [][]*Statistic {
 
 	sPeriods := make([][]*Statistic, 0, 16)
 	var stats []*Statistic
 	var before time.Time
 
 	// rollup lower level stats, and split into start periods
-	if period > Base {
-		statsDays := r.store.BeforeByEvent(time.Now().UTC(), period-1)
-		stats, before = r.getRollup(statsDays, forMonth, Month)
+	switch period {
+	case Month:
+		// days into months
+		// ## we're missing the base periods
+		statsDays := st.BeforeByEvent(time.Now().UTC(), period-1)
+		stats, before = getRollup(st, statsDays, forMonth, Month)
 		sPeriods = split(sPeriods, stats)
-	} else {
+
+	case Day:
+		// base periods into days
+		statsBase := st.BeforeByEvent(time.Now().UTC(), period-1)
+		stats, before = getRollup(st, statsBase, forDay, Day)
+		sPeriods = split(sPeriods, stats)
+
+	default:
 		before = time.Now().UTC()
 	}
 
-	// stats for requested level, skipping the ones we have already done, split into start periods
-	stats = r.store.BeforeByTime(before, period)
+	// add in the remaining periods, for which rollup wasn't needed
+	stats = st.BeforeByTime(before, period)
 	sPeriods = split(sPeriods, stats)
 
+	// replace seen counts by daily average
+	if period == Month {
+		average(st, sPeriods)
+	}
+
 	return sPeriods
+}
+
+// Mark event
+
+func (r *Recorder) Mark(event string, category string) error {
+
+	s := &Statistic{
+		Event:    event,
+		Category: category,
+		Start:    time.Now().UTC(),
+		Period:   Mark,
+	}
+
+	defer r.store.Transaction()()
+	return r.store.Update(s)
 }
 
 // Count distinct events seen (e.g. visitors)
@@ -313,7 +360,7 @@ func (r *Recorder) aggregate(stats []*Statistic, newCategory string, period int)
 				}
 
 				// next total
-				total = st.Get(newEvent, start, Day)
+				total = st.GetEvent(newEvent, start, Day)
 				if total == nil {
 					// new total
 					total = &Statistic{
@@ -356,11 +403,71 @@ func (r *Recorder) aggregateSeen() {
 
 }
 
+// Convert seen counts to daily averages
+//
+// Because because we can't distinguish between vistors across days.
+// ## Is there an event we could distinguish and should support? E.g. errors?
+
+func average(st StatisticStore, sPeriods [][]*Statistic) {
+
+	// first month of recording
+	s := st.GetMark("goLive")
+	if s == nil {
+		return // conversion not possible
+	}
+	yLive := s.Start.Year()
+	mLive := s.Start.Month()
+	dLive := s.Start.Day()
+
+	// current month of recording
+	now := time.Now().UTC()
+	yNow := now.Year()
+	mNow := now.Month()
+	dNow := now.Day()
+
+	for _, ss := range sPeriods {
+
+		// calculate no of days in period
+		var days int
+		y := ss[0].Start.Year()
+		m := ss[0].Start.Month()
+
+		if m == mNow && y == yNow {
+			// current month
+			days = dNow
+		} else {
+			// days in month
+			days = daysIn(y, m) 
+		}
+
+		if m == mLive && y == yLive {
+			// first month - this applies even when the first month is also the current month
+			days = days - dLive + 1
+		}
+
+		for _, s := range ss {
+			// convert seen counts to daily average
+			if s.Category == "seen" {
+				s.Category = "daily"
+				s.Count = int(s.Count + (days + 1)/2 - 1) / days  // rounded nearest
+			}
+		}
+	}
+}
+
 // Catch up on any missed processing
 
 func (r *Recorder) catchUp() {
 
 	r.doDaily()
+}
+
+// Days in month
+
+func daysIn(year int, month time.Month) int {
+
+	// works because values outside the normal range are normalised 
+	return time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day() 
 }
 
 // Processing at end of day
@@ -417,11 +524,9 @@ func forMonth(t time.Time) time.Time {
 // Returns slice of stats, sorted by time and count, and oldest start included
 // ## similar pattern to aggregate() and rollup() - could it be combined?
 
-func (r *Recorder) getRollup(stats []*Statistic, toStart func(time.Time) time.Time, toPeriod int) ([]*Statistic, time.Time) {
+func getRollup(st StatisticStore, stats []*Statistic, toStart func(time.Time) time.Time, toPeriod int) ([]*Statistic, time.Time) {
 
 	ss := make([]*Statistic, 0, 32)
-
-	st := r.store
 
 	var event string
 	var start time.Time
@@ -430,13 +535,14 @@ func (r *Recorder) getRollup(stats []*Statistic, toStart func(time.Time) time.Ti
 
 	for _, s := range stats {
 
+		// next parent period?
 		sStart := toStart(s.Start)
 		if start != sStart {
 			start = sStart
 			next = true
 		}
 
-		// aggregate events for parent period
+		// next event?
 		if event != s.Event {
 			event = s.Event
 			next = true
@@ -448,9 +554,9 @@ func (r *Recorder) getRollup(stats []*Statistic, toStart func(time.Time) time.Ti
 
 				// add in parent period
 				// ## not efficient - read and index them?
-				if p := st.Get(event, start, toPeriod); p != nil {
+				if p := st.GetEvent(total.Event, total.Start, toPeriod); p != nil {
 					total.Count += p.Count
-				}	
+				}
 
 				// save previous total
 				ss = append(ss, total)
@@ -472,9 +578,9 @@ func (r *Recorder) getRollup(stats []*Statistic, toStart func(time.Time) time.Ti
 	if total != nil {
 
 		// add in parent period
-		if p := st.Get(event, start, toPeriod); p != nil {
+		if p := st.GetEvent(total.Event, total.Start, toPeriod); p != nil {
 			total.Count += p.Count
-		}	
+		}
 
 		ss = append(ss, total) // save final total
 	}
@@ -542,7 +648,7 @@ func (r *Recorder) rollup(stats []*Statistic, toStart func(time.Time) time.Time,
 			}
 
 			// next total
-			total = st.Get(event, start, toPeriod)
+			total = st.GetEvent(event, start, toPeriod)
 			if total == nil {
 				// new total
 				total = &Statistic{
@@ -628,7 +734,7 @@ func (r *Recorder) save() {
 	// save volatile counts
 	for _, ec := range count {
 
-		s := st.Get(ec.evt, r.periodStart, r.basePeriod)
+		s := st.GetEvent(ec.evt, r.periodStart, r.basePeriod)
 		if s == nil {
 			// new statistic
 			s = &Statistic{
@@ -648,7 +754,7 @@ func (r *Recorder) save() {
 	// save distinct events
 	for _, evt := range seen {
 
-		s := st.Get(evt, r.periodStart, Seen)
+		s := st.GetEvent(evt, r.periodStart, Seen)
 		if s == nil {
 			// new event seen
 			s = &Statistic{
@@ -717,13 +823,13 @@ func split(sPeriods [][]*Statistic, stats []*Statistic) [][]*Statistic {
 		ss = append(ss, s)
 	}
 
+	// final period
 	if len(ss) > 0 {
 		sPeriods = append(sPeriods, ss)
 	}
 
 	return sPeriods
 }
-
 
 // Start of period, UTC, aligned to interval
 
