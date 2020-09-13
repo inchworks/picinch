@@ -15,7 +15,9 @@ PicInch provides a simple way for a group of website members, such as a photogra
 
 - Written in Go and may be deployed to a virtual machine using Docker, giving good performance, and easy setup. 
 
+_This is used at one photo club. I would like to work with another club, ideally in Scotland or the UK, to adapt it as needed for more general use. Contact support@picinch.com._
+
 For more information see:
 - https://picinch.com for documentation, including setup and configuration.
 - https://sconephoto.club for an working site.
-- https://hub.docker.com/repository/docker/inchworks/picinch for the Docker repository.
+- https://hub.docker.com/r/inchworks/picinch for the Docker repository.
