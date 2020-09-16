@@ -17,5 +17,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy binary from previous stage
 COPY --from=builder /gallery/gallery /app/
+# Copy templates
+COPY --from=builder /gallery/ui /app/
 
 CMD ["/app/gallery"]
