@@ -16,6 +16,6 @@ FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy image from previous stage
-COPY --from=builder gallery /app
+COPY --from=builder /gallery/gallery /app/
 
 CMD ["/app/gallery"]
