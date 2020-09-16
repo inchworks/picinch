@@ -15,7 +15,7 @@ FROM scratch
 # Certificates. Assume image is up to date. On Alpine could RUN apk --no-cache add ca-certificates
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Copy image from previous stage
+# Copy binary from previous stage
 COPY --from=builder /gallery/gallery /app/
 
 CMD ["/app/gallery"]
