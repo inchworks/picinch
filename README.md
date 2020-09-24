@@ -21,3 +21,9 @@ For more information see:
 - https://picinch.com for documentation, including setup and configuration.
 - https://sconephoto.club for an working site.
 - https://hub.docker.com/r/inchworks/picinch for the Docker repository.
+
+## Screenshots
+
+| Public page | Club home page | User's gallery | Edit slideshow |
+|:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
+<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-public.png" title="Public page" width="100%"> |<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-club.png" title="Club home page" width="100%">|<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-my-gallery.png" title="User's gallery" width="100%"> |<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-edit-slideshow.png" title="Edit slideshow" width="100%">|
