@@ -32,9 +32,10 @@ Display layout is responsive to device size (PC, tablet or phone).
 Full size images are resized for display automatically. JPGs, PNGs and TIFs are supported.
 
 ## Screenshots
-Public page | Club home page | User's gallery | Edit slideshow
-:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:
-<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-public.png" title="Public page" width="100%"> |<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-club.png" title="Club home page" width="100%">|<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-my-gallery.png" title="User's gallery" width="100%"> |<img src="hhttps://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-edit-slideshow.png" title="Edit slideshow" width="100%">
+
+| Public page | Club home page | User's gallery | Edit slideshow |
+|:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
+<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-public.png" title="Public page" width="100%"> |<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-club.png" title="Club home page" width="100%">|<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-my-gallery.png" title="User's gallery" width="100%"> |<img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-edit-slideshow.png" title="Edit slideshow" width="100%">|
 
 ## Implementation
 Written in Go and may be deployed to a virtual machine using Docker, for good performance, easy setup and maintenance. Suitable VMs are provided by Digital Ocean, Linode, or Amazon Lightsail, typically costing around $5 per month with 25GB of storage.
