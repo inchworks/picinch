@@ -1,4 +1,17 @@
-# PicInch Gallery
+<h1 align="center">PicInch Gallery</h1>
+
+<div align="center">
+  <h3>
+    <a href="https://picinch.com">Documentation</a>
+    <span> | </span>
+    <a href="https://sconephoto.club">Working Site</a>
+    <span> | </span>
+    <a href="https://hub.docker.com/r/inchworks/picinch">Docker Repository</a>
+    <span> | </span>
+  </h3>
+</div>
+
+## Features
 PicInch provides a simple way for a group of website members, such as a photography club, to share their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
 
 - Contributors create simple slideshows. Each slide has a selection of title, photo and caption. Slides adjust in layout to match the content. There is a basic facility to edit and reorder slides.
@@ -17,10 +30,7 @@ PicInch provides a simple way for a group of website members, such as a photogra
 
 _This is used at one photo club. I would like to work with another club, ideally in Scotland or the UK, to adapt it as needed for more general use. Contact support@picinch.com._
 
-For more information see:
-- https://picinch.com for documentation, including setup and configuration.
-- https://sconephoto.club for an working site.
-- https://hub.docker.com/r/inchworks/picinch for the Docker repository.
+For more information, including setup and configuration, see https://picinch.com.
 
 ## Screenshots
 
