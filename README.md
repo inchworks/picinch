@@ -7,7 +7,6 @@
     <a href="https://sconephoto.club">Working Site</a>
     <span> | </span>
     <a href="https://hub.docker.com/r/inchworks/picinch">Docker Repository</a>
-    <span> | </span>
   </h3>
 </div>
 
@@ -16,7 +15,7 @@ PicInch provides a simple way for a group of website members, such as a photogra
 
 - Contributors create simple slideshows. Each slide has a selection of title, photo and caption. Slides adjust in layout to match the content. There is a basic facility to edit and reorder slides.
 
-- Slideshows may be organised into topics, defined by a curator. Topics may be defined in advance, or applied to existing slideshows. A topic can be viewed as a single slideshow, or as a page listing the individual contributions.
+- Slideshows may be organised into topics, as defined by a curator. Topics may be defined in advance, or applied to existing slideshows. A topic can be viewed as a single slideshow, or as a page listing the individual contributions.
 
 - Sign-up is restricted to a pre-set list of members, suitable for a club.
 
@@ -24,9 +23,9 @@ PicInch provides a simple way for a group of website members, such as a photogra
 
 - Individual photos can be added to a special topic “Highlights”, featured on the home page. It includes just the most recent highlights from each contributor.
 
-- The home page shows the most recent highlights and slideshows for each user. The numbers of each shown are configurable. A page for each contributor shows all their highlights and slideshows.
+- The home page shows the most recent highlights and slideshows for each user. The number shown of each is configurable. A page for each contributor shows all their highlights and slideshows.
 
-- Written in Go and may be deployed to a virtual machine using Docker, giving good performance, and easy setup. 
+- Written in Go and ready to be deployed to a virtual machine using Docker, for good performance and easy setup. 
 
 _This is used at one photo club. I would like to work with another club, ideally in Scotland or the UK, to adapt it as needed for more general use. Contact support@picinch.com._
 
