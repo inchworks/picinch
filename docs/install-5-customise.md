@@ -1,7 +1,7 @@
 ## Step 5: Customise your website
 Add files in `/srv/picinch/site/` to customise your installation. You must restart the service for changes to take effect.
 ### Templates
-Files in `templates/` define Go templates to specify static content for your site. All files with the name `*.tmpl` are processed. Typically a single `site.tmpl` file is sufficient. See [Template Files]({{ site.baseurl }}{% link template-examples.md %})
+Files in `templates/` define Go templates to specify static content for your site. All files with the name `*.tmpl` are processed. Typically a single `site.tmpl` file is sufficient. See [Template Example]({{ site.baseurl }}{% link template-examples.md %})
 .
 
 The following templates are intended to be redefined, and you will probably want to change at least `banner`, `homePage` and `website`:
@@ -22,7 +22,8 @@ The following templates are intended to be redefined, and you will probably want
 
 **website** Website name, added to page titles and shown on log-in page.
 
-Note that the default copyright and privacy statements were not written by someone with legal or data privacy expertise. You must review the text and decide if it is suitable for your website.  
+_The default copyright and privacy statements were not written by anyone with legal or data privacy expertise.
+You should review the text and decide if it is suitable for your website._
 ### Graphics
 Files in `images/` replace the default brand and favicon images for PicInch.
 
