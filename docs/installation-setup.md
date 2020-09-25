@@ -2,7 +2,7 @@
 ## Before installation
 - Set up a host system with Docker and Docker-Compose installed. For example, using a DigitalOcean [Docker Droplet][1].
 - Aquire a domain name, or add a sub-domain to a domain you already own. Set the `A` record for the domain or subdomain to the IP address of your server.
-The following instructions assume a Ubuntu Server host. Other Linux distributions may be similar (but CentOS/RHEL 8 offers a different technology).
+The following instructions assume a Ubuntu Server host. Other Linux distributions may be similar (but CentOS/RHEL 8 provides a different technology to Docker).
 
 ## Installation steps
 These instructions assume a Ubuntu Server host with Docker installed. A basic installation requires the creation of just two files on the server.
