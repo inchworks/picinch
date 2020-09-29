@@ -28,7 +28,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"inchworks.com/gallery/pkg/models"
+	"inchworks.com/picinch/pkg/models"
 )
 
 type store struct {

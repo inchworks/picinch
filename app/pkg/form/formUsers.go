@@ -20,7 +20,7 @@ package form
 import (
 	"net/url"
 
-	"inchworks.com/gallery/pkg/models"
+	"inchworks.com/picinch/pkg/models"
 )
 
 type UsersForm struct {

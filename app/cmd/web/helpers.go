@@ -32,7 +32,7 @@ import (
 
 	//	"github.com/justinas/nosurf"
 
-	"inchworks.com/gallery/pkg/models"
+	"inchworks.com/picinch/pkg/models"
 )
 
 // allow access/update as requested user?

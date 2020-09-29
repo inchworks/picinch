@@ -25,7 +25,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 
-	"inchworks.com/gallery/pkg/usage"
+	"inchworks.com/picinch/pkg/usage"
 )
 
 // About page for website

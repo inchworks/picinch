@@ -25,7 +25,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"inchworks.com/gallery/pkg/usage"
+	"inchworks.com/picinch/pkg/usage"
 )
 
 const (

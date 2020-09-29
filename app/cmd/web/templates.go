@@ -25,10 +25,10 @@ import (
 
 	"github.com/justinas/nosurf"
 
-	"inchworks.com/gallery/pkg/form"
-	"inchworks.com/gallery/pkg/images"
-	"inchworks.com/gallery/pkg/models"
-	"inchworks.com/gallery/pkg/usage"
+	"inchworks.com/picinch/pkg/form"
+	"inchworks.com/picinch/pkg/images"
+	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/pkg/usage"
 )
 
 // Template data for all pages - implements TemplateData interface so we can add data without knowing

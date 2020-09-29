@@ -24,8 +24,8 @@ import (
 	"time"
 	"runtime"
 
-	"inchworks.com/gallery/pkg/images"
-	"inchworks.com/gallery/pkg/models"
+	"inchworks.com/picinch/pkg/images"
+	"inchworks.com/picinch/pkg/models"
 )
 
 func (s *GalleryState) worker(

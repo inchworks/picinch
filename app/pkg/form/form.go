@@ -28,7 +28,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"inchworks.com/gallery/pkg/images"
+	"inchworks.com/picinch/pkg/images"
 )
 
 // Well, this much more complex than I like.

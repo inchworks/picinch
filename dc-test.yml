@@ -1,6 +1,6 @@
 version: '3'
 
-# Development on iMac, builds gallery in container, test without HTTPS
+# Development on iMac, builds PicInch in container, test without HTTPS
 
 services:
 

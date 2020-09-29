@@ -28,10 +28,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"inchworks.com/gallery/pkg/images"
-	"inchworks.com/gallery/pkg/limiter"
-	"inchworks.com/gallery/pkg/models/mysql"
-	"inchworks.com/gallery/pkg/usage"
+	"inchworks.com/picinch/pkg/images"
+	"inchworks.com/picinch/pkg/limiter"
+	"inchworks.com/picinch/pkg/models/mysql"
+	"inchworks.com/picinch/pkg/usage"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golangcollege/sessions"
