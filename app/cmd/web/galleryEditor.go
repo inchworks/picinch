@@ -26,9 +26,9 @@ import (
 	"strconv"
 	"time"
 
-	"inchworks.com/gallery/pkg/form"
-	"inchworks.com/gallery/pkg/images"
-	"inchworks.com/gallery/pkg/models"
+	"inchworks.com/picinch/pkg/form"
+	"inchworks.com/picinch/pkg/images"
+	"inchworks.com/picinch/pkg/models"
 )
 
 // Get data to assign slideshows to topics

@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"inchworks.com/gallery/pkg/form"
-	"inchworks.com/gallery/pkg/models"
+	"inchworks.com/picinch/pkg/form"
+	"inchworks.com/picinch/pkg/models"
 )
 
 // Check if username can sign up

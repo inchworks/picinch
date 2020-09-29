@@ -20,7 +20,7 @@ package main
 // Display usage statistics
 
 import (
-	"inchworks.com/gallery/pkg/usage"
+	"inchworks.com/picinch/pkg/usage"
 )
 
 // Daily and monthly usage statistics

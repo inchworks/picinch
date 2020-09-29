@@ -25,9 +25,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"inchworks.com/gallery/pkg/limiter"
-	"inchworks.com/gallery/pkg/models"
-	"inchworks.com/gallery/pkg/usage"
+	"inchworks.com/picinch/pkg/limiter"
+	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/pkg/usage"
 
 	"github.com/justinas/nosurf"
 )

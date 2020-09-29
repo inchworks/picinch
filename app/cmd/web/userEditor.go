@@ -24,7 +24,7 @@ package main
 import (
 	"time"
 
-	"inchworks.com/gallery/pkg/models"
+	"inchworks.com/picinch/pkg/models"
 )
 
 // Signup user

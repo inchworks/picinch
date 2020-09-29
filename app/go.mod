@@ -1,4 +1,4 @@
-module inchworks.com/gallery
+module inchworks.com/picinch
 
 go 1.12
 

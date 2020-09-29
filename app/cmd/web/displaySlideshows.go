@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"inchworks.com/gallery/pkg/models"
+	"inchworks.com/picinch/pkg/models"
 )
 
 // Copyright © Rob Burke inchworks.com, 2020.

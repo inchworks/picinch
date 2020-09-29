@@ -24,8 +24,8 @@ import (
 	"strconv"
 
 	"github.com/julienschmidt/httprouter"
-	"inchworks.com/gallery/pkg/form"
-	"inchworks.com/gallery/pkg/images"
+	"inchworks.com/picinch/pkg/form"
+	"inchworks.com/picinch/pkg/images"
 )
 
 type RepUpload struct {
