@@ -92,11 +92,11 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 	// save changes
 	if app.galleryState.OnAssignShows(slideshows) {
 		app.session.Put(r, "flash", "Topic assignments saved.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	} else {
-		app.clientError(w, http.StatusBadRequest)
+		app.session.Put(r, "flash", "Slideshow or topic deleted - check.")
 	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // Main form to setup gallery
@@ -408,7 +408,7 @@ func (app *Application) getFormTopics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// display form (reusing the slideshows form, as it is so similar)
-	app.render(w, r, "edit-slideshows.page.tmpl", &slideshowsFormData{
+	app.render(w, r, "edit-topics.page.tmpl", &slideshowsFormData{
 		Form:  f,
 		User:  "Topics",
 		NUser: 0,
@@ -444,7 +444,7 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 		app.errorLog.Print(f.Errors)
 		app.errorLog.Print(f.ChildErrors)
 
-		app.render(w, r, "edit-slideshows.page.tmpl", &slideshowsFormData{
+		app.render(w, r, "edit-topics.page.tmpl", &slideshowsFormData{
 			Form:  f,
 			User:  "Topics",
 			NUser: 0,

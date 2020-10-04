@@ -45,12 +45,14 @@ const (
 	topicOrderTitle = ` ORDER BY title ASC`
 
 	topicWhereId          = topicSelect + ` WHERE id = ?`
+	topicsWhereEditable    = topicSelect + ` WHERE gallery = ? AND topic <> ?` + topicOrderTitle
 	topicsWhereGallery    = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
 	topicsWherePublished = topicSelect + ` WHERE gallery = ? AND visible = ?` + topicOrderDisplay
 )
 
 type TopicStore struct {
 	GalleryId int64
+	HighlightsId int64
 	store
 }
 
@@ -80,6 +82,20 @@ func (st *TopicStore) All() []*models.Topic {
 	}
 	return topics
 }
+
+// All editable topics
+
+func (st *TopicStore) AllEditable() []*models.Topic {
+
+	var topics []*models.Topic
+
+	if err := st.DBX.Select(&topics, topicsWhereEditable, st.GalleryId, st.HighlightsId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return topics
+}
+
 
 // topic by ID
 

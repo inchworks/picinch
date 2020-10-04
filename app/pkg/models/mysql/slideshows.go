@@ -52,8 +52,9 @@ const (
 	slideshowWhereTopic    = slideshowSelect + ` WHERE topic = ? AND user = ?`
 	slideshowWhereTopicSeq = slideshowSelect + ` WHERE topic = ?` + slideshowRevisedSeq
 
-	slideshowsWhereGallery    = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
+	slideshowsWhereTopic      = slideshowSelect + ` WHERE topic = ?`
 	slideshowsWhereUser       = slideshowSelect + ` WHERE user = ?  AND visible >= ?` + slideshowOrder
+	slideshowsWhereGallery    = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
 	slideshowsUserPublished   = slideshowSelect + ` WHERE user = ? AND visible <> 0 AND slideshow.image <> ""` + slideshowOrderRevised
 
 	// most recent public slideshow for each user
@@ -128,15 +129,15 @@ func (st *SlideshowStore) CountForTopic(topicId int64) int {
 
 // Slideshow for topic
 
-func (st *SlideshowStore) ForTopic(topicId int64, userId int64) *models.Slideshow {
+func (st *SlideshowStore) ForTopic(topicId int64) []*models.Slideshow {
 
-	var r models.Slideshow
+	var slideshows []*models.Slideshow
 
-	if err := st.DBX.Get(&r, slideshowWhereTopic, topicId, userId); err != nil {
+	if err := st.DBX.Select(&slideshows, slideshowsWhereTopic); err != nil {
+		st.logError(err)
 		return nil
 	}
-
-	return &r
+	return slideshows
 }
 
 // Published slideshows for a topic, in specfied order
@@ -167,6 +168,19 @@ func (st *SlideshowStore) ForTopicSeq(topicId int64, seq int) *models.Slideshow 
 		if err != models.ErrNoRecord {
 			st.logError(err)
 		}
+		return nil
+	}
+
+	return &r
+}
+
+// Slideshow for topic and user
+
+func (st *SlideshowStore) ForTopicUser(topicId int64, userId int64) *models.Slideshow {
+
+	var r models.Slideshow
+
+	if err := st.DBX.Get(&r, slideshowWhereTopic, topicId, userId); err != nil {
 		return nil
 	}
 

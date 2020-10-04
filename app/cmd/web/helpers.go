@@ -344,6 +344,9 @@ func (a *Application) setupCache() error {
 	a.TopicStore.GalleryId = q.Id
 	a.UserStore.GalleryId = q.Id
 
+	// highlights topicID
+	a.TopicStore.HighlightsId = 1
+
 	return a.galleryState.Init(a, q)
 }
 
