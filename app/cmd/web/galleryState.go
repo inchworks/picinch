@@ -37,7 +37,6 @@ type GalleryState struct {
 
 	// cached state
 	gallery      *models.Gallery
-	highlightsId int64    // highlights topic
 	highlights   []string // highlighted images
 }
 
@@ -45,7 +44,6 @@ type GalleryState struct {
 func (s *GalleryState) Init(a *Application, g *models.Gallery) error {
 	s.app = a
 	s.gallery = g
-	s.highlightsId = 1
 
 	return s.cacheHighlights()
 }
@@ -55,7 +53,7 @@ func (s *GalleryState) Init(a *Application, g *models.Gallery) error {
 func (s *GalleryState) cacheHighlights() error {
 
 	// highlight slides, most recent first
-	slides := s.app.SlideStore.RecentForTopic(s.highlightsId, s.app.cfg.MaxHighlights, s.app.cfg.MaxHighlightsParent)
+	slides := s.app.SlideStore.RecentForTopic(s.app.TopicStore.HighlightsId, s.app.cfg.MaxHighlights, s.app.cfg.MaxHighlightsParent)
 
 	// cache the image names
 	var images []string

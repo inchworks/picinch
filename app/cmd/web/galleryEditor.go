@@ -63,46 +63,49 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.SlideshowFormData) bool {
 	// serialisation
 	defer s.updatesGallery()()
 
-	// compare modified slideshows against current ones, and update
-	rsDest := s.app.SlideshowStore.All()
-
+	nConflicts := 0
 	nSrc := len(rsSrc)
-	nDest := len(rsDest)
-	if nSrc-1 != nDest {
-		return false
-	} // another user added or deleted a slideshow!
 
 	// skip template
 	i := 1
 
 	for i < nSrc {
 
-		// ## check that IDs match
-
-		// check if details changed
+		// get current slideshow
 		rSrc := rsSrc[i]
-		rDest := rsDest[i-1]
+		rDest := s.app.SlideshowStore.GetIf(rSrc.NShow)
+		if rDest == nil {
+			nConflicts++  // just deleted by user
 
-		if rSrc.Visible != rDest.Visible ||
-			rSrc.Title != rDest.Title ||
-			rSrc.NTopic != rDest.Topic {
-
+		} else {
+			// normalise topic and visibility
 			if rSrc.NTopic != 0 {
-				rDest.Visible = models.SlideshowTopic
-			} else {
-				rDest.Visible = rSrc.Visible
+				rSrc.Visible = models.SlideshowTopic
+			} else if rSrc.Visible == models.SlideshowTopic {
+				rSrc.Visible = models.SlideshowPrivate
 			}
-			rDest.Title = rSrc.Title
-			rDest.Topic = rSrc.NTopic
 
-			// ## validate topic ID
+			// check if details changed
+			if rSrc.Visible != rDest.Visible ||
+				rSrc.Title != rDest.Title ||
+				rSrc.NTopic != rDest.Topic {
 
-			s.app.SlideshowStore.Update(rDest)
+				if s.app.TopicStore.GetIf(rSrc.NTopic) == nil {
+					nConflicts++ // another curator deleted the topic!
+
+				} else {
+					rDest.Visible = rSrc.Visible
+					rDest.Title = rSrc.Title
+					rDest.Topic = rSrc.NTopic
+
+					s.app.SlideshowStore.Update(rDest)
+				}
+			}
+			i++
 		}
-		i++
 	}
 
-	return true
+	return nConflicts == 0
 }
 
 // Get data to edit gallery
@@ -406,7 +409,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.Slides
 	defer s.updatesGallery()()
 
 	// user's show for topic
-	show = s.app.SlideshowStore.ForTopic(topicId, userId)
+	show = s.app.SlideshowStore.ForTopicUser(topicId, userId)
 	if show == nil {
 		topic, _ := s.app.TopicStore.Get(topicId)
 
@@ -452,7 +455,7 @@ func (s *GalleryState) ForEditTopics() (f *form.SlideshowsForm) {
 	defer s.updatesNone()()
 
 	// get topics
-	topics := s.app.TopicStore.All()
+	topics := s.app.TopicStore.AllEditable()
 
 	// form
 	var d = make(url.Values)
@@ -481,7 +484,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 	now := time.Now()
 
 	// compare modified slideshows against current ones, and update
-	rsDest := s.app.TopicStore.All()
+	rsDest := s.app.TopicStore.AllEditable()
 
 	nSrc := len(rsSrc)
 	nDest := len(rsDest)
@@ -595,7 +598,14 @@ func (s *GalleryState) onRemoveSlideshow(slideshow *models.Slideshow) {
 
 func (s *GalleryState) onRemoveTopic(t *models.Topic) {
 
-	// ## give the users back their own slideshows
+	// give the users back their own slideshows
+	store := s.app.SlideshowStore
+	slideshows := store.ForTopic(t.Id)
+	for _, s := range slideshows {
+		s.Topic = 0
+		s.Visible = models.SlideshowPrivate
+		store.Update(s)
+	} 
 
 	s.app.TopicStore.DeleteId(t.Id)
 }

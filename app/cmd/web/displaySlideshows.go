@@ -45,7 +45,7 @@ func (s *GalleryState) DisplayContributor(userId int64) (string, *DataHome) {
 
 	// highlights
 	var dHighlights []*DataSlide
-	show := s.app.SlideshowStore.ForTopic(s.highlightsId, user.Id)
+	show := s.app.SlideshowStore.ForTopicUser(s.app.TopicStore.HighlightsId, user.Id)
 	if show != nil {
 		dHighlights = s.dataSlides(show.Id, s.app.cfg.MaxHighlightsTotal)
 	}
@@ -83,7 +83,7 @@ func (s *GalleryState) DisplayContributors() (string, *DataUsers) {
 	}
 
 	return "contributors.page.tmpl", &DataUsers{
-		Users:   users,
+		Users: users,
 	}
 }
 
@@ -233,8 +233,8 @@ func (s *GalleryState) DisplayTopic(id int64, seq int, from string) (string, *Da
 		DisplayName: user.Name,
 		Title:       title,
 		Slides:      dataSlides,
-		DataCommon:  DataCommon{
-			ParentHRef:  from,
+		DataCommon: DataCommon{
+			ParentHRef: from,
 		},
 	}
 }
@@ -282,7 +282,7 @@ func (s *GalleryState) DisplayTopicUser(topicId int64, userId int64, from string
 	defer s.updatesNone()()
 
 	// get slideshow
-	show := s.app.SlideshowStore.ForTopic(topicId, userId)
+	show := s.app.SlideshowStore.ForTopicUser(topicId, userId)
 	if show == nil {
 		return "", nil
 	}
@@ -373,7 +373,7 @@ func (s *GalleryState) ForUsers() *DataUsers {
 	users := s.app.UserStore.ByName()
 
 	return &DataUsers{
-		Users:      users,
+		Users: users,
 	}
 }
 
@@ -404,7 +404,7 @@ func (s *GalleryState) Highlighted(prefix string, nImage int) string {
 func (s *GalleryState) dataHighlights(nImages int) []*DataSlide {
 
 	// get slides for highlights topic
-	slides := s.app.SlideStore.RecentForTopic(s.highlightsId, s.app.cfg.MaxHighlights, nImages)
+	slides := s.app.SlideStore.RecentForTopic(s.app.TopicStore.HighlightsId, s.app.cfg.MaxHighlights, nImages)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide
@@ -466,7 +466,7 @@ func (s *GalleryState) dataTopicsPublished(shows []*models.Topic) []*DataPublish
 func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, max int, shown map[int64]bool) []*DataPublished {
 
 	a := s.app
-	public := len(shown) == 0 // empty map indicates no slideshows already shown
+	public := len(shown) == 0        // empty map indicates no slideshows already shown
 	count := make(map[int64]int, 16) // count slideshows per-user
 
 	var data []*DataPublished
@@ -530,7 +530,7 @@ func (s *GalleryState) displayHighlights(topic *models.Topic, from string, perUs
 		AfterHRef:  from,
 		BeforeHRef: from,
 		Slides:     dataSlides,
-		DataCommon: DataCommon {
+		DataCommon: DataCommon{
 			ParentHRef: from,
 		},
 	}
@@ -561,7 +561,7 @@ func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max in
 		AfterHRef:   from,
 		BeforeHRef:  from,
 		Slides:      dataSlides,
-		DataCommon: DataCommon {
+		DataCommon: DataCommon{
 			ParentHRef: from,
 		},
 	}
