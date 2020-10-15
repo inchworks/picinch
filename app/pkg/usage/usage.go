@@ -37,7 +37,6 @@ const (
 )
 
 // Period values
-
 const (
 	Seen  = 0
 	Base  = 1
@@ -45,6 +44,14 @@ const (
 	Month = 3
 	Year  = 4 // reserved, not used
 	Mark  = 5
+)
+
+// Anonymisation level
+type Anonymise int
+
+const (
+	Daily Anonymise = iota
+	Immediate
 )
 
 type Statistic struct {
@@ -56,18 +63,19 @@ type Statistic struct {
 	Period   int
 }
 
-// User must implement this interface for storage and update of usage statistics
+// User implements this interface for storage and update of usage statistics
+// Unique key for a statistic is: event, start, period
 
 type StatisticStore interface {
-	BeforeByCategory(before time.Time, period int) []*Statistic // ordered by category and time
-	BeforeByEvent(before time.Time, period int) []*Statistic    // ordered by event and time
-	BeforeByTime(before time.Time, period int) []*Statistic     // ordered by time and perferred display order (e.g. count descending)
-	DeleteId(id int64) error
-	DeleteIf(before time.Time, period int) error
-	GetEvent(event string, start time.Time, period int) *Statistic
-	GetMark(event string) *Statistic
-	Transaction() func()
-	Update(s *Statistic) error
+	BeforeByCategory(before time.Time, period int) []*Statistic    // ordered by category and time
+	BeforeByEvent(before time.Time, period int) []*Statistic       // ordered by event and time
+	BeforeByTime(before time.Time, period int) []*Statistic        // ordered by time and perferred display order (e.g. count descending)
+	DeleteId(id int64) error                                       // delete statistic
+	DeleteIf(before time.Time, period int) error                   // delete earlier statistics for period
+	GetEvent(event string, start time.Time, period int) *Statistic // get statistic for event
+	GetMark(event string) *Statistic                               // get mark of point in time
+	Transaction() func()                                           // start transaction, returns function for defered call to end transaction
+	Update(s *Statistic) error                                     // add or update statistic
 }
 
 // Usage recorder
@@ -76,6 +84,7 @@ type Recorder struct {
 	store StatisticStore
 
 	// parameters
+	anon        Anonymise
 	basePeriod  int           // Base or Day
 	base        time.Duration // e.g. an hour or a day
 	keepBase    int           // in days
@@ -98,12 +107,14 @@ type Recorder struct {
 	count    map[string]int
 	seen     map[string]bool
 	category map[string]string
-	salt     uint32 // used to anonymise IDs such as user IDs
+
+	// anonymised IDs
+	anonymised map[int64]string
 }
 
 // Start recorder
 
-func New(st StatisticStore, base time.Duration, baseDays int, days int, detailMonths int, months int) (*Recorder, error) {
+func New(st StatisticStore, anon Anonymise, base time.Duration, baseDays int, days int, detailMonths int, months int) (*Recorder, error) {
 
 	// override silly parameters with defaults
 	if base < time.Hour || base > time.Hour*24 {
@@ -123,6 +134,7 @@ func New(st StatisticStore, base time.Duration, baseDays int, days int, detailMo
 	}
 
 	r := &Recorder{
+		anon:        anon,
 		store:       st,
 		base:        base,
 		keepBase:    baseDays,
@@ -138,7 +150,8 @@ func New(st StatisticStore, base time.Duration, baseDays int, days int, detailMo
 		count:    make(map[string]int),
 		seen:     make(map[string]bool),
 		category: make(map[string]string),
-		salt:     rand.Uint32(),
+
+		anonymised: make(map[int64]string),
 	}
 
 	if r.base != time.Hour*24 {
@@ -190,20 +203,32 @@ func (r *Recorder) Count(event string, category string) {
 	r.category[event] = category // ## note aggregate - inefficient
 }
 
-// Format ID for recording, anonymised
-// Note that the salt is changed daily, so anonymisation is genuine.
-// Needs AES-128 encryption to prevent reversal using a known ID for the day, but the
-// extra cost isn't worth it for this purpose.
-//
-// ## The salt is changed on restart, so IDs after a restart will be seen as different.
-// ## Could save/erase the salt across a restart - but not with the stats records!
+// Format data ID for recording, anonymised
 
 func (r *Recorder) FormatID(prefix string, id int64) string {
 
-	// reduce ID to 32 bits, to keep resulting string small, and add salt
-	id32 := uint32(id) ^ uint32(id>>32) ^ r.salt
+	var s string
+	switch r.anon {
 
-	return prefix + strconv.FormatUint(uint64(id32), 36)
+	case Daily:
+		// use the real ID, records are discarded daily
+		s = strconv.FormatUint(uint64(id), 36)
+
+	case Immediate:
+		fallthrough
+		
+	default:
+		// use randomised IDs
+		var seen bool
+		s, seen = r.anonymised[id]
+		if !seen {
+			// remember new randomised ID
+			s = strconv.FormatUint(uint64(rand.Uint32()), 36)
+			r.anonymised[id] = s
+		}
+	}
+
+	return prefix + s
 }
 
 // Format IP address for recording, anonymised
@@ -437,7 +462,7 @@ func average(st StatisticStore, sPeriods [][]*Statistic) {
 			days = dNow
 		} else {
 			// days in month
-			days = daysIn(y, m) 
+			days = daysIn(y, m)
 		}
 
 		if m == mLive && y == yLive {
@@ -449,7 +474,7 @@ func average(st StatisticStore, sPeriods [][]*Statistic) {
 			// convert seen counts to daily average
 			if s.Category == "seen" {
 				s.Category = "daily"
-				s.Count = int(s.Count + (days + 1)/2 - 1) / days  // rounded nearest
+				s.Count = int(s.Count+(days+1)/2-1) / days // rounded nearest
 			}
 		}
 	}
@@ -466,8 +491,8 @@ func (r *Recorder) catchUp() {
 
 func daysIn(year int, month time.Month) int {
 
-	// works because values outside the normal range are normalised 
-	return time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day() 
+	// works because values outside the normal range are normalised
+	return time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
 }
 
 // Processing at end of day
@@ -720,9 +745,9 @@ func (r *Recorder) save() {
 		delete(r.category, k)
 	}
 
-	// change salt daily, so that our anonymisation is genuine
+	// delete mappings daily, so that visit counts are reset
 	if r.now.After(r.dayEnd) {
-		r.salt = rand.Uint32()
+		r.anonymised = make(map[int64]string)
 	}
 
 	r.mu.Unlock()

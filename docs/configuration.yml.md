@@ -90,6 +90,8 @@ Contributions on the home page are limited per-user.
 
 **thumbnail-refresh** `1h` refresh interval for topic thumbnails. Units m(inutes) or h(ours).
 
+**usage-anon** `1` Anonymisation of user IDs: 0 = daily, 1 = immediate.
+
 ## For testing
 **http-addr** `:8000` site HTTP address
 

@@ -22,8 +22,6 @@ The following templates are intended to be redefined, and you will probably want
 
 **website** Website name, added to page titles and shown on log-in page.
 
-_The default copyright and privacy statements were not written by anyone with legal or data privacy expertise.
-You should review the text and decide if it is suitable for your website._
 ### Graphics
 Files in `images/` replace the default brand and favicon images for PicInch.
 

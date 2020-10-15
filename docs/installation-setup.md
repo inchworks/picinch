@@ -21,19 +21,22 @@ These instructions assume a Ubuntu Server host with Docker installed. A basic in
 
 ## After installation
 
-5. Customise the appearance of the website using the optional files described below. Restart PicInch for changes to take effect. (See Commands.)
+1. Customise the appearance of the website using the optional files described below. Restart PicInch for changes to take effect. (See Commands.)
 [&#8658; Customisation]({{ site.baseurl }}{% link install-5-customise.md %})
 
 1. Log in to PicInch as administrator and add potential users with status set to `known`. Send invitations to the users, inviting them to sign-in.
 [&#8658; Site Administrator]({{ site.baseurl }}{% link administrator.md %})
 
 1. If desired, make one or more `active` (signed-up) users an `admin` or `curator`.
-[Site Administrator]({{ site.baseurl }}{% link administrator.md %})
+[&#8658; Site Administrator]({{ site.baseurl }}{% link administrator.md %})
 
 1. Arrange for a regular backup of the database and photos. This may be an option from your hosting supplier, or you may need to do it regularly yourself.
 [&#8658; Backups]({{ site.baseurl }}{% link install-8-backups.md %})
 
 1. Review the security of your system.
 [&#8658; Security]({{ site.baseurl }}{% link install-9-security.md %})
+
+1. Review the data privacy of your system.
+[&#8658; Privacy]({{ site.baseurl }}{% link install-10-privacy.md %})
 
 [1]:	https://marketplace.digitalocean.com/apps/docker

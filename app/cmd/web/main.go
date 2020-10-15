@@ -118,8 +118,9 @@ type Configuration struct {
 	MaxSlideshowsClub   int `yaml:"slideshows-club"  env-default:"2"`  // club slideshows on home page, per user
 	MaxSlideshowsPublic int `yaml:"slideshows-public" env-default:"1"` // public slideshows on home page, per user
 
-	MiscName    string        `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscelleneous files, as in "example.com/misc/file"
-	SiteRefresh time.Duration `yaml:"thumbnail-refresh"  env-default:"1h"`          // refresh interval for topic thumbnails. Units m or h.
+	MiscName        string          `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscelleneous files, as in "example.com/misc/file"
+	SiteRefresh     time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`          // refresh interval for topic thumbnails. Units m or h.
+	UsageAnonymised usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 }
 
 // Application struct supplies application-wide dependencies.
@@ -354,7 +355,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// setup usage, with defaults
-	if app.usage, err = usage.New(app.StatisticStore, 0, 0, 0, 0, 0); err != nil {
+	if app.usage, err = usage.New(app.StatisticStore, cfg.UsageAnonymised, 0, 0, 0, 0, 0); err != nil {
 		errorLog.Fatal(err)
 	}
 
