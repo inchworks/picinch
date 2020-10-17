@@ -30,6 +30,7 @@ import (
 
 	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/limiter"
+	"inchworks.com/picinch/pkg/models"
 	"inchworks.com/picinch/pkg/models/mysql"
 	"inchworks.com/picinch/pkg/usage"
 
@@ -43,7 +44,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.9.1"
+	version = "0.9.2"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -324,21 +325,14 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		sanitizer:     bluemonday.UGCPolicy(),
 	}
 
-	// setup stores, with reference to a common transaction
-	app.SlideStore = mysql.NewSlideStore(db, &app.tx, errorLog)
-	app.GalleryStore = mysql.NewGalleryStore(db, &app.tx, errorLog)
-	app.SlideshowStore = mysql.NewSlideshowStore(db, &app.tx, errorLog)
-	app.TopicStore = mysql.NewTopicStore(db, &app.tx, errorLog)
-	app.UserStore = mysql.NewUserStore(db, &app.tx, errorLog)
-	app.StatisticStore = mysql.NewStatisticStore(db, &app.statsTx, errorLog)
-
-	// setup new database and administrator, if needed
-	if err := mysql.Setup(app.UserStore, cfg.AdminName, cfg.AdminPassword); err != nil {
-		errorLog.Fatal(err)
-	}
-
 	// initialise gallery state
-	if err := app.setupCache(); err != nil {
+	app.galleryState.Init(app)
+
+	// initialise data stores
+	gallery := app.initStores(cfg)
+
+	// cached state
+	if err := app.galleryState.setupCache(gallery); err != nil {
 		errorLog.Fatal(err)
 	}
 
@@ -366,6 +360,38 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.chTopicId = make(chan int64, 10)
 
 	return app
+}
+
+// Initialise data stores
+
+func (app *Application) initStores(cfg *Configuration) *models.Gallery {
+
+	defer app.galleryState.updatesGallery()()
+
+	// setup stores, with reference to a common transaction
+	// ## transaction should be per-gallery if we support multiple galleries
+	app.SlideStore = mysql.NewSlideStore(app.db, &app.tx, app.errorLog)
+	app.GalleryStore = mysql.NewGalleryStore(app.db, &app.tx, app.errorLog)
+	app.SlideshowStore = mysql.NewSlideshowStore(app.db, &app.tx, app.errorLog)
+	app.TopicStore = mysql.NewTopicStore(app.db, &app.tx, app.errorLog)
+	app.UserStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
+	app.StatisticStore = mysql.NewStatisticStore(app.db, &app.statsTx, app.errorLog)
+
+	// setup new database and administrator, if needed, and get gallery record
+	g, err := mysql.Setup(app.GalleryStore, app.UserStore, 1, cfg.AdminName, cfg.AdminPassword)
+	if err != nil {
+		app.errorLog.Fatal(err)
+	}
+
+	// save gallery ID for stores that need it
+	app.SlideshowStore.GalleryId = g.Id
+	app.TopicStore.GalleryId = g.Id
+	app.UserStore.GalleryId = g.Id
+
+	// highlights topicID
+	app.TopicStore.HighlightsId = 1
+
+	return g
 }
 
 // Make HTTP server

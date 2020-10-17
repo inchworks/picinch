@@ -135,48 +135,46 @@ var cmds = [...]string {
 }
 
 // Setup new database, if it has no tables.
-// Add specifed administrator.
+// Add gallery record and specifed administrator if needed.
+//
+// Returns gallery record.
 
-func Setup(st *UserStore, adminName string, adminPW string) error {
+func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminName string, adminPW string) (*models.Gallery, error) {
 
-	// ## should look this up, but I'm planning to get rid of the gallery record anyway
-	st.GalleryId = 1
-
-	// setup database in one transaction
-	var commit bool
-	tx := st.DBX.MustBegin()
-	st.ptx = &tx
-
-	// commit or rollback at the end
-	defer func() {
-		if commit {
-			tx.Commit()
-		} else {
-			tx.Rollback()
-		}
-	}()
-
-	// look for admin user
-	admin, err := st.GetNamed(adminName)
+	// look for gallery record
+	g, err := stGallery.Get(galleryId)
 	if err != nil && err != models.ErrNoRecord {
 
-		// no user table - make the database
-		if err = setupTables(st.DBX, tx); err != nil {
-			return err
+		// no gallery table - make the database
+		if err = setupTables(stGallery.DBX, *stGallery.ptx); err != nil {
+			return nil, err
 		}
 	}
+
+	if g == nil {
+		// create first gallery
+		g = &models.Gallery{Id: 1}
+		if err = stGallery.Update(g); err != nil {
+			return nil, err
+		}
+	}
+
+	// look for admin user
+	stUser.GalleryId = g.Id
+	admin, err := stUser.GetNamed(adminName)
+	if err != nil && err != models.ErrNoRecord {
+		return nil, err
+	}
+
 	if admin == nil && len(adminName) > 0 {
 
 		// configured admin user doesn't exist - add one
-		if err := setupAdmin(st, adminName, adminPW); err != nil {
-			return err
+		if err := setupAdmin(stUser, adminName, adminPW); err != nil {
+			return nil, err
 		}
 
 	}
-
-	// successful setup
-	commit = true
-	return nil
+	return g, nil
 }
 
 // create admin user

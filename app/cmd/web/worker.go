@@ -142,7 +142,7 @@ func (s *GalleryState) updateHighlights(id int64) error {
 	if show == nil { return nil }
 
 	// is this for the highlights topic?
-	if show.Topic == s.highlightsId {
+	if show.Topic == s.app.TopicStore.HighlightsId {
 		return s.cacheHighlights()
 	}
 

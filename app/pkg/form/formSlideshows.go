@@ -90,9 +90,11 @@ func (f *SlideshowsForm) GetSlideshows(withTopics bool) (items []*SlideshowFormD
 			return nil, err
 		}
 
-		// optional topic assignment
+		// optional topic assignment with show ID
+		var showId int64
 		var topicId int64
 		if withTopics {
+			showId = int64(f.ChildPositive("nShow", i, ix))
 			topicId = int64(f.ChildPositive("topic", i, ix))
 		}
 
@@ -100,6 +102,7 @@ func (f *SlideshowsForm) GetSlideshows(withTopics bool) (items []*SlideshowFormD
 
 			Child:   Child{parent: &f.Form, ChildIndex: ix},
 			Visible: visible,
+			NShow: showId,
 			NTopic:  topicId,
 			Title:   f.ChildRequired("title", i, ix),
 		})
