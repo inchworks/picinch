@@ -149,6 +149,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	// save changes
 	// // ## could save organiser from MaxLength
 	if app.galleryState.OnEditGallery(f.Get("organiser"), nMaxSlides, nShowcased) {
+		app.session.Put(r, "flash", "Gallery settings saved.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	} else {

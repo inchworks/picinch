@@ -133,7 +133,7 @@ func (st *SlideshowStore) ForTopic(topicId int64) []*models.Slideshow {
 
 	var slideshows []*models.Slideshow
 
-	if err := st.DBX.Select(&slideshows, slideshowsWhereTopic); err != nil {
+	if err := st.DBX.Select(&slideshows, slideshowsWhereTopic, topicId); err != nil {
 		st.logError(err)
 		return nil
 	}

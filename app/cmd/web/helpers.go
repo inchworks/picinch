@@ -306,50 +306,6 @@ func (app *Application) serverError(w http.ResponseWriter, err error) {
 	}
 }
 
-// Setup cached context.
-//
-// Creates a gallery if we don't have one.
-
-func (a *Application) setupCache() error {
-
-	var err error
-
-	// start transaction
-	a.tx = a.db.MustBegin()
-
-	defer func() {
-		// end transaction
-		if err != nil {
-			a.tx.Rollback()
-		} else {
-			a.tx.Commit()
-		}
-	}()
-
-	// get gallery record - only one supported
-	q, err := a.GalleryStore.Get(1)
-	if err == models.ErrNoRecord {
-		// create new gallery
-		q = &models.Gallery{Id: 1}
-		if err = a.GalleryStore.Update(q); err != nil {
-			return err
-		}
-
-	} else if err != nil {
-		return err
-	}
-
-	// save gallery ID for stores that need it
-	a.SlideshowStore.GalleryId = q.Id
-	a.TopicStore.GalleryId = q.Id
-	a.UserStore.GalleryId = q.Id
-
-	// highlights topicID
-	a.TopicStore.HighlightsId = 1
-
-	return a.galleryState.Init(a, q)
-}
-
 // Referring page
 // ## Not used - it is more complex than this. Must recognise own pages and handle "/userId" etc.
 
