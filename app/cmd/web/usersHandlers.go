@@ -22,7 +22,6 @@ package main
 import (
 	"errors"
 	"net/http"
-	"net/url"
 
 	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/models"
@@ -226,95 +225,4 @@ func (app *Application) postFormUsers(w http.ResponseWriter, r *http.Request) {
 	} else {
 		app.clientError(w, http.StatusBadRequest)
 	}
-}
-
-// Get data to edit users
-
-func (s *GalleryState) ForEditUsers() (f *form.UsersForm) {
-
-	// serialisation
-	defer s.updatesNone()()
-
-	// users
-	users := s.app.UserStore.ByName()
-
-	// form
-	var d = make(url.Values)
-	f = form.NewUsers(d)
-
-	// add template and users to form
-	f.AddTemplate()
-	for i, u := range users {
-		f.Add(i, u)
-	}
-
-	return
-}
-
-// Processing when users are modified.
-//
-// Returns true if no client errors.
-
-func (s *GalleryState) OnEditUsers(usSrc []*form.UserFormData) bool {
-
-	// serialisation
-	defer s.updatesGallery()()
-
-	// compare modified users against current users, and update
-	usDest := s.app.UserStore.ByName()
-
-	nSrc := len(usSrc)
-	nDest := len(usDest)
-
-	// skip template
-	iSrc := 1
-	var iDest int
-
-	for iSrc < nSrc || iDest < nDest {
-
-		if iSrc == nSrc {
-			// no more source users - delete from destination
-			s.onRemoveUser(usDest[iDest])
-			iDest++
-
-		} else if iDest == nDest {
-			// no more destination users - add new user
-			u := models.User{
-					Name: usSrc[iSrc].DisplayName,
-					Username: usSrc[iSrc].Username,
-					Status: usSrc[iSrc].Status,
-					Password: []byte(""),
-			}
-			s.app.UserStore.Update(&u)
-			iSrc++
-
-		} else {
-			ix := usSrc[iSrc].ChildIndex
-			if ix > iDest {
-				// source user removed - delete from destination
-				s.onRemoveUser(usDest[iDest])
-				iDest++
-
-			} else if ix == iDest {
-				// check if user's details changed
-				uDest := usDest[iDest]
-				if usSrc[iSrc].DisplayName != uDest.Name ||
-					usSrc[iSrc].Username != uDest.Username ||
-					usSrc[iSrc].Status != uDest.Status {
-					uDest.Name = usSrc[iSrc].DisplayName
-					uDest.Username = usSrc[iSrc].Username
-					uDest.Status = usSrc[iSrc].Status
-					s.app.UserStore.Update(uDest)
-				}
-				iSrc++
-				iDest++
-
-			} else {
-				// out of sequence team index
-				return false
-			}
-		}
-	}
-
-	return true
 }
