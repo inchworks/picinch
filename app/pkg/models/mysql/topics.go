@@ -45,7 +45,7 @@ const (
 	topicOrderTitle = ` ORDER BY title ASC`
 
 	topicWhereId          = topicSelect + ` WHERE id = ?`
-	topicsWhereEditable    = topicSelect + ` WHERE gallery = ? AND topic <> ?` + topicOrderTitle
+	topicsWhereEditable    = topicSelect + ` WHERE gallery = ? AND id <> ?` + topicOrderTitle
 	topicsWhereGallery    = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
 	topicsWherePublished = topicSelect + ` WHERE gallery = ? AND visible = ?` + topicOrderDisplay
 )

@@ -148,19 +148,8 @@ func New(st StatisticStore, base time.Duration, baseDays int, days int, detailMo
 	}
 
 	// start of statistics recording
-	s := st.GetMark("goLive")
-	if s == nil {
-		s = &Statistic{
-			Event:    "goLive",
-			Category: "timeline",
-			Start:    r.now,
-			Period:   Mark,
-		}
-
-		defer st.Transaction()()
-		if err := st.Update(s); err != nil {
-			return nil, err
-		}
+	if err := r.markLive(); err != nil {
+		return nil, err
 	}
 
 	// next operations
@@ -607,6 +596,31 @@ func getRollup(st StatisticStore, stats []*Statistic, toStart func(time.Time) ti
 	}
 
 	return ss, start
+}
+
+// Mark start of live operation
+
+func (r *Recorder) markLive() error {
+
+	st := r.store
+	s := st.GetMark("goLive")
+	if s == nil {
+
+		// server is starting for the first time 
+		s = &Statistic{
+			Event:    "goLive",
+			Category: "timeline",
+			Start:    r.now,
+			Period:   Mark,
+		}
+
+		defer st.Transaction()()
+		if err := st.Update(s); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Time of next operation, UTC, aligned to interval

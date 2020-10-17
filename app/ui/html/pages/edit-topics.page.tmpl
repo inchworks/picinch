@@ -30,7 +30,7 @@
 	<div class="container">
 		<h3>{{ .User }}</h3>
 
-		<form action='/edit-topics/{{ .NUser }}' method='POST'>
+		<form action='/edit-topics' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
 				{{ $visibleOpts := .VisibleOpts }}

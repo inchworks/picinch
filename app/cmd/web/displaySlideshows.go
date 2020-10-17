@@ -399,6 +399,18 @@ func (s *GalleryState) Highlighted(prefix string, nImage int) string {
 	}
 }
 
+// Get slideshow title
+
+func (s *GalleryState) SlideshowTitle(showId int64) string {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	r, _ := s.app.SlideshowStore.Get(showId)
+
+	return r.Title
+}
+
 // Highlights for home page or embedded page
 
 func (s *GalleryState) dataHighlights(nImages int) []*DataSlide {

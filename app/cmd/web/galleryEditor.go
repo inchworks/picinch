@@ -58,6 +58,10 @@ func (s *GalleryState) ForAssignShows() (f *form.SlideshowsForm) {
 //
 // Returns true if no client errors.
 
+// ## I don't like using database IDs in a form, because it exposes us to a user that manipulates the form.
+// ## In this case the user has to be authorised as a curator, and (I think) they can only make changes
+// ## that the form allows anyway. Still, I'd like an alternative :-(.
+
 func (s *GalleryState) OnAssignShows(rsSrc []*form.SlideshowFormData) bool {
 
 	// serialisation
@@ -90,7 +94,7 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.SlideshowFormData) bool {
 				rSrc.Title != rDest.Title ||
 				rSrc.NTopic != rDest.Topic {
 
-				if s.app.TopicStore.GetIf(rSrc.NTopic) == nil {
+				if rSrc.NTopic != 0 && s.app.TopicStore.GetIf(rSrc.NTopic) == nil {
 					nConflicts++ // another curator deleted the topic!
 
 				} else {
@@ -101,8 +105,8 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.SlideshowFormData) bool {
 					s.app.SlideshowStore.Update(rDest)
 				}
 			}
-			i++
 		}
+		i++
 	}
 
 	return nConflicts == 0

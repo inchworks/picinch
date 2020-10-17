@@ -22,10 +22,106 @@ package main
 // These functions may modify application state.
 
 import (
+	"net/url"
 	"time"
 
+	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/models"
 )
+
+// Get data to edit users
+
+func (s *GalleryState) ForEditUsers() (f *form.UsersForm) {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// users
+	users := s.app.UserStore.ByName()
+
+	// form
+	var d = make(url.Values)
+	f = form.NewUsers(d)
+
+	// add template and users to form
+	f.AddTemplate()
+	for i, u := range users {
+		f.Add(i, u)
+	}
+
+	return
+}
+
+// Processing when users are modified.
+//
+// Returns true if no client errors.
+
+func (s *GalleryState) OnEditUsers(usSrc []*form.UserFormData) bool {
+
+	// serialisation
+	defer s.updatesGallery()()
+
+	// compare modified users against current users, and update
+	usDest := s.app.UserStore.ByName()
+
+	nSrc := len(usSrc)
+	nDest := len(usDest)
+
+	// skip template
+	iSrc := 1
+	var iDest int
+
+	for iSrc < nSrc || iDest < nDest {
+
+		if iSrc == nSrc {
+			// no more source users - delete from destination
+			s.onRemoveUser(usDest[iDest])
+			iDest++
+
+		} else if iDest == nDest {
+			// no more destination users - add new user
+			u := models.User{
+					Name: usSrc[iSrc].DisplayName,
+					Username: usSrc[iSrc].Username,
+					Status: usSrc[iSrc].Status,
+					Password: []byte(""),
+			}
+			s.app.UserStore.Update(&u)
+			iSrc++
+
+		} else {
+			ix := usSrc[iSrc].ChildIndex
+			if ix > iDest {
+				// source user removed - delete from destination
+				s.onRemoveUser(usDest[iDest])
+				iDest++
+
+			} else if ix == iDest {
+				// check if user's details changed
+				uSrc := usSrc[iSrc]
+				uDest := usDest[iDest]
+				if uSrc.DisplayName != uDest.Name ||
+					uSrc.Username != uDest.Username ||
+					uSrc.Status != uDest.Status {
+					uDest.Name = uSrc.DisplayName
+					uDest.Username = uSrc.Username
+					uDest.Status = uSrc.Status
+					if err := s.app.UserStore.Update(uDest); err != nil {
+						return false  // unexpected database error
+					}
+				}
+				iSrc++
+				iDest++
+
+			} else {
+				// out of sequence team index
+				return false
+			}
+		}
+	}
+
+	return true
+}
 
 // Signup user
 //
@@ -44,28 +140,6 @@ func (s *GalleryState) OnUserSignup(user *models.User, name string, password str
 	user.Created = time.Now()
 
 	return s.app.UserStore.Update(user)
-}
-
-// Get slideshows in sequence order
-
-func (s *GalleryState) Slideshows() []*models.Slideshow {
-
-	// Serialisation
-	defer s.updatesNone()()
-
-	return s.app.SlideshowStore.All()
-}
-
-// Get slideshow title
-
-func (s *GalleryState) SlideshowTitle(showId int64) string {
-
-	// serialisation
-	defer s.updatesNone()()
-
-	r, _ := s.app.SlideshowStore.Get(showId)
-
-	return r.Title
 }
 
 // Get user's display name
