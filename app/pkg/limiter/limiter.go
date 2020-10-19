@@ -40,13 +40,13 @@ type LimitHandler struct {
 	// handlers wrapped
 	success http.Handler
 	failure http.Handler
-	report func(string, *http.Request)
+	report  func(string, *http.Request)
 
 	// parameters
 	name  string
-	rate  rate.Limit  // max. requests per second
-	burst int  // allowed burst
-	ban int  // rejects until banned
+	rate  rate.Limit // max. requests per second
+	burst int        // allowed burst
+	ban   int        // rejects until banned
 
 	// internal data
 	visitors map[string]*visitor
@@ -75,10 +75,10 @@ func New(n string, r rate.Limit, b int, ban int, next http.Handler) *LimitHandle
 		name:     n,
 		rate:     r,
 		burst:    b,
-		ban:	ban,
+		ban:      ban,
 		success:  next,
 		failure:  http.HandlerFunc(defaultFailureHandler),
-		report:  defaultReportHandler,
+		report:   defaultReportHandler,
 		visitors: visitors,
 	}
 }
@@ -104,7 +104,7 @@ func (h *LimitHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s := h.setReject(id)
 		if s != "" {
 			h.report(s, r)
-		} 
+		}
 
 		h.failure.ServeHTTP(w, r)
 		return
@@ -182,14 +182,14 @@ func (h *LimitHandler) setReject(id string) (status string) {
 
 	v, exists := visitors[id]
 	if !exists {
-		return "error"  // should never happen - they were there a moment ago!
+		return "error" // should never happen - they were there a moment ago!
 	}
 
 	v.rejects += 1
 	if v.rejects == 1 {
-		status = "rejection"  // limit reached for first time
+		status = "rejection" // limit reached for first time
 	} else if v.rejects == h.ban {
-		status = "ban"  // ban limit reached for first time
+		status = "ban" // ban limit reached for first time
 	}
 
 	return status

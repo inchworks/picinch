@@ -158,8 +158,12 @@ func (im *Imager) RemoveVersions() error {
 
 	// delete unreferenced and old versions
 	for _, cv := range im.delVersions {
-		if err := os.Remove(filepath.Join(im.ImagePath, cv.fileName)); err != nil { return err }
-		if err := os.Remove(filepath.Join(im.ImagePath, Thumbnail(cv.fileName))); err != nil { return err }
+		if err := os.Remove(filepath.Join(im.ImagePath, cv.fileName)); err != nil {
+			return err
+		}
+		if err := os.Remove(filepath.Join(im.ImagePath, Thumbnail(cv.fileName))); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -219,7 +223,9 @@ func (im *Imager) SaveResized(req ReqSave) error {
 			return err // could be a bad name?
 		}
 		defer saved.Close()
-		_, err = io.Copy(saved, &req.Fullsize)
+		if _, err = io.Copy(saved, &req.Fullsize); err != nil {
+			return err
+		}
 
 	} else {
 
@@ -306,7 +312,9 @@ func changeType(name string) (nm string, changed bool) {
 
 	// convert other file types to JPG
 	fmt, err := imaging.FormatFromFilename(name)
-	if err != nil { return name, false}  // unikely error, never mind
+	if err != nil {
+		return name, false
+	} // unikely error, never mind
 
 	switch fmt {
 	case imaging.JPEG:
@@ -355,7 +363,9 @@ func (im *Imager) saveVersion(showId int64, name string, rev int) (string, error
 	// main image ..
 	uploadedPath := filepath.Join(im.ImagePath, uploaded)
 	revisedPath := filepath.Join(im.ImagePath, revised)
-	if err := os.Rename(uploadedPath, revisedPath); err != nil { return revised, err }
+	if err := os.Rename(uploadedPath, revisedPath); err != nil {
+		return revised, err
+	}
 
 	// .. and thumbnail
 	uploadedPath = filepath.Join(im.ImagePath, Thumbnail(uploaded))

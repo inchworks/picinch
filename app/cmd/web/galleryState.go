@@ -36,8 +36,8 @@ type GalleryState struct {
 	rollback  bool
 
 	// cached state
-	gallery      *models.Gallery
-	highlights   []string // highlighted images
+	gallery    *models.Gallery
+	highlights []string // highlighted images
 }
 
 // Initialisation
@@ -96,7 +96,6 @@ func (s *GalleryState) setupCache(g *models.Gallery) error {
 	return s.cacheHighlights()
 }
 
-
 // 31 bit timestamp for updates (easier to store than 64 bit)
 
 func timestamp() int {
@@ -113,7 +112,7 @@ func timestamp() int {
 
 func (q *GalleryState) updatesGallery() func() {
 
-	// aquire exclusive locks
+	// acquire exclusive locks
 	q.muGallery.Lock()
 
 	// start transaction

@@ -67,7 +67,7 @@ func (f *UsersForm) Add(index int, u *models.User) {
 func (f *UsersForm) AddTemplate() {
 
 	f.Children = append(f.Children, &UserFormData{
-		Child: Child{parent: &f.Form, ChildIndex: -1},
+		Child:  Child{parent: &f.Form, ChildIndex: -1},
 		Status: models.UserKnown,
 	})
 }

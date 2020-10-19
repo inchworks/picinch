@@ -32,12 +32,12 @@ import (
 )
 
 type store struct {
-	DBX       	*sqlx.DB
-	ptx       	**sqlx.Tx
-	errorLog  	*log.Logger
-	sqlDelete 	string
-	sqlInsert   string
-	sqlUpdate   string
+	DBX       *sqlx.DB
+	ptx       **sqlx.Tx
+	errorLog  *log.Logger
+	sqlDelete string
+	sqlInsert string
+	sqlUpdate string
 }
 
 // Delete object

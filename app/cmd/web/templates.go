@@ -39,15 +39,15 @@ type TemplateData interface {
 }
 
 type DataCommon struct {
-	Canonical		string // canonical domain
-	CSRFToken       string
-	Flash           string // flash message
-	ParentHRef  	string
+	Canonical  string // canonical domain
+	CSRFToken  string
+	Flash      string // flash message
+	ParentHRef string
 
 	// To configure menus, this is NOT to check authorisation
-	IsAdmin			bool   // user is administrator 
-	IsAuthenticated bool   // user authenticated
-	IsCurator		bool   // user is curator
+	IsAdmin         bool // user is administrator
+	IsAuthenticated bool // user authenticated
+	IsCurator       bool // user is curator
 }
 
 func (d *DataCommon) addDefaultData(app *Application, r *http.Request) {
@@ -165,8 +165,8 @@ type usersFormData struct {
 // Define functions callable from a template
 
 var functions = template.FuncMap{
-	"humanDate": humanDate,
-	"thumbnail": thumbnail,
+	"humanDate":  humanDate,
+	"thumbnail":  thumbnail,
 	"userStatus": userStatus,
 }
 
@@ -280,7 +280,7 @@ func thumbnail(image string) string {
 func userStatus(n int) (s string) {
 
 	switch n {
-			// user status
+	// user status
 	case models.UserSuspended:
 		s = "susoended"
 

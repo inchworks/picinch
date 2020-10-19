@@ -64,7 +64,7 @@ func (f *SlidesForm) AddTemplate(nSlides int) {
 
 	f.Children = append(f.Children, &SlideFormData{
 		Child:     Child{parent: &f.Form, ChildIndex: -1},
-		ShowOrder: nSlides+1,
+		ShowOrder: nSlides + 1,
 	})
 }
 
@@ -85,7 +85,7 @@ func (f *SlidesForm) GetSlides() (items []*SlideFormData, err error) {
 			Child:     Child{parent: &f.Form, ChildIndex: ix},
 			ShowOrder: f.ChildMin("showOrder", i, ix, 1),
 			Title:     f.ChildTrimmed("title", i),
-			ImageName:	f.ChildImage("imageName", i, ix),
+			ImageName: f.ChildImage("imageName", i, ix),
 			Caption:   f.ChildGet("caption", i),
 		})
 	}

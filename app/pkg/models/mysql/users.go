@@ -194,9 +194,12 @@ func (st *UserStore) Name(id int64) string {
 
 	u, err := st.Get(id)
 
-	if err != nil { return "" } else { return u.Name }
+	if err != nil {
+		return ""
+	} else {
+		return u.Name
+	}
 }
-
 
 // Insert or update user
 

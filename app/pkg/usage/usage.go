@@ -205,7 +205,7 @@ func (r *Recorder) FormatID(prefix string, id int64) string {
 
 	case Immediate:
 		fallthrough
-		
+
 	default:
 		// use randomised IDs
 		var seen bool
@@ -320,7 +320,7 @@ func (r *Recorder) Seen(event string, category string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.seen[event] = true         // event occured
+	r.seen[event] = true         // event occurred
 	r.category[event] = category // ## note aggregate - inefficient
 }
 
@@ -419,7 +419,7 @@ func (r *Recorder) aggregateSeen() {
 
 // Convert seen counts to daily averages
 //
-// Because because we can't distinguish between vistors across days.
+// Because because we can't distinguish between visitors across days.
 // ## Is there an event we could distinguish and should support? E.g. errors?
 
 func average(st StatisticStore, sPeriods [][]*Statistic) {
@@ -631,7 +631,7 @@ func (r *Recorder) markLive() error {
 	s := st.GetMark("goLive")
 	if s == nil {
 
-		// server is starting for the first time 
+		// server is starting for the first time
 		s = &Statistic{
 			Event:    "goLive",
 			Category: "timeline",
@@ -738,7 +738,7 @@ func (r *Recorder) save() {
 
 	seen := make([]string, len(r.seen))
 	i = 0
-	for evt, _ := range r.seen {
+	for evt := range r.seen {
 		seen[i] = evt
 		i++
 	}

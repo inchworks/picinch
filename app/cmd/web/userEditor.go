@@ -81,10 +81,10 @@ func (s *GalleryState) OnEditUsers(usSrc []*form.UserFormData) bool {
 		} else if iDest == nDest {
 			// no more destination users - add new user
 			u := models.User{
-					Name: usSrc[iSrc].DisplayName,
-					Username: usSrc[iSrc].Username,
-					Status: usSrc[iSrc].Status,
-					Password: []byte(""),
+				Name:     usSrc[iSrc].DisplayName,
+				Username: usSrc[iSrc].Username,
+				Status:   usSrc[iSrc].Status,
+				Password: []byte(""),
 			}
 			s.app.UserStore.Update(&u)
 			iSrc++
@@ -107,7 +107,7 @@ func (s *GalleryState) OnEditUsers(usSrc []*form.UserFormData) bool {
 					uDest.Username = uSrc.Username
 					uDest.Status = uSrc.Status
 					if err := s.app.UserStore.Update(uDest); err != nil {
-						return false  // unexpected database error
+						return false // unexpected database error
 					}
 				}
 				iSrc++
@@ -174,7 +174,9 @@ func (s *GalleryState) onRemoveUser(user *models.User) {
 	topics := make(map[int64]bool)
 	for _, show := range shows {
 		showIds = append(showIds, show.Id)
-		if show.Topic != 0 { topics[show.Topic] = true }
+		if show.Topic != 0 {
+			topics[show.Topic] = true
+		}
 	}
 
 	// slideshows and slides will be removed by cascade delete
@@ -183,8 +185,8 @@ func (s *GalleryState) onRemoveUser(user *models.User) {
 	// remove user's images
 	s.app.chShowIds <- showIds
 
-	// change topic images as needed 
-	for topicId, _ := range topics {
+	// change topic images as needed
+	for topicId := range topics {
 		s.app.chTopicId <- topicId
 	}
 }
