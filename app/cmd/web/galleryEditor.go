@@ -79,7 +79,7 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.SlideshowFormData) bool {
 		rSrc := rsSrc[i]
 		rDest := s.app.SlideshowStore.GetIf(rSrc.NShow)
 		if rDest == nil {
-			nConflicts++  // just deleted by user
+			nConflicts++ // just deleted by user
 
 		} else {
 			// normalise topic and visibility
@@ -609,7 +609,7 @@ func (s *GalleryState) onRemoveTopic(t *models.Topic) {
 		s.Topic = 0
 		s.Visible = models.SlideshowPrivate
 		store.Update(s)
-	} 
+	}
 
 	s.app.TopicStore.DeleteId(t.Id)
 }

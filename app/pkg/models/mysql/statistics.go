@@ -42,19 +42,19 @@ const (
 )
 
 const (
-	statsSelect = `SELECT * FROM statistic`
-	statsOrderCategory  = ` ORDER BY category, start`
-	statsOrderEvent  = ` ORDER BY event, start`
-	statsOrderTime  = ` ORDER BY start DESC, count DESC, event ASC`
+	statsSelect        = `SELECT * FROM statistic`
+	statsOrderCategory = ` ORDER BY category, start`
+	statsOrderEvent    = ` ORDER BY event, start`
+	statsOrderTime     = ` ORDER BY start DESC, count DESC, event ASC`
 
 	statsWhereBefore = statsSelect + ` WHERE start < ? AND period = ?`
 	statsWherePeriod = statsSelect + ` WHERE period = ?`
-	statsWhereStart = statsSelect + ` WHERE event = ? AND start = ? AND period = ?`
-	statsWhereEvent = statsSelect + ` WHERE event = ? AND period = ?`
+	statsWhereStart  = statsSelect + ` WHERE event = ? AND start = ? AND period = ?`
+	statsWhereEvent  = statsSelect + ` WHERE event = ? AND period = ?`
 
 	statsBeforeByCategory = statsWhereBefore + statsOrderCategory
-	statsBeforeByEvent = statsWhereBefore + statsOrderEvent
-	statsBeforeByTime = statsWhereBefore + statsOrderTime
+	statsBeforeByEvent    = statsWhereBefore + statsOrderEvent
+	statsBeforeByTime     = statsWhereBefore + statsOrderTime
 
 	statsDeleteIf = `DELETE FROM statistic WHERE start < ? AND period = ?`
 )

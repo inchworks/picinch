@@ -42,11 +42,11 @@ const (
 const (
 	slideSelect = `SELECT * FROM slide`
 
-	slideOrder = ` ORDER BY show_order ASC, revised DESC LIMIT ?`
+	slideOrder  = ` ORDER BY show_order ASC, revised DESC LIMIT ?`
 	slideRecent = ` ORDER BY revised DESC LIMIT ?`
 
-	slideWhereId    = slideSelect + ` WHERE id = ?`
-	slidesWhereShow = slideSelect + ` WHERE slideshow = ?` + slideOrder
+	slideWhereId          = slideSelect + ` WHERE id = ?`
+	slidesWhereShow       = slideSelect + ` WHERE slideshow = ?` + slideOrder
 	slidesWhereShowRecent = slideSelect + ` WHERE slideshow = ?` + slideRecent
 
 	imagesWhereTopic = `

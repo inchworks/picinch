@@ -21,20 +21,20 @@ package main
 
 import (
 	"math/rand"
-	"time"
 	"runtime"
+	"time"
 
 	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
 )
 
 func (s *GalleryState) worker(
-		chImage <-chan images.ReqSave,
-		chShowId <-chan int64,
-		chShowIds <-chan []int64,
-		chTopicId <-chan int64,
-		chRefresh <-chan time.Time,
-		done <-chan bool) {
+	chImage <-chan images.ReqSave,
+	chShowId <-chan int64,
+	chShowIds <-chan []int64,
+	chTopicId <-chan int64,
+	chRefresh <-chan time.Time,
+	done <-chan bool) {
 
 	for {
 		// returns to client sooner?
@@ -68,7 +68,7 @@ func (s *GalleryState) worker(
 		case topicId := <-chTopicId:
 
 			// a topic slideshow has been updated or removed
-			if err:= s.onUpdateTopic(topicId); err != nil {
+			if err := s.onUpdateTopic(topicId); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
 
@@ -78,7 +78,6 @@ func (s *GalleryState) worker(
 			if err := s.onRefresh(); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
-
 
 		case <-done:
 			// ## do something to finish other pending requests
@@ -96,7 +95,9 @@ func (s *GalleryState) onRefresh() error {
 	topics := s.app.TopicStore.All()
 
 	for _, topic := range topics {
-		if err := s.updateTopicImage(topic); err != nil { return err }
+		if err := s.updateTopicImage(topic); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -110,13 +111,19 @@ func (s *GalleryState) onUpdateShow(showId int64) error {
 	im := s.app.imager
 
 	// setup
-	if err := im.ReadVersions(showId); err != nil { return err }
+	if err := im.ReadVersions(showId); err != nil {
+		return err
+	}
 
 	// set versioned images, and update slideshow
-	if err := s.updateSlides(showId); err != nil { return err }
+	if err := s.updateSlides(showId); err != nil {
+		return err
+	}
 
 	// remove unused versions
-	if err := im.RemoveVersions(); err != nil { return err }
+	if err := im.RemoveVersions(); err != nil {
+		return err
+	}
 
 	// update highlighted images
 	return s.updateHighlights(showId)
@@ -129,7 +136,9 @@ func (s *GalleryState) onUpdateTopic(id int64) error {
 	defer s.updatesGallery()()
 
 	topic := s.app.TopicStore.GetIf(id)
-	if topic == nil { return nil }
+	if topic == nil {
+		return nil
+	}
 
 	return s.updateTopicImage(topic)
 }
@@ -139,7 +148,9 @@ func (s *GalleryState) onUpdateTopic(id int64) error {
 func (s *GalleryState) updateHighlights(id int64) error {
 
 	show := s.app.SlideshowStore.GetIf(id)
-	if show == nil { return nil }
+	if show == nil {
+		return nil
+	}
 
 	// is this for the highlights topic?
 	if show.Topic == s.app.TopicStore.HighlightsId {
@@ -169,7 +180,7 @@ func (s *GalleryState) updateSlides(showId int64) error {
 			var updated bool
 			var err error
 			if updated, slide.Image, err = s.app.imager.Updated(slide.Image); err != nil {
-				s.app.errorLog.Print(err.Error())  // log the error, but process the remaining slides
+				s.app.errorLog.Print(err.Error()) // log the error, but process the remaining slides
 			}
 
 			if updated {
@@ -228,7 +239,9 @@ func (s *GalleryState) updateTopicImage(t *models.Topic) error {
 			i := int(rand.Float32() * float32(nImages))
 			t.Image = images[i]
 
-			if err := s.app.TopicStore.Update(t); err != nil { return err }
+			if err := s.app.TopicStore.Update(t); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

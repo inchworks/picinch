@@ -56,7 +56,7 @@ func (app *Application) allowUpdateShow(r *http.Request, showId int64) bool {
 		return false
 	}
 
-	return app.allowAccessUser(r, s.User)  // owner or curator
+	return app.allowAccessUser(r, s.User) // owner or curator
 }
 
 // allow show to be viewed
@@ -75,20 +75,26 @@ func (app *Application) allowViewShow(r *http.Request, id int64) bool {
 		return true // everyone
 
 	case models.SlideshowClub:
-		if app.isAuthenticated(r) { return true } // all club members
+		if app.isAuthenticated(r) {
+			return true
+		} // all club members
 
 	case models.SlideshowTopic:
 		// depends on topic visibility
 		t, err := app.TopicStore.Get(s.Topic)
-		if err != nil { return false }
-	
+		if err != nil {
+			return false
+		}
+
 		switch t.Visible {
 
 		case models.SlideshowPublic:
 			return true
 
 		case models.SlideshowClub:
-			if app.isAuthenticated(r) { return true } // all club members
+			if app.isAuthenticated(r) {
+				return true
+			} // all club members
 		}
 	}
 
@@ -198,7 +204,7 @@ func (app *Application) isAdmin(r *http.Request) bool {
 	if !ok {
 		return false
 	}
-	
+
 	return auth.status == models.UserAdmin
 }
 
@@ -221,7 +227,7 @@ func (app *Application) isCurator(r *http.Request) bool {
 	if !ok {
 		return false
 	}
-	
+
 	return auth.status >= models.UserCurator
 }
 

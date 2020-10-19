@@ -21,12 +21,13 @@ package mysql
 
 import (
 	"time"
+
 	"github.com/jmoiron/sqlx"
 
 	"inchworks.com/picinch/pkg/models"
 )
 
-var cmds = [...]string {
+var cmds = [...]string{
 
 	"SET NAMES utf8;",
 
@@ -61,7 +62,6 @@ var cmds = [...]string {
 	KEY IDX_SLIDESHOW (slideshow),
 	CONSTRAINT FK_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
-
 
 	`CREATE TABLE slideshow (
 	id int(11) NOT NULL AUTO_INCREMENT,
@@ -131,11 +131,10 @@ var cmds = [...]string {
 		KEY IDX_USER_GALLERY (gallery),
 		CONSTRAINT FK_USER_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
-
 }
 
 // Setup new database, if it has no tables.
-// Add gallery record and specifed administrator if needed.
+// Add gallery record and specified administrator if needed.
 //
 // Returns gallery record.
 
@@ -183,10 +182,9 @@ func setupAdmin(st *UserStore, adminName string, adminPW string) error {
 
 	admin := &models.User{
 		Username: adminName,
-		Name: "Administrator",
+		Name:     "Administrator",
 		Status:   models.UserAdmin,
-		Created: time.Now(),
-	
+		Created:  time.Now(),
 	}
 	if err := admin.SetPassword(adminPW); err != nil {
 		return err

@@ -30,7 +30,7 @@ import (
 
 func (app *Application) routes() http.Handler {
 
-	commonHandlers := alice.New(secureHeaders, app.noQuery, wwwRedirect)          // ## removed app.recoverPanic
+	commonHandlers := alice.New(secureHeaders, app.noQuery, wwwRedirect)             // ## removed app.recoverPanic
 	dynHs := alice.New(app.session.Enable, noSurf, app.authenticate, app.logRequest) // dynamic page handlers
 
 	// HttpRouter wrapped to allow middleware handlers
@@ -45,7 +45,7 @@ func (app *Application) routes() http.Handler {
 	// public pages
 	router.Handler("GET", "/", dynHs.Append(app.public).ThenFunc(app.home))
 	router.Handler("GET", "/about", dynHs.Append(app.public).ThenFunc(app.about))
-	
+
 	// embedding
 	router.Handler("GET", "/highlight/:prefix/:nImage", dynHs.Append(app.public).ThenFunc(app.highlight))
 	router.Handler("GET", "/highlights/:nImages", dynHs.Append(app.public).ThenFunc(app.highlights))

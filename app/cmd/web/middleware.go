@@ -142,30 +142,33 @@ func (app *Application) logRequest(next http.Handler) http.Handler {
 // From https://www.alexedwards.net/blog/disable-http-fileserver-directory-listings
 
 type noDirFileSystem struct {
-    fs http.FileSystem
+	fs http.FileSystem
 }
 
 func (nfs noDirFileSystem) Open(path string) (http.File, error) {
-    f, err := nfs.fs.Open(path)
-    if err != nil {
-        return nil, err
-    }
+	f, err := nfs.fs.Open(path)
+	if err != nil {
+		return nil, err
+	}
 
-    s, err := f.Stat()
-    if s.IsDir() {
-        index := filepath.Join(path, "index.html")
-        if _, err := nfs.fs.Open(index); err != nil {
-            closeErr := f.Close()
-            if closeErr != nil {
-                return nil, closeErr
-            }
+	s, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if s.IsDir() {
+		index := filepath.Join(path, "index.html")
+		if _, err := nfs.fs.Open(index); err != nil {
+			closeErr := f.Close()
+			if closeErr != nil {
+				return nil, closeErr
+			}
 
-            return nil, err
-        }
-    }
+			return nil, err
+		}
+	}
 
-    return f, nil
-}    
+	return f, nil
+}
 
 // Block probes with random query parameters
 // (mainly so we don't count them as valid visitors)
@@ -204,7 +207,7 @@ func (app *Application) public(next http.Handler) http.Handler {
 			u := *r.URL
 			u.Host = app.cfg.Domains[1] // first listed domain
 			u.Scheme = "https"
-			w.Header().Set("Link", `<` + u.String() + `>; rel="canonical"`)
+			w.Header().Set("Link", `<`+u.String()+`>; rel="canonical"`)
 		}
 
 		w.Header().Set("Cache-Control", "public, max-age=600")

@@ -134,7 +134,7 @@ func (f *Form) ChildImage(field string, i int, ix int) string {
 	if value != "" && !images.ValidType(value) {
 		f.ChildErrors.Add(field, ix, "File type not supported: ")
 	}
-	return value	
+	return value
 }
 
 // Minimum number from child form
@@ -157,7 +157,6 @@ func (f *Form) ChildMin(field string, i int, ix int, min int) int {
 
 	return n
 }
-
 
 // Positive number from child form
 
@@ -188,7 +187,7 @@ func (f *Form) ChildRequired(field string, i int, ix int) string {
 	if i == 0 {
 		return ""
 	}
-	
+
 	value := strings.TrimSpace(f.Values[field][i])
 	if value == "" {
 		f.ChildErrors.Add(field, ix, "Cannot be blank")
@@ -247,13 +246,13 @@ func (f *Form) Float(s string, field string, min float64, max float64) float64 {
 // Check that field matches a regular expression.
 
 func (f *Form) MatchesPattern(field string, pattern *regexp.Regexp) {
-    value := f.Get(field)
-    if value == "" {
-        return
-    }
-    if !pattern.MatchString(value) {
-        f.Errors.Add(field, "This field is invalid")
-    }
+	value := f.Get(field)
+	if value == "" {
+		return
+	}
+	if !pattern.MatchString(value) {
+		f.Errors.Add(field, "This field is invalid")
+	}
 }
 
 // Check that field contains a maximum number of characters.
@@ -271,13 +270,13 @@ func (f *Form) MaxLength(field string, d int) {
 // Check that field contains a minimum number of characters.
 
 func (f *Form) MinLength(field string, d int) {
-    value := f.Get(field)
-    if value == "" {
-        return
-    }
-    if utf8.RuneCountInString(value) < d {
-        f.Errors.Add(field, fmt.Sprintf("Too short (minimum is %d characters)", d))
-    }
+	value := f.Get(field)
+	if value == "" {
+		return
+	}
+	if utf8.RuneCountInString(value) < d {
+		f.Errors.Add(field, fmt.Sprintf("Too short (minimum is %d characters)", d))
+	}
 }
 
 // Check that field value is integer and >=0
@@ -363,7 +362,7 @@ func parseFormHandler(writer http.ResponseWriter, request *http.Request) {
 
 	userParams := make(map[string]string)
 
-	for key, _ := range request.Form {
+	for key := range request.Form {
 		if strings.HasPrefix(key, "contact.") {
 			userParams[string(key[8:])] = request.Form.Get(key)
 		}

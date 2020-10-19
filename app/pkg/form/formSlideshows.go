@@ -102,7 +102,7 @@ func (f *SlideshowsForm) GetSlideshows(withTopics bool) (items []*SlideshowFormD
 
 			Child:   Child{parent: &f.Form, ChildIndex: ix},
 			Visible: visible,
-			NShow: showId,
+			NShow:   showId,
 			NTopic:  topicId,
 			Title:   f.ChildRequired("title", i, ix),
 		})

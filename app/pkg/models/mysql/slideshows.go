@@ -40,11 +40,11 @@ const (
 )
 
 const (
-	slideshowSelect     = `SELECT * FROM slideshow`
-	slideshowOrder      = ` ORDER BY gallery_order ASC, created DESC`
+	slideshowSelect       = `SELECT * FROM slideshow`
+	slideshowOrder        = ` ORDER BY gallery_order ASC, created DESC`
 	slideshowOrderRevised = ` ORDER BY revised DESC`
-	slideshowOrderTitle = ` ORDER BY title ASC, id`
-	slideshowRevisedSeq = ` ORDER BY revised ASC LIMIT ?,1`
+	slideshowOrderTitle   = ` ORDER BY title ASC, id`
+	slideshowRevisedSeq   = ` ORDER BY revised ASC LIMIT ?,1`
 
 	slideshowCountForTopic = `SELECT COUNT(*) FROM slideshow WHERE topic = ?`
 
@@ -52,10 +52,10 @@ const (
 	slideshowWhereTopic    = slideshowSelect + ` WHERE topic = ? AND user = ?`
 	slideshowWhereTopicSeq = slideshowSelect + ` WHERE topic = ?` + slideshowRevisedSeq
 
-	slideshowsWhereTopic      = slideshowSelect + ` WHERE topic = ?`
-	slideshowsWhereUser       = slideshowSelect + ` WHERE user = ?  AND visible >= ?` + slideshowOrder
-	slideshowsWhereGallery    = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
-	slideshowsUserPublished   = slideshowSelect + ` WHERE user = ? AND visible <> 0 AND slideshow.image <> ""` + slideshowOrderRevised
+	slideshowsWhereTopic    = slideshowSelect + ` WHERE topic = ?`
+	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ?  AND visible >= ?` + slideshowOrder
+	slideshowsWhereGallery  = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
+	slideshowsUserPublished = slideshowSelect + ` WHERE user = ? AND visible <> 0 AND slideshow.image <> ""` + slideshowOrderRevised
 
 	// most recent public slideshow for each user
 	slideshowsRecentPublished = `
@@ -126,7 +126,6 @@ func (st *SlideshowStore) CountForTopic(topicId int64) int {
 	return n
 }
 
-
 // Slideshow for topic
 
 func (st *SlideshowStore) ForTopic(topicId int64) []*models.Slideshow {
@@ -145,11 +144,15 @@ func (st *SlideshowStore) ForTopic(topicId int64) []*models.Slideshow {
 func (st *SlideshowStore) ForTopicPublished(topicId int64, latest bool) []*models.SlideshowUser {
 
 	var order string
-	if latest { order = " DESC" } else { order = " ASC" }
+	if latest {
+		order = " DESC"
+	} else {
+		order = " ASC"
+	}
 
 	var shows []*models.SlideshowUser
 
-	if err := st.DBX.Select(&shows, slideshowsTopicPublished + order, topicId); err != nil {
+	if err := st.DBX.Select(&shows, slideshowsTopicPublished+order, topicId); err != nil {
 		st.logError(err)
 		return nil
 	}
@@ -228,12 +231,14 @@ func (st *SlideshowStore) Get(id int64) (*models.Slideshow, error) {
 
 // Sideshow, if it exists
 
-func (st *SlideshowStore) GetIf(id int64) (*models.Slideshow) {
+func (st *SlideshowStore) GetIf(id int64) *models.Slideshow {
 
 	var r models.Slideshow
 
 	if err := st.DBX.Get(&r, slideshowWhereId, id); err != nil {
-		if st.convertError(err) != models.ErrNoRecord { st.logError(err) }
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+		}
 		return nil
 	}
 

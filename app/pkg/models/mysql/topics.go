@@ -40,18 +40,18 @@ const (
 )
 
 const (
-	topicSelect = `SELECT * FROM topic`
-	topicOrderDisplay  = ` ORDER BY gallery_order ASC, created DESC`
-	topicOrderTitle = ` ORDER BY title ASC`
+	topicSelect       = `SELECT * FROM topic`
+	topicOrderDisplay = ` ORDER BY gallery_order ASC, created DESC`
+	topicOrderTitle   = ` ORDER BY title ASC`
 
-	topicWhereId          = topicSelect + ` WHERE id = ?`
-	topicsWhereEditable    = topicSelect + ` WHERE gallery = ? AND id <> ?` + topicOrderTitle
-	topicsWhereGallery    = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
+	topicWhereId         = topicSelect + ` WHERE id = ?`
+	topicsWhereEditable  = topicSelect + ` WHERE gallery = ? AND id <> ?` + topicOrderTitle
+	topicsWhereGallery   = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
 	topicsWherePublished = topicSelect + ` WHERE gallery = ? AND visible = ?` + topicOrderDisplay
 )
 
 type TopicStore struct {
-	GalleryId int64
+	GalleryId    int64
 	HighlightsId int64
 	store
 }
@@ -96,7 +96,6 @@ func (st *TopicStore) AllEditable() []*models.Topic {
 	return topics
 }
 
-
 // topic by ID
 
 func (st *TopicStore) Get(id int64) (*models.Topic, error) {
@@ -112,12 +111,14 @@ func (st *TopicStore) Get(id int64) (*models.Topic, error) {
 
 // Topic, if it still exists
 
-func (st *TopicStore) GetIf(id int64) (*models.Topic) {
+func (st *TopicStore) GetIf(id int64) *models.Topic {
 
 	var r models.Topic
 
 	if err := st.DBX.Get(&r, topicWhereId, id); err != nil {
-		if st.convertError(err) != models.ErrNoRecord { st.logError(err) }
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+		}
 		return nil
 	}
 

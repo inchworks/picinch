@@ -174,7 +174,7 @@ func (app *Application) getFormUsers(w http.ResponseWriter, r *http.Request) {
 		app.clientError(w, http.StatusUnauthorized)
 		return
 	}
-	
+
 	f := app.galleryState.ForEditUsers()
 
 	app.galleryState.ForUsers()
