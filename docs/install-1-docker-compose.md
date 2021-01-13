@@ -63,4 +63,4 @@ Edit the example to change the following items. (Take care to keep indentation u
 
 If you intend to change other PicInch configuration settings, you may prefer to omit the environment settings here, and set them in a site/configuration.yml file instead.
 
-Run `docker-compose up` to fetch PicInch and MariahDB from Docker Hub and start them.
+Run `docker-compose up` to fetch PicInch and MariaDB from Docker Hub and start them.

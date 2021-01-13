@@ -32,7 +32,7 @@ import (
 )
 
 // Template data for all pages - implements TemplateData interface so we can add data without knowing
-// which template have
+// which template we have
 
 type TemplateData interface {
 	addDefaultData(app *Application, r *http.Request)
@@ -225,7 +225,7 @@ func addTemplates(root string, dir string, site string, cache map[string]*templa
 			return err
 		}
 
-		// Add root templates (assuumes order of template types doesn't matter)
+		// Add root templates (assumes order of template types doesn't matter)
 		if ts, err = parseGlobIf(ts, filepath.Join(root, "*.tmpl")); err != nil {
 			return err
 		}
@@ -282,7 +282,7 @@ func userStatus(n int) (s string) {
 	switch n {
 	// user status
 	case models.UserSuspended:
-		s = "susoended"
+		s = "suspended"
 
 	case models.UserKnown:
 		s = "-"

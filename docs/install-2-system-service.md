@@ -22,6 +22,4 @@ TimeoutStartSec=0
 WantedBy=multi-user.target
 ```
 
-1. Set access to the service file: `chmod 664 picinch.service`
-
 1. Set PicInch to start when the system is restarted: `systemctl enable picinch`

@@ -45,7 +45,7 @@ const (
 	statsSelect        = `SELECT * FROM statistic`
 	statsOrderCategory = ` ORDER BY category, start`
 	statsOrderEvent    = ` ORDER BY event, start`
-	statsOrderTime     = ` ORDER BY start DESC, count DESC, event ASC`
+	statsOrderTime     = ` ORDER BY start DESC, category ASC, count DESC, event ASC`
 
 	statsWhereBefore = statsSelect + ` WHERE start < ? AND period = ?`
 	statsWherePeriod = statsSelect + ` WHERE period = ?`

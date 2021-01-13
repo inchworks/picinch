@@ -139,7 +139,7 @@ func (q *GalleryState) updatesGallery() func() {
 
 func (q *GalleryState) updatesNone() func() {
 
-	// aquire shared locks
+	// acquire shared locks
 	q.muGallery.RLock()
 	q.rollback = false
 
