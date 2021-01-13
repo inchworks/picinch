@@ -32,10 +32,7 @@ import (
 
 func (app *Application) about(w http.ResponseWriter, r *http.Request) {
 
-	data := DataCommon{}
-	data.addDefaultData(app, r)
-
-	app.render(w, r, "about.page.tmpl", &data)
+	app.render(w, r, "about.page.tmpl", nil)
 }
 
 // Contributor (for other users to see)
