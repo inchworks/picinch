@@ -20,22 +20,23 @@ package mysql
 // SQL operations on user table.
 
 import (
+	"database/sql"
 	"log"
 
 	"github.com/jmoiron/sqlx"
 
-	"inchworks.com/picinch/pkg/models"
+	"github.com/inchworks/webparts/users"
 )
 
 const (
 	userDelete = `DELETE FROM user WHERE id = ?`
 
 	userInsert = `
-		INSERT INTO user (gallery, username, name, status, password, created) VALUES (:gallery, :username, :name, :status, :password, :created)`
+		INSERT INTO user (parent, username, name, role, status, password, created) VALUES (:parent, :username, :name, :status, :password, :created)`
 
 	userUpdate = `
 		UPDATE user
-		SET username=:username, name=:name, status=:status, password=:password, created=:created
+		SET username=:username, name=:name, role=:role, status=:status, password=:password, created=:created
 		WHERE id=:id
 	`
 )
@@ -45,23 +46,23 @@ const (
 	userOrderName = ` ORDER BY name`
 
 	userWhereId       = userSelect + ` WHERE id = ?`
-	userWhereName     = userSelect + ` WHERE gallery = ? AND username = ?`
-	usersWhereGallery = userSelect + ` WHERE gallery = ?`
+	userWhereName     = userSelect + ` WHERE parent = ? AND username = ?`
+	usersWhereGallery = userSelect + ` WHERE parent = ?`
 
 	usersByName = usersWhereGallery + userOrderName
 
-	userCount = `SELECT COUNT(*) FROM user WHERE gallery = ?`
+	userCount = `SELECT COUNT(*) FROM user WHERE parent = ?`
 
 	usersWithSlideshows0 = `
 		SELECT user.id AS userid, user.name, slideshow.id AS slideshowid, slideshow.title as showtitle FROM user
 			LEFT JOIN slideshow ON slideshow.user = user.id
-			WHERE user.gallery = ?
+			WHERE user.parent = ?
 			ORDER BY user.name ASC
 	`
 
 	usersHavingSlideshows = `
 		SELECT * FROM user
-			WHERE user.gallery = ? AND EXISTS
+			WHERE user.parent = ? AND EXISTS
 				  ( SELECT * FROM slideshow WHERE slideshow.user = user.id )
 			ORDER BY user.name ASC
 	`
@@ -78,7 +79,7 @@ const (
 									ORDER BY created DESC, id
 							) AS rnk
 			FROM slideshow
-			WHERE gallery = ? AND visible <> 0
+			WHERE parent = ? AND visible <> 0
 		)
 		SELECT user.*
 		FROM s1
@@ -110,9 +111,9 @@ func NewUserStore(db *sqlx.DB, tx **sqlx.Tx, errorLog *log.Logger) *UserStore {
 
 // All users, unordered
 
-func (st *UserStore) All() []*models.User {
+func (st *UserStore) All() []*users.User {
 
-	var users []*models.User
+	var users []*users.User
 
 	if err := st.DBX.Select(&users, usersWhereGallery, st.GalleryId); err != nil {
 		st.logError(err)
@@ -123,9 +124,9 @@ func (st *UserStore) All() []*models.User {
 
 // All users, in name order
 
-func (st *UserStore) ByName() []*models.User {
+func (st *UserStore) ByName() []*users.User {
 
-	var users []*models.User
+	var users []*users.User
 
 	if err := st.DBX.Select(&users, usersByName, st.GalleryId); err != nil {
 		st.logError(err)
@@ -136,9 +137,9 @@ func (st *UserStore) ByName() []*models.User {
 
 // All users with published slideshows, ordered by latest slideshow
 
-func (st *UserStore) Contributors() []*models.User {
+func (st *UserStore) Contributors() []*users.User {
 
-	var users []*models.User
+	var users []*users.User
 
 	if err := st.DBX.Select(&users, usersByLatestSlideshow, st.GalleryId); err != nil {
 		st.logError(err)
@@ -163,9 +164,9 @@ func (st *UserStore) Count() int {
 
 // Get user
 
-func (st *UserStore) Get(id int64) (*models.User, error) {
+func (st *UserStore) Get(id int64) (*users.User, error) {
 
-	var t models.User
+	var t users.User
 
 	if err := st.DBX.Get(&t, userWhereId, id); err != nil {
 		return nil, st.logError(err)
@@ -176,9 +177,9 @@ func (st *UserStore) Get(id int64) (*models.User, error) {
 
 // Get user ID for username
 
-func (st *UserStore) GetNamed(username string) (*models.User, error) {
+func (st *UserStore) GetNamed(username string) (*users.User, error) {
 
-	var t models.User
+	var t users.User
 
 	if err := st.DBX.Get(&t, userWhereName, st.GalleryId, username); err != nil {
 		// unknown users are expected, not logged as an error
@@ -186,6 +187,11 @@ func (st *UserStore) GetNamed(username string) (*models.User, error) {
 	}
 
 	return &t, nil
+}
+
+// IsNoRecord returns true if error is "record not found"
+func (st *UserStore) IsNoRecord(err error) bool {
+	return err == sql.ErrNoRows
 }
 
 // Convenience function for user's name
@@ -201,11 +207,17 @@ func (st *UserStore) Name(id int64) string {
 	}
 }
 
+// Rollback transaction
+
+func (st *UserStore) Rollback() {
+	// #### implement!
+}
+
 // Insert or update user
 
-func (st *UserStore) Update(u *models.User) error {
+func (st *UserStore) Update(u *users.User) error {
 
-	u.Gallery = st.GalleryId
+	u.Parent = st.GalleryId
 
 	return st.updateData(&u.Id, u)
 }

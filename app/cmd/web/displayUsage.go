@@ -20,12 +20,12 @@ package main
 // Display usage statistics
 
 import (
-	"inchworks.com/picinch/pkg/usage"
+	"github.com/inchworks/usage"
 )
 
 // Daily and monthly usage statistics
 
-func (s *GalleryState) ForUsage(period int) *DataUsagePeriods {
+func (s *GalleryState) ForUsage(period usage.Detail) *DataUsagePeriods {
 
 	var title string
 	var fmt string

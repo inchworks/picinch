@@ -25,8 +25,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Database field names are the same as structure names, with lower case first letter.
@@ -48,10 +46,11 @@ const (
 	SlideshowClub    = 1
 	SlideshowPublic  = 2
 
-	// user status
-	UserSuspended = 0
-	UserKnown     = 1
-	UserActive    = 2
+	// user roles
+	// These must match the database, so prefer specified values to iota.
+	UserUnknown = 0
+	UserFriend   = 1 // not used
+	UserMember    = 2
 	UserCurator   = 3
 	UserAdmin     = 4
 )
@@ -119,7 +118,7 @@ type Topic struct {
 	Image        string
 }
 
-type User struct {
+type User0 struct {
 	Id      int64
 	Gallery int64
 	// Shared       int64  // ## link for external access
@@ -202,34 +201,3 @@ func (t *Topic) ParseFormat() (fmt string, max int) {
 	return
 }
 
-// Password management
-
-func (u *User) Authenticate(pwd string) error {
-
-	// must be an active user
-	if u.Status < UserActive {
-		return ErrInvalidCredentials
-	}
-
-	// check password
-	err := bcrypt.CompareHashAndPassword(u.Password, []byte(pwd))
-	if err != nil {
-		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-			return ErrInvalidCredentials
-		} else {
-			return err
-		}
-	}
-	return nil
-}
-
-func (u *User) SetPassword(pwd string) error {
-
-	hashed, err := bcrypt.GenerateFromPassword([]byte(pwd), 12)
-	if err != nil {
-		return err
-	} else {
-		u.Password = hashed
-	}
-	return nil
-}

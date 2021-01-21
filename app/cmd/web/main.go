@@ -18,7 +18,6 @@
 package main
 
 import (
-	"crypto/tls"
 	"fmt"
 	"html/template"
 	"log"
@@ -29,17 +28,18 @@ import (
 	"time"
 
 	"inchworks.com/picinch/pkg/images"
-	"inchworks.com/picinch/pkg/limiter"
 	"inchworks.com/picinch/pkg/models"
 	"inchworks.com/picinch/pkg/models/mysql"
-	"inchworks.com/picinch/pkg/usage"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golangcollege/sessions"
 	"github.com/ilyakaznacheev/cleanenv"
+	"github.com/inchworks/usage"
+	"github.com/inchworks/webparts/server"
+	"github.com/inchworks/webparts/users"
 	"github.com/jmoiron/sqlx"
+	"github.com/justinas/nosurf"
 	"github.com/microcosm-cc/bluemonday"
-	"golang.org/x/crypto/acme/autocert"
 )
 
 // version and copyright
@@ -75,8 +75,8 @@ type contextKey string
 const contextKeyUser = contextKey("authenticatedUser")
 
 type AuthenticatedUser struct {
-	id     int64
-	status int
+	id   int64
+	role int
 }
 
 // Site configuration
@@ -142,17 +142,18 @@ type Application struct {
 	GalleryStore   *mysql.GalleryStore
 	SlideshowStore *mysql.SlideshowStore
 	TopicStore     *mysql.TopicStore
-	UserStore      *mysql.UserStore
+	userStore      *mysql.UserStore
 	StatisticStore *mysql.StatisticStore
+
+	// common components
+	usage *usage.Recorder
+	users users.Users
 
 	// HTML sanitizer for titles and captions
 	sanitizer *bluemonday.Policy
 
 	// Image processing
 	imager *images.Imager
-
-	// Usage
-	usage *usage.Recorder
 
 	// Channels to background worker
 	chImage   chan images.ReqSave
@@ -213,66 +214,76 @@ func main() {
 	chDone := make(chan bool, 1)
 	go app.galleryState.worker(app.chImage, app.chShowId, app.chShowIds, app.chTopicId, t.C, chDone)
 
-	// live server if we have a domain specified
-	if len(cfg.Domains) > 0 {
+	// preconfigured HTTP/HTTPS server
+	// ## name stutter!
+	srv := &server.Server{
+		ErrorLog:  errorLog,
+		InfoLog:   infoLog,
+		ThreatLog: threatLog,
 
-		// certificate manager
-		m := &autocert.Manager{
-			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist(cfg.Domains...),
-			Cache:      autocert.DirCache(CertPath),
-			Email:      cfg.CertEmail,
-		}
+		CertEmail: cfg.CertEmail,
+		CertPath:  CertPath,
+		Domains:   cfg.Domains,
 
-		// web server
-		infoLog.Printf("Starting server %s", app.cfg.AddrHTTPS)
-
-		// HTTPS server, with certificate from manager
-		srv := newServer(app.cfg.AddrHTTPS, app.routes(), threatLog, true)
-		srv.Handler = app.routes()
-		srv.TLSConfig = &tls.Config{
-			GetCertificate: func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				// GoogleBot wants to connect without SNI. Use default name.
-				if hello.ServerName == "" {
-					hello.ServerName = cfg.Domains[0]
-				}
-				return m.GetCertificate(hello)
-			},
-
-			// Preferences as recommended by Let's Go. No need to specify TLS1.3 suites.
-			PreferServerCipherSuites: true,
-			CurvePreferences:         []tls.CurveID{tls.X25519, tls.CurveP256},
-			MinVersion:               tls.VersionTLS12,
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			},
-		}
-
-		// accept http-01 challenges, and redirect HTTP -> HTTPS
-		srv1 := newServer(app.cfg.AddrHTTP, m.HTTPHandler(http.HandlerFunc(handleHTTPRedirect)), threatLog, false)
-		go srv1.ListenAndServe()
-
-		// HTTPS server
-		// ## was: err = srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem")
-		err = srv.ListenAndServeTLS("", "")
-		errorLog.Fatal(err)
-
-	} else {
-
-		// web server
-		infoLog.Printf("Starting server %s", app.cfg.AddrHTTP)
-
-		// just an HTTP server
-		srv := newServer(app.cfg.AddrHTTP, app.routes(), errorLog, true)
-
-		err = srv.ListenAndServe()
-		errorLog.Fatal(err)
+		// port addresses
+		AddrHTTP:  cfg.AddrHTTP,
+		AddrHTTPS: cfg.AddrHTTPS,
 	}
+
+	srv.Serve(app)
+}
+
+// ** INTERFACE FUNCTIONS FOR WEBPARTS/USERS **
+
+// Authenticated adds a logged-in user's ID to the session.
+func (app *Application) Authenticated(r *http.Request, id int64) {
+	app.session.Put(r, "authenticatedUserID", id)
+}
+
+// Flash adds a confirmation message to the next page, via the session.
+func (app *Application) Flash(r *http.Request, msg string) {
+	app.session.Put(r, "flash", msg)
+}
+
+// GetRedirect returns the next page after log-in, probably from a session key.
+func (app *Application) GetRedirect(r *http.Request) string { return "/" }
+
+// Log optionally records an error.
+func (app *Application) Log(err error) {
+	app.errorLog.Print(err)
+}
+
+// LogThreat optionally records a rejected request to sign-up or log-in.
+func (app *Application) LogThreat(msg string, r *http.Request) {
+	app.threat(msg, r)
+}
+
+// OnAddUser is called to add any additional application data for a user.
+func (app *Application) OnAddUser(user *users.User) {
+	// not needed for this application
+}
+
+// OnRemoveUser is called to delete any application data for a user.
+func (app *Application) OnRemoveUser(user *users.User) {
+
+	app.galleryState.OnRemoveUser(user)
+}
+
+// Render writes an HTTP response using the specified template and field (embedded as Users).
+func (app *Application) Render(w http.ResponseWriter, r *http.Request, template string, usersField interface{}) {
+	app.render(w, r, template, &usersFormData{Users: usersField})
+}
+
+// Serialise optionally requests application-level serialisation.
+// If updates=true, the store is to be updated and a transaction might be started (especially if a user is to be added or deleted).
+// The returned function will be called at the end of the operation.
+func (app *Application) Serialise(updates bool) func() {
+	return app.galleryState.updatesGallery()
+}
+
+// Token returns a token to be added to the form as the hidden field csrf_token.
+func (app *Application) Token(r *http.Request) string {
+	return nosurf.Token(r)
 }
 
 // Import customisation files
@@ -336,9 +347,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		errorLog.Fatal(err)
 	}
 
-	// setup rate limiter
-	limiter.Init(time.Minute * 20)
-
 	// setup image processing
 	app.imager = &images.Imager{
 		ImagePath: ImagePath,
@@ -351,6 +359,13 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	// setup usage, with defaults
 	if app.usage, err = usage.New(app.StatisticStore, cfg.UsageAnonymised, 0, 0, 0, 0, 0); err != nil {
 		errorLog.Fatal(err)
+	}
+
+	// user management
+	app.users = users.Users{
+		App:   app,
+		Roles: []string{"unknown", "friend", "member", "curator", "admin"},
+		Store: app.userStore,
 	}
 
 	// create worker channels
@@ -374,11 +389,11 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.GalleryStore = mysql.NewGalleryStore(app.db, &app.tx, app.errorLog)
 	app.SlideshowStore = mysql.NewSlideshowStore(app.db, &app.tx, app.errorLog)
 	app.TopicStore = mysql.NewTopicStore(app.db, &app.tx, app.errorLog)
-	app.UserStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
+	app.userStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
 	app.StatisticStore = mysql.NewStatisticStore(app.db, &app.statsTx, app.errorLog)
 
 	// setup new database and administrator, if needed, and get gallery record
-	g, err := mysql.Setup(app.GalleryStore, app.UserStore, 1, cfg.AdminName, cfg.AdminPassword)
+	g, err := mysql.Setup(app.GalleryStore, app.userStore, 1, cfg.AdminName, cfg.AdminPassword)
 	if err != nil {
 		app.errorLog.Fatal(err)
 	}
@@ -386,7 +401,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	// save gallery ID for stores that need it
 	app.SlideshowStore.GalleryId = g.Id
 	app.TopicStore.GalleryId = g.Id
-	app.UserStore.GalleryId = g.Id
+	app.userStore.GalleryId = g.Id
 
 	// highlights topicID
 	app.TopicStore.HighlightsId = 1

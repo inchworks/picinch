@@ -37,7 +37,7 @@ func (s *GalleryState) DisplayContributor(userId int64) (string, *DataHome) {
 	defer s.updatesNone()()
 
 	// user
-	user, err := s.app.UserStore.Get(userId)
+	user, err := s.app.userStore.Get(userId)
 	if err != nil {
 		s.app.log(err)
 		return "", nil
@@ -77,7 +77,7 @@ func (s *GalleryState) DisplayContributors() (string, *DataUsers) {
 
 	defer s.updatesNone()()
 
-	users := s.app.UserStore.Contributors()
+	users := s.app.userStore.Contributors()
 	if users == nil {
 		return "no-contributors.page.tmpl", &DataUsers{}
 	}
@@ -178,7 +178,7 @@ func (s *GalleryState) DisplayTopic(id int64, seq int, from string) (string, *Da
 
 	// slides and user
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, _ := s.app.UserStore.Get(show.User)
+	user, _ := s.app.userStore.Get(show.User)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide
@@ -299,7 +299,7 @@ func (s *GalleryState) ForMyGallery(userId int64) *DataMyGallery {
 	defer s.updatesNone()()
 
 	// get user
-	user, _ := s.app.UserStore.Get(userId)
+	user, _ := s.app.userStore.Get(userId)
 
 	// get slideshows
 	slideshows := s.app.SlideshowStore.ForUser(userId, models.SlideshowPrivate)
@@ -370,7 +370,7 @@ func (s *GalleryState) ForUsers() *DataUsers {
 	defer s.updatesNone()()
 
 	// get all users
-	users := s.app.UserStore.ByName()
+	users := s.app.userStore.ByName()
 
 	return &DataUsers{
 		Users: users,
@@ -490,7 +490,7 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, max int, sh
 			count[show.User] < max {
 
 			// contributor of slideshow
-			user, err := a.UserStore.Get(show.User)
+			user, err := a.userStore.Get(show.User)
 			if err != nil {
 				a.log(err)
 				return nil
@@ -553,7 +553,7 @@ func (s *GalleryState) displayHighlights(topic *models.Topic, from string, perUs
 func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max int) (string, *DataSlideshow) {
 
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, _ := s.app.UserStore.Get(show.User)
+	user, _ := s.app.userStore.Get(show.User)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide

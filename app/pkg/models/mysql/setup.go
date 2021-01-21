@@ -22,6 +22,7 @@ package mysql
 import (
 	"time"
 
+	"github.com/inchworks/webparts/users"
 	"github.com/jmoiron/sqlx"
 
 	"inchworks.com/picinch/pkg/models"
@@ -123,6 +124,7 @@ var cmds = [...]string{
 		gallery int(11) NOT NULL,
 		username varchar(60) COLLATE utf8_unicode_ci NOT NULL,
 		name varchar(60) COLLATE utf8_unicode_ci NOT NULL,
+		role smallint(6) NOT NULL,
 		status smallint(6) NOT NULL,
 		password char(60) COLLATE utf8_unicode_ci NOT NULL,
 		created datetime NOT NULL,
@@ -180,7 +182,7 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 
 func setupAdmin(st *UserStore, adminName string, adminPW string) error {
 
-	admin := &models.User{
+	admin := &users.User{
 		Username: adminName,
 		Name:     "Administrator",
 		Status:   models.UserAdmin,

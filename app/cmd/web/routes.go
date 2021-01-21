@@ -28,7 +28,7 @@ import (
 
 // Register handlers for routes
 
-func (app *Application) routes() http.Handler {
+func (app *Application) Routes() http.Handler {
 
 	commonHandlers := alice.New(secureHeaders, app.noQuery, wwwRedirect)             // ## removed app.recoverPanic
 	dynHs := alice.New(app.session.Enable, noSurf, app.authenticate, app.logRequest) // dynamic page handlers
@@ -51,25 +51,22 @@ func (app *Application) routes() http.Handler {
 	router.Handler("GET", "/highlights/:nImages", dynHs.Append(app.public).ThenFunc(app.highlights))
 
 	// setup
-	router.Handler("GET", "/setup", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormGallery))
-	router.Handler("POST", "/setup", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormGallery))
+	router.Handler("GET", "/setup", dynHs.Append(app.requireAdmin).ThenFunc(app.getFormGallery))
+	router.Handler("POST", "/setup", dynHs.Append(app.requireAdmin).ThenFunc(app.postFormGallery))
 
-	router.Handler("GET", "/edit-topics", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormTopics))
-	router.Handler("POST", "/edit-topics", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormTopics))
-
-	router.Handler("GET", "/edit-users", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormUsers))
-	router.Handler("POST", "/edit-users", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormUsers))
+	router.Handler("GET", "/edit-topics", dynHs.Append(app.requireCurator).ThenFunc(app.getFormTopics))
+	router.Handler("POST", "/edit-topics", dynHs.Append(app.requireCurator).ThenFunc(app.postFormTopics))
 
 	// edit slideshows
 	router.Handler("GET", "/edit-slides/:nShow", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormSlides))
 	router.Handler("POST", "/edit-slides/:nShow", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormSlides))
-	router.Handler("GET", "/edit-slideshows/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormSlideshows))
-	router.Handler("POST", "/edit-slideshows/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormSlideshows))
+	router.Handler("GET", "/edit-slideshows/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.getFormSlideshows))
+	router.Handler("POST", "/edit-slideshows/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.postFormSlideshows))
 
 	// edit topics
-	router.Handler("GET", "/assign-slideshows", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormAssignShows))
-	router.Handler("POST", "/assign-slideshows", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormAssignShows))
-	router.Handler("GET", "/edit-topic/:nShow/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormTopic))
+	router.Handler("GET", "/assign-slideshows", dynHs.Append(app.requireCurator).ThenFunc(app.getFormAssignShows))
+	router.Handler("POST", "/assign-slideshows", dynHs.Append(app.requireCurator).ThenFunc(app.postFormAssignShows))
+	router.Handler("GET", "/edit-topic/:nShow/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.getFormTopic))
 
 	// upload image
 	router.Handler("POST", "/upload/:nShow", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormImage))
@@ -79,21 +76,25 @@ func (app *Application) routes() http.Handler {
 	router.Handler("GET", "/contributors", dynHs.Append(app.requireAuthentication).ThenFunc(app.contributors))
 	router.Handler("GET", "/contributor/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.contributor))
 	router.Handler("GET", "/my-slideshows", dynHs.Append(app.requireAuthentication).ThenFunc(app.slideshowsOwn))
-	router.Handler("GET", "/slideshows-user/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.slideshowsUser))
+	router.Handler("GET", "/slideshows-user/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.slideshowsUser))
 	router.Handler("GET", "/topic/:nShow/:seq", dynHs.ThenFunc(app.topic))
-	router.Handler("GET", "/topic-user/:nShow/:nUser", dynHs.ThenFunc(app.topicUser))
+	router.Handler("GET", "/topic-user/:nShow/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.topicUser))
 	router.Handler("GET", "/topic-contributors/:nTopic", dynHs.ThenFunc(app.topicContributors))
-	router.Handler("GET", "/topics", dynHs.Append(app.requireAuthentication).ThenFunc(app.topics))
-	router.Handler("GET", "/usage-days", dynHs.Append(app.requireAuthentication).ThenFunc(app.usageDays))
-	router.Handler("GET", "/usage-months", dynHs.Append(app.requireAuthentication).ThenFunc(app.usageMonths))
-	router.Handler("GET", "/users-curator", dynHs.Append(app.requireAuthentication).ThenFunc(app.usersCurator))
+	router.Handler("GET", "/topics", dynHs.Append(app.requireCurator).ThenFunc(app.topics))
+	router.Handler("GET", "/usage-days", dynHs.Append(app.requireAdmin).ThenFunc(app.usageDays))
+	router.Handler("GET", "/usage-months", dynHs.Append(app.requireAdmin).ThenFunc(app.usageMonths))
+	router.Handler("GET", "/users-curator", dynHs.Append(app.requireCurator).ThenFunc(app.usersCurator))
+
+	// user management
+	router.Handler("GET", "/edit-users", dynHs.Append(app.requireAdmin).ThenFunc(app.users.GetFormEdit))
+	router.Handler("POST", "/edit-users", dynHs.Append(app.requireAdmin).ThenFunc(app.users.PostFormEdit))
 
 	// user authentication
-	router.Handler("GET", "/user/login", dynHs.ThenFunc(app.getFormLogin))
-	router.Handler("POST", "/user/login", dynHs.Append(app.limitLogin).ThenFunc(app.postFormLogin))
+	router.Handler("GET", "/user/login", dynHs.ThenFunc(app.users.GetFormLogin))
+	router.Handler("POST", "/user/login", dynHs.Append(app.limitLogin).ThenFunc(app.users.PostFormLogin))
 	router.Handler("POST", "/user/logout", dynHs.Append(app.requireAuthentication).ThenFunc(app.logout))
-	router.Handler("GET", "/user/signup", dynHs.ThenFunc(app.getFormSignup))
-	router.Handler("POST", "/user/signup", dynHs.Append(app.limitLogin).ThenFunc(app.postFormSignup))
+	router.Handler("GET", "/user/signup", dynHs.ThenFunc(app.users.GetFormSignup))
+	router.Handler("POST", "/user/signup", dynHs.Append(app.limitLogin).ThenFunc(app.users.PostFormSignup))
 
 	// files that must be in root
 	router.GET("/apple-touch-icon.png", appleTouchHandler)

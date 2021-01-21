@@ -23,12 +23,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/inchworks/usage"
+	"github.com/inchworks/webparts/multiforms"
+	"github.com/inchworks/webparts/users"
 	"github.com/justinas/nosurf"
 
 	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
-	"inchworks.com/picinch/pkg/usage"
 )
 
 // Template data for all pages - implements TemplateData interface so we can add data without knowing
@@ -55,7 +57,7 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request) {
 	d.CSRFToken = nosurf.Token(r)
 	d.Flash = app.session.PopString(r, "flash")
 	d.IsAdmin = app.isAdmin(r)
-	d.IsAuthenticated = app.isAuthenticated(r)
+	d.IsAuthenticated = app.isAuthenticated(r, models.UserFriend)
 	d.IsCurator = app.isCurator(r)
 }
 
@@ -131,14 +133,14 @@ type DataUsage struct {
 }
 
 type DataUsers struct {
-	Users []*models.User
+	Users []*users.User
 	DataCommon
 }
 
 // template data for gallery editing
 
 type simpleFormData struct {
-	Form *form.Form
+	Form *multiforms.Form
 	DataCommon
 }
 
@@ -158,7 +160,7 @@ type slideshowsFormData struct {
 }
 
 type usersFormData struct {
-	Form *form.UsersForm
+	Users interface{}
 	DataCommon
 }
 
@@ -275,26 +277,42 @@ func thumbnail(image string) string {
 
 }
 
-// conver user's status to string
-
-func userStatus(n int) (s string) {
+// userRole returns a user's role as a string
+func userRole(n int) (s string) {
 
 	switch n {
 	// user status
-	case models.UserSuspended:
-		s = "suspended"
+	case models.UserFriend:
+		s = "friend"
 
-	case models.UserKnown:
-		s = "-"
-
-	case models.UserActive:
-		s = "signed-up"
+	case models.UserMember:
+		s = "member"
 
 	case models.UserCurator:
 		s = "curator"
 
 	case models.UserAdmin:
 		s = "administrator"
+
+	default:
+		s = "??"
+	}
+
+	return
+}
+
+// userStatus returns a user's status as a string
+func userStatus(n int) (s string) {
+
+	switch n {
+	case users.UserSuspended:
+		s = "suspended"
+
+	case users.UserKnown:
+		s = "-"
+
+	case users.UserActive:
+		s = "signed-up"
 
 	default:
 		s = "??"

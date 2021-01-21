@@ -19,15 +19,19 @@ package form
 
 import (
 	"net/url"
+
+	"github.com/inchworks/webparts/multiforms"
+
+	"inchworks.com/picinch/pkg/images"
 )
 
 type SlidesForm struct {
-	Form
+	*multiforms.Form
 	Children []*SlideFormData
 }
 
 type SlideFormData struct {
-	Child
+	multiforms.Child
 	ShowOrder int
 	Title     string
 	Caption   string
@@ -36,9 +40,9 @@ type SlideFormData struct {
 
 // Slides form with expected capacity.
 
-func NewSlides(data url.Values, nSlides int) *SlidesForm {
+func NewSlides(data url.Values, nSlides int, token string) *SlidesForm {
 	return &SlidesForm{
-		Form:     Form{data, make(map[string][]string), make(map[string]map[int][]string)},
+		Form:     multiforms.New(data, token),
 		Children: make([]*SlideFormData, 0, nSlides+1),
 	}
 }
@@ -48,7 +52,7 @@ func NewSlides(data url.Values, nSlides int) *SlidesForm {
 func (f *SlidesForm) Add(index int, showOrder int, title string, imageName string, caption string) {
 
 	f.Children = append(f.Children, &SlideFormData{
-		Child:     Child{parent: &f.Form, ChildIndex: index},
+		Child:     multiforms.Child{Parent: f.Form, ChildIndex: index},
 		ShowOrder: showOrder,
 		Title:     title,
 		ImageName: imageName,
@@ -63,7 +67,7 @@ func (f *SlidesForm) Add(index int, showOrder int, title string, imageName strin
 func (f *SlidesForm) AddTemplate(nSlides int) {
 
 	f.Children = append(f.Children, &SlideFormData{
-		Child:     Child{parent: &f.Form, ChildIndex: -1},
+		Child:     multiforms.Child{Parent: f.Form, ChildIndex: -1},
 		ShowOrder: nSlides + 1,
 	})
 }
@@ -82,10 +86,10 @@ func (f *SlidesForm) GetSlides() (items []*SlideFormData, err error) {
 		}
 
 		items = append(items, &SlideFormData{
-			Child:     Child{parent: &f.Form, ChildIndex: ix},
+			Child:     multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			ShowOrder: f.ChildMin("showOrder", i, ix, 1),
 			Title:     f.ChildTrimmed("title", i),
-			ImageName: f.ChildImage("imageName", i, ix),
+			ImageName: f.ChildFile("imageName", i, ix, validType),
 			Caption:   f.ChildGet("caption", i),
 		})
 	}
@@ -94,4 +98,9 @@ func (f *SlidesForm) GetSlides() (items []*SlideFormData, err error) {
 	f.Children = items
 
 	return items, nil
+}
+
+func validType(name string) bool {
+	// ## use imaging.FormatFromFilename
+	return images.ValidType(name)
 }

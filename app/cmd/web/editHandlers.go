@@ -23,7 +23,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/inchworks/webparts/multiforms"
 	"github.com/julienschmidt/httprouter"
+	"github.com/justinas/nosurf"
+
 	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/images"
 )
@@ -36,13 +39,7 @@ type RepUpload struct {
 
 func (app *Application) getFormAssignShows(w http.ResponseWriter, r *http.Request) {
 
-	// allow access?
-	if !app.isCurator(r) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
-	f := app.galleryState.ForAssignShows()
+	f := app.galleryState.ForAssignShows(nosurf.Token(r))
 	if f == nil {
 		app.clientError(w, http.StatusInternalServerError)
 		return
@@ -56,12 +53,6 @@ func (app *Application) getFormAssignShows(w http.ResponseWriter, r *http.Reques
 
 func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Request) {
 
-	// allow access?
-	if !app.isCurator(r) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
 		app.log(err)
@@ -70,7 +61,7 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 	}
 
 	// process form data
-	f := form.NewSlideshows(r.PostForm)
+	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
 	slideshows, err := f.GetSlideshows(true)
 	if err != nil {
 		app.errorLog.Print(err.Error())
@@ -103,13 +94,7 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 
 func (app *Application) getFormGallery(w http.ResponseWriter, r *http.Request) {
 
-	// allow access?
-	if !app.isAdmin(r) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
-	f := app.galleryState.ForEditGallery()
+	f := app.galleryState.ForEditGallery(nosurf.Token(r))
 
 	// display form
 	app.render(w, r, "edit-gallery.page.tmpl", &simpleFormData{
@@ -119,12 +104,6 @@ func (app *Application) getFormGallery(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) {
 
-	// allow access?
-	if !app.isAdmin(r) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
 		app.clientError(w, http.StatusBadRequest)
@@ -132,7 +111,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// process form data
-	f := form.New(r.PostForm)
+	f := multiforms.New(r.PostForm, nosurf.Token(r))
 	f.Required("organiser", "nMaxSlides")
 	f.MaxLength("organiser", 60)
 	nMaxSlides := f.Positive("nMaxSlides")
@@ -217,7 +196,7 @@ func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f, slideshow := app.galleryState.ForEditSlideshow(showId)
+	f, slideshow := app.galleryState.ForEditSlideshow(showId, nosurf.Token(r))
 
 	// display form
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
@@ -251,7 +230,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// process form data
-	f := form.NewSlides(r.PostForm, 10)
+	f := form.NewSlides(r.PostForm, 10, nosurf.Token(r))
 	slides, err := f.GetSlides()
 	if err != nil {
 		app.log(err)
@@ -288,13 +267,7 @@ func (app *Application) getFormSlideshows(w http.ResponseWriter, r *http.Request
 	ps := httprouter.ParamsFromContext(r.Context())
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
-	// allow access?
-	if !app.allowAccessUser(r, userId) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
-	f, user := app.galleryState.ForEditSlideshows(userId)
+	f, user := app.galleryState.ForEditSlideshows(userId, nosurf.Token(r))
 	if f == nil || user == nil {
 		app.clientError(w, http.StatusInternalServerError)
 		return
@@ -314,18 +287,6 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 	ps := httprouter.ParamsFromContext(r.Context())
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
-	// user ID is 0 for topics
-	if userId == 0 {
-		app.postFormTopics(w, r)
-		return
-	}
-
-	// allow access?
-	if !app.allowAccessUser(r, userId) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
 		app.log(err)
@@ -334,7 +295,7 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 	}
 
 	// process form data
-	f := form.NewSlideshows(r.PostForm)
+	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
 	slideshows, err := f.GetSlideshows(false)
 	if err != nil {
 		app.errorLog.Print(err.Error())
@@ -375,13 +336,7 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 	topicId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
-	// allow access?
-	if !app.allowAccessUser(r, userId) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
-	f, show := app.galleryState.ForEditTopic(topicId, userId)
+	f, show := app.galleryState.ForEditTopic(topicId, userId, nosurf.Token(r))
 
 	// display form
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
@@ -396,13 +351,7 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) getFormTopics(w http.ResponseWriter, r *http.Request) {
 
-	// allow access?
-	if !app.isCurator(r) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
-	f := app.galleryState.ForEditTopics()
+	f := app.galleryState.ForEditTopics(nosurf.Token(r))
 	if f == nil {
 		app.clientError(w, http.StatusInternalServerError)
 		return
@@ -418,12 +367,6 @@ func (app *Application) getFormTopics(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 
-	// allow access?
-	if !app.isCurator(r) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
 		app.log(err)
@@ -432,7 +375,7 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// process form data
-	f := form.NewSlideshows(r.PostForm)
+	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
 	slideshows, err := f.GetSlideshows(false)
 	if err != nil {
 		app.errorLog.Print(err.Error())

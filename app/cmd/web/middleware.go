@@ -23,13 +23,16 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 
-	"inchworks.com/picinch/pkg/limiter"
-	"inchworks.com/picinch/pkg/models"
-	"inchworks.com/picinch/pkg/usage"
-
+	"github.com/inchworks/usage"
+	"github.com/inchworks/webparts/limithandler"
+	"github.com/inchworks/webparts/users"
+	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
+
+	"inchworks.com/picinch/pkg/models"
 )
 
 // Authenticate user ID against database (i.e. still a valid user since last login)
@@ -45,8 +48,8 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 		}
 
 		// check user against database
-		user, err := app.UserStore.Get(app.session.Get(r, "authenticatedUserID").(int64))
-		if errors.Is(err, models.ErrNoRecord) || user.Status < models.UserActive {
+		user, err := app.userStore.Get(app.session.Get(r, "authenticatedUserID").(int64))
+		if errors.Is(err, models.ErrNoRecord) || user.Status < users.UserActive {
 			app.session.Remove(r, "authenticatedUserID")
 			next.ServeHTTP(w, r)
 			return
@@ -57,8 +60,8 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 
 		// copy the request with indicator that user is authenticated
 		auth := AuthenticatedUser{
-			id:     user.Id,
-			status: user.Status,
+			id:   user.Id,
+			role: user.Role,
 		}
 		ctx := context.WithValue(r.Context(), contextKeyUser, auth)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -70,7 +73,7 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 // (Fail2Ban defaults are to jail for 10 minutes, ban after just 3 attempts within 10 minutes)
 
 func (app *Application) limitLogin(next http.Handler) http.Handler {
-	h := limiter.New("P", 0.02, 20, 10, next)
+	h := limithandler.New("P", 0.02, 20, 10, next)
 
 	h.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -95,7 +98,7 @@ func (app *Application) limitLogin(next http.Handler) http.Handler {
 // 1 per second with burst of 5, banned after 20 rejects
 
 func (app *Application) limitWeb(next http.Handler) http.Handler {
-	limitHandler := limiter.New("W", 1, 5, 20, next)
+	limitHandler := limithandler.New("W", 1, 5, 20, next)
 
 	return limitHandler
 }
@@ -241,11 +244,21 @@ func (app *Application) recoverPanic() func(http.ResponseWriter, *http.Request, 
 	}
 }
 
-// Require authentication for access to page
+// requireAdmin specifies that administrator authentication is needed for access to this page.
+func (app *Application) requireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !app.authAs(w, r, models.UserAdmin) {
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 
+// requireAuthentication specifies that minimum authentication is needed, for access to page,
+// or to log out.
 func (app *Application) requireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !app.isAuthenticated(r) {
+		if !app.isAuthenticated(r, models.UserFriend) {
 			app.session.Put(r, "redirectPathAfterLogin", r.URL.Path)
 			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 			return
@@ -253,6 +266,44 @@ func (app *Application) requireAuthentication(next http.Handler) http.Handler {
 
 		// pages that require authentication should not be cached by browser
 		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requireCurator specifies that curator authentication is needed for access to this page.
+func (app *Application) requireCurator(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !app.authAs(w, r, models.UserCurator) {
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requireOwner specifies that the page is for a specified user, otherwise curator authentication is needed.
+func (app *Application) requireOwner(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		u := httprouter.ParamsFromContext(r.Context()).ByName("nUser")
+		userId, _ := strconv.ParseInt(u, 10, 64)
+
+		auth, ok := r.Context().Value(contextKeyUser).(AuthenticatedUser)
+		if !ok {
+			// need to log-in
+			app.session.Put(r, "redirectPathAfterLogin", r.URL.Path)
+			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+			return
+
+		} else if auth.id == userId {
+			// access allowed to own data, but must still be a member
+			if !app.authAs(w, r, models.UserMember) {
+				return
+			}
+
+		} else if !app.authAs(w, r, models.UserCurator) {
+			return
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -268,8 +319,29 @@ func secureHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// Note attempted intrusion
+// Helper functions
 
+// authAs returns true if the user has at least the specified role.
+// It also sets cache control, so should not be bypassed on any successful authentications.
+// ## Is it?
+func (app *Application) authAs(w http.ResponseWriter, r *http.Request, minRole int) bool {
+
+	if !app.isAuthenticated(r, minRole) {
+		if app.isAuthenticated(r, models.UserUnknown) {
+			http.Error(w, "User is not authorised for role", http.StatusUnauthorized)
+		} else {
+			app.session.Put(r, "redirectPathAfterLogin", r.URL.Path)
+			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+		}
+		return false
+	}
+
+	// pages that require authentication should not be cached by browser
+	w.Header().Set("Cache-Control", "no-store")
+	return true
+}
+
+// threat records an attempted intrusion
 func (app *Application) threat(event string, r *http.Request) {
 	app.threatLog.Printf("%s - %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
 

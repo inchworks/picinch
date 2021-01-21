@@ -23,9 +23,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/inchworks/usage"
 	"github.com/jmoiron/sqlx"
-
-	"inchworks.com/picinch/pkg/usage"
 )
 
 const (
@@ -80,11 +79,11 @@ func NewStatisticStore(db *sqlx.DB, tx **sqlx.Tx, errorLog *log.Logger) *Statist
 
 // Get statistics for specified period, ordered
 
-func (st *StatisticStore) BeforeByTime(before time.Time, period int) []*usage.Statistic {
+func (st *StatisticStore) BeforeByTime(before time.Time, detail usage.Detail) []*usage.Statistic {
 
 	var stats []*usage.Statistic
 
-	if err := st.DBX.Select(&stats, statsBeforeByTime, before, period); err != nil {
+	if err := st.DBX.Select(&stats, statsBeforeByTime, before, detail); err != nil {
 		st.logError(err)
 		return nil
 	}
@@ -93,11 +92,11 @@ func (st *StatisticStore) BeforeByTime(before time.Time, period int) []*usage.St
 
 // Before specified start time, ordered by category and time
 
-func (st *StatisticStore) BeforeByCategory(before time.Time, period int) []*usage.Statistic {
+func (st *StatisticStore) BeforeByCategory(before time.Time, detail usage.Detail) []*usage.Statistic {
 
 	var stats []*usage.Statistic
 
-	if err := st.DBX.Select(&stats, statsBeforeByCategory, before, period); err != nil {
+	if err := st.DBX.Select(&stats, statsBeforeByCategory, before, detail); err != nil {
 		st.logError(err)
 		return nil
 	}
@@ -106,11 +105,11 @@ func (st *StatisticStore) BeforeByCategory(before time.Time, period int) []*usag
 
 // Before specified start time, ordered by event and time
 
-func (st *StatisticStore) BeforeByEvent(before time.Time, period int) []*usage.Statistic {
+func (st *StatisticStore) BeforeByEvent(before time.Time, detail usage.Detail) []*usage.Statistic {
 
 	var stats []*usage.Statistic
 
-	if err := st.DBX.Select(&stats, statsBeforeByEvent, before, period); err != nil {
+	if err := st.DBX.Select(&stats, statsBeforeByEvent, before, detail); err != nil {
 		st.logError(err)
 		return nil
 	}
@@ -121,14 +120,14 @@ func (st *StatisticStore) BeforeByEvent(before time.Time, period int) []*usage.S
 //
 // Note that this is atypical as no other tables have specific functions for updates.
 
-func (st *StatisticStore) DeleteIf(before time.Time, period int) error {
+func (st *StatisticStore) DeleteOld(before time.Time, detail usage.Detail) error {
 
 	tx := *st.ptx
 	if tx == nil {
 		panic("Transaction not begun")
 	}
 
-	if _, err := tx.Exec(statsDeleteIf, before, period); err != nil {
+	if _, err := tx.Exec(statsDeleteIf, before, detail); err != nil {
 		return st.logError(err)
 	}
 
@@ -137,11 +136,11 @@ func (st *StatisticStore) DeleteIf(before time.Time, period int) error {
 
 // Get single statistic, need not exist
 
-func (st *StatisticStore) GetEvent(event string, start time.Time, period int) *usage.Statistic {
+func (st *StatisticStore) GetEvent(event string, start time.Time, detail usage.Detail) *usage.Statistic {
 
 	var s usage.Statistic
 
-	if err := st.DBX.Get(&s, statsWhereStart, event, start, period); err != nil {
+	if err := st.DBX.Get(&s, statsWhereStart, event, start, detail); err != nil {
 		return nil
 	}
 

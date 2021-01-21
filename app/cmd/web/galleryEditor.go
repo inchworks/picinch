@@ -29,11 +29,14 @@ import (
 	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
+
+	"github.com/inchworks/webparts/multiforms"
+	"github.com/inchworks/webparts/users"
 )
 
 // Get data to assign slideshows to topics
 
-func (s *GalleryState) ForAssignShows() (f *form.SlideshowsForm) {
+func (s *GalleryState) ForAssignShows(tok string) (f *form.SlideshowsForm) {
 
 	// serialisation
 	defer s.updatesNone()()
@@ -43,12 +46,12 @@ func (s *GalleryState) ForAssignShows() (f *form.SlideshowsForm) {
 
 	// form
 	var d = make(url.Values)
-	f = form.NewSlideshows(d)
+	f = form.NewSlideshows(d, tok)
 
 	// add template and slideshows to form
 	f.AddTemplate()
 	for i, sh := range slideshows {
-		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Title, s.app.UserStore.Name(sh.User))
+		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Title, s.app.userStore.Name(sh.User))
 	}
 
 	return
@@ -114,14 +117,14 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.SlideshowFormData) bool {
 
 // Get data to edit gallery
 
-func (s *GalleryState) ForEditGallery() (f *form.Form) {
+func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
 
 	// serialisation
 	defer s.updatesNone()()
 
 	// current data
 	var d = make(url.Values)
-	f = form.New(d)
+	f = multiforms.New(d, tok)
 	f.Set("organiser", s.gallery.Organiser)
 	f.Set("nMaxSlides", strconv.Itoa(s.gallery.NMaxSlides))
 	f.Set("nShowcased", strconv.Itoa(s.gallery.NShowcased))
@@ -149,7 +152,7 @@ func (s *GalleryState) OnEditGallery(organiser string, nMaxSlides int, nShowcase
 
 // Get data to edit a slideshow
 
-func (s *GalleryState) ForEditSlideshow(showId int64) (f *form.SlidesForm, show *models.Slideshow) {
+func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (f *form.SlidesForm, show *models.Slideshow) {
 
 	// serialisation
 	defer s.updatesNone()()
@@ -160,7 +163,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64) (f *form.SlidesForm, show 
 
 	// form
 	var d = make(url.Values)
-	f = form.NewSlides(d, len(slides))
+	f = form.NewSlides(d, len(slides), tok)
 
 	// template for new slide form
 	f.AddTemplate(len(slides))
@@ -293,20 +296,20 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 
 // Get data to edit slideshows for a user
 
-func (s *GalleryState) ForEditSlideshows(userId int64) (f *form.SlideshowsForm, user *models.User) {
+func (s *GalleryState) ForEditSlideshows(userId int64, tok string) (f *form.SlideshowsForm, user *users.User) {
 
 	// serialisation
 	defer s.updatesNone()()
 
 	// get user
-	user, _ = s.app.UserStore.Get(userId)
+	user, _ = s.app.userStore.Get(userId)
 
 	// get slideshows
 	slideshows := s.app.SlideshowStore.ForUser(userId, models.SlideshowPrivate)
 
 	// form
 	var d = make(url.Values)
-	f = form.NewSlideshows(d)
+	f = form.NewSlideshows(d, tok)
 
 	// add template and slideshows to form
 	f.AddTemplate()
@@ -407,7 +410,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 
 // Get data to edit a user's contribution to a topic
 
-func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.SlidesForm, show *models.Slideshow) {
+func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (f *form.SlidesForm, show *models.Slideshow) {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -437,7 +440,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.Slides
 
 	// form
 	var d = make(url.Values)
-	f = form.NewSlides(d, len(slides))
+	f = form.NewSlides(d, len(slides), tok)
 
 	// template for new slide form
 	f.AddTemplate(len(slides))
@@ -453,7 +456,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.Slides
 
 // Get data to edit topics
 
-func (s *GalleryState) ForEditTopics() (f *form.SlideshowsForm) {
+func (s *GalleryState) ForEditTopics(tok string) (f *form.SlideshowsForm) {
 
 	// serialisation
 	defer s.updatesNone()()
@@ -463,7 +466,7 @@ func (s *GalleryState) ForEditTopics() (f *form.SlideshowsForm) {
 
 	// form
 	var d = make(url.Values)
-	f = form.NewSlideshows(d)
+	f = form.NewSlideshows(d, tok)
 
 	// add template and slideshows to form
 	f.AddTemplate()
@@ -561,6 +564,44 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 	}
 
 	return true
+}
+
+// OnRemoveUser removes a user's contributions from the database
+func (s *GalleryState) OnRemoveUser(user *users.User) {
+
+	// all slideshow IDs for user
+	shows := s.app.SlideshowStore.ForUser(user.Id, models.SlideshowTopic)
+	showIds := make([]int64, 0, 10)
+	topics := make(map[int64]bool)
+	for _, show := range shows {
+		showIds = append(showIds, show.Id)
+		if show.Topic != 0 {
+			topics[show.Topic] = true
+		}
+	}
+
+	// slideshows and slides will be removed by cascade delete
+	s.app.userStore.DeleteId(user.Id)
+
+	// remove user's images
+	s.app.chShowIds <- showIds
+
+	// change topic images as needed
+	for topicId := range topics {
+		s.app.chTopicId <- topicId
+	}
+}
+
+// Get user's display name
+
+func (s *GalleryState) UserDisplayName(userId int64) string {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	r, _ := s.app.userStore.Get(userId)
+
+	return r.Name
 }
 
 // Auto-format for slide
