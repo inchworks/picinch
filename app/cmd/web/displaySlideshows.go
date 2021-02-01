@@ -291,7 +291,7 @@ func (s *GalleryState) DisplayTopicUser(topicId int64, userId int64, from string
 	return s.displaySlides(show, from, 30)
 }
 
-// User's view of gallery - just their name and own slideshows at present
+// User's view of gallery - just their name, topics and own slideshows at present
 
 func (s *GalleryState) ForMyGallery(userId int64) *DataMyGallery {
 

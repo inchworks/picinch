@@ -41,8 +41,7 @@ const (
 
 const (
 	slideshowSelect       = `SELECT * FROM slideshow`
-	slideshowOrder        = ` ORDER BY gallery_order ASC, created DESC`
-	slideshowOrderRevised = ` ORDER BY revised DESC`
+	slideshowOrder        = ` ORDER BY created DESC`
 	slideshowOrderTitle   = ` ORDER BY title ASC, id`
 	slideshowRevisedSeq   = ` ORDER BY revised ASC LIMIT ?,1`
 
@@ -53,9 +52,16 @@ const (
 	slideshowWhereTopicSeq = slideshowSelect + ` WHERE topic = ?` + slideshowRevisedSeq
 
 	slideshowsWhereTopic    = slideshowSelect + ` WHERE topic = ?`
-	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ?  AND visible >= ?` + slideshowOrder
+	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrder
 	slideshowsWhereGallery  = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
-	slideshowsUserPublished = slideshowSelect + ` WHERE user = ? AND visible <> 0 AND slideshow.image <> ""` + slideshowOrderRevised
+
+	// published slideshows for a user
+	slideshowsUserPublished = `
+		SELECT slideshow.* FROM slideshow
+		LEFT JOIN topic ON topic.id = slideshow.topic
+		WHERE user = ? AND (slideshow.visible > 0 OR slideshow.visible = -1 AND topic.visible > 0) AND slideshow.image <> ""
+		ORDER BY slideshow.created DESC
+	`
 
 	// most recent public slideshow for each user
 	slideshowsRecentPublished = `
@@ -190,7 +196,7 @@ func (st *SlideshowStore) ForTopicUser(topicId int64, userId int64) *models.Slid
 	return &r
 }
 
-// All slideshows for user, in published order, specified visibility
+// All slideshows for user, in latest published order, specified visibility
 
 func (st *SlideshowStore) ForUser(userId int64, visible int) []*models.Slideshow {
 

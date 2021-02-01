@@ -46,7 +46,7 @@ const (
 
 	topicWhereId         = topicSelect + ` WHERE id = ?`
 	topicsWhereEditable  = topicSelect + ` WHERE gallery = ? AND id <> ?` + topicOrderTitle
-	topicsWhereGallery   = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
+	topicsWhereGallery   = topicSelect + ` WHERE gallery = ?` + topicOrderDisplay
 	topicsWherePublished = topicSelect + ` WHERE gallery = ? AND visible = ?` + topicOrderDisplay
 )
 
