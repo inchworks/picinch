@@ -75,12 +75,11 @@ func (app *Application) routes() http.Handler {
 	router.Handler("POST", "/upload/:nShow", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormImage))
 
 	// displays
-	router.Handler("GET", "/slideshow/:nShow", dynHs.ThenFunc(app.slideshow))
+	router.Handler("GET", "/slideshow/:nShow/:seq", dynHs.ThenFunc(app.slideshow))
 	router.Handler("GET", "/contributors", dynHs.Append(app.requireAuthentication).ThenFunc(app.contributors))
 	router.Handler("GET", "/contributor/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.contributor))
 	router.Handler("GET", "/my-slideshows", dynHs.Append(app.requireAuthentication).ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/slideshows-user/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.slideshowsUser))
-	router.Handler("GET", "/topic/:nShow/:seq", dynHs.ThenFunc(app.topic))
 	router.Handler("GET", "/topic-user/:nShow/:nUser", dynHs.ThenFunc(app.topicUser))
 	router.Handler("GET", "/topic-contributors/:nTopic", dynHs.ThenFunc(app.topicContributors))
 	router.Handler("GET", "/topics", dynHs.Append(app.requireAuthentication).ThenFunc(app.topics))

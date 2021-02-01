@@ -45,7 +45,7 @@ func (s *GalleryState) DisplayContributor(userId int64) (string, *DataHome) {
 
 	// highlights
 	var dHighlights []*DataSlide
-	show := s.app.SlideshowStore.ForTopicUser(s.app.TopicStore.HighlightsId, user.Id)
+	show := s.app.SlideshowStore.ForTopicUser(s.app.SlideshowStore.HighlightsId, user.Id)
 	if show != nil {
 		dHighlights = s.dataSlides(show.Id, s.app.cfg.MaxHighlightsTotal)
 	}
@@ -67,7 +67,7 @@ func (s *GalleryState) DisplayContributor(userId int64) (string, *DataHome) {
 	return "contributor.page.tmpl", &DataHome{
 		DisplayName:    user.Name,
 		Highlights:     dHighlights,
-		SlideshowsClub: dShows,
+		Slideshows: dShows,
 	}
 }
 
@@ -107,34 +107,22 @@ func (s *GalleryState) DisplayHome(member bool) (string, *DataHome) {
 
 	a := s.app
 
-	// no of highlight slides
+	// highlight slides
 	dHighlights := s.dataHighlights(a.cfg.MaxHighlightsTotal)
 
-	dTopicsPublic := s.dataTopicsPublished(a.TopicStore.Published(models.SlideshowPublic))
-
-	// slideshows shown as public
-	shown := make(map[int64]bool, 16)
-
-	dShowsPublic := s.dataShowsPublished(
-		a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic), a.cfg.MaxSlideshowsPublic, shown)
-
-	var dTopicsClub []*DataPublished
-	var dShowsClub []*DataPublished
+	var dShows []*DataPublished
 	if member {
-		dTopicsClub = s.dataTopicsPublished(a.TopicStore.Published(models.SlideshowClub))
-
-		// we include public slideshows, so that extra public slideshows can be seen by club
-		dShowsClub = s.dataShowsPublished(
-			a.SlideshowStore.RecentPublished(models.SlideshowClub, a.cfg.MaxSlideshowsPublic+a.cfg.MaxSlideshowsClub), a.cfg.MaxSlideshowsClub, shown)
+		dShows = s.dataShowsPublished(
+			a.SlideshowStore.RecentPublished(models.SlideshowClub, a.cfg.MaxSlideshowsPublic+a.cfg.MaxSlideshowsClub), a.cfg.MaxSlideshowsClub)
+	} else {
+		dShows = s.dataShowsPublished(
+			a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic), a.cfg.MaxSlideshowsPublic)
 	}
 
 	// template and its data
 	return "home.page.tmpl", &DataHome{
 		Highlights:       dHighlights,
-		TopicsPublic:     dTopicsPublic,
-		SlideshowsPublic: dShowsPublic,
-		TopicsClub:       dTopicsClub,
-		SlideshowsClub:   dShowsClub,
+		Slideshows: dShows,
 	}
 }
 
@@ -162,7 +150,7 @@ func (s *GalleryState) DisplayTopic(id int64, seq int, from string) (string, *Da
 
 	defer s.updatesNone()()
 
-	topic, _ := s.app.TopicStore.Get(id)
+	topic, _ := s.app.SlideshowStore.Get(id)
 	fmt, max := topic.ParseFormat()
 
 	// special selection and ordering for highlights
@@ -178,7 +166,7 @@ func (s *GalleryState) DisplayTopic(id int64, seq int, from string) (string, *Da
 
 	// slides and user
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, _ := s.app.UserStore.Get(show.User)
+	user, _ := s.app.UserStore.Get(show.User.Int64)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide
@@ -245,7 +233,7 @@ func (s *GalleryState) DisplayTopicContributors(id int64) (string, *DataSlidesho
 
 	defer s.updatesNone()()
 
-	topic, _ := s.app.TopicStore.Get(id)
+	topic, _ := s.app.SlideshowStore.Get(id)
 
 	// show latest highlights first, other topics in published order
 	latest := false
@@ -315,7 +303,7 @@ func (s *GalleryState) ForMyGallery(userId int64) *DataMyGallery {
 	}
 
 	// get topics
-	topics := s.app.TopicStore.All()
+	topics := s.app.SlideshowStore.AllTopics()
 	var dataTopics []*DataMySlideshow
 
 	for _, t := range topics {
@@ -344,7 +332,7 @@ func (s *GalleryState) ForTopics() *DataMyGallery {
 	defer s.updatesNone()()
 
 	// get topics
-	topics := s.app.TopicStore.All()
+	topics := s.app.SlideshowStore.AllTopics()
 	var dataShows []*DataMySlideshow
 
 	for _, topic := range topics {
@@ -416,7 +404,7 @@ func (s *GalleryState) SlideshowTitle(showId int64) string {
 func (s *GalleryState) dataHighlights(nImages int) []*DataSlide {
 
 	// get slides for highlights topic
-	slides := s.app.SlideStore.RecentForTopic(s.app.TopicStore.HighlightsId, s.app.cfg.MaxHighlights, nImages)
+	slides := s.app.SlideStore.RecentForTopic(s.app.SlideshowStore.HighlightsId, s.app.cfg.MaxHighlights, nImages)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide
@@ -456,62 +444,49 @@ func (s *GalleryState) dataSlides(showId int64, max int) []*DataSlide {
 	return dataSlides
 }
 
-// Public or club slideshows for home page
+// Public or club slideshows and topics for home page
 
-func (s *GalleryState) dataTopicsPublished(shows []*models.Topic) []*DataPublished {
-
-	var data []*DataPublished
-
-	for _, show := range shows {
-
-		data = append(data, &DataPublished{
-			Id:    show.Id,
-			Title: show.Title,
-			Image: show.Image,
-		})
-	}
-	return data
-}
-
-// Public or club slideshows for home page
-
-func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, max int, shown map[int64]bool) []*DataPublished {
+func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, max int) []*DataPublished {
 
 	a := s.app
-	public := len(shown) == 0        // empty map indicates no slideshows already shown
 	count := make(map[int64]int, 16) // count slideshows per-user
 
 	var data []*DataPublished
 
 	for _, show := range shows {
 
-		// check if slideshow already shown as public, or user's limit reached
-		if (public || show.Visible != models.SlideshowPublic || !shown[show.Id]) &&
-			count[show.User] < max {
+		if show.User.Valid {
 
-			// contributor of slideshow
-			user, err := a.UserStore.Get(show.User)
-			if err != nil {
-				a.log(err)
-				return nil
+			// slideshow - check if user's limit reached
+			userId := show.User.Int64
+			if count[userId] < max {
+
+				// contributor of slideshow
+				user, err := a.UserStore.Get(userId)
+				if err != nil {
+					a.log(err)
+					return nil
+				}
+
+				// data for display
+				data = append(data, &DataPublished{
+					Id:          show.Id,
+					Title:       show.Title,
+					Image:       show.Image,
+					NUser:       userId,
+					DisplayName: user.Name,
+				})
+
+				// count for user
+				count[userId]++
 			}
-
-			// data for display
+		} else {
+			// topic - data for display
 			data = append(data, &DataPublished{
-				Id:          show.Id,
-				Title:       show.Title,
-				Image:       show.Image,
-				NUser:       user.Id,
-				DisplayName: user.Name,
+				Id:    show.Id,
+				Title: show.Title,
+				Image: show.Image,
 			})
-
-			// count for user
-			count[show.User]++
-
-			// add slideshow to public set
-			if public {
-				shown[show.Id] = true
-			}
 		}
 	}
 	return data
@@ -519,7 +494,7 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, max int, sh
 
 // Display highlights : latest slides
 
-func (s *GalleryState) displayHighlights(topic *models.Topic, from string, perUser int) (string, *DataSlideshow) {
+func (s *GalleryState) displayHighlights(topic *models.Slideshow, from string, perUser int) (string, *DataSlideshow) {
 
 	// get slides for topic
 	slides := s.app.SlideStore.RecentForTopic(topic.Id, perUser, s.app.cfg.MaxHighlightsTopic)
@@ -553,7 +528,7 @@ func (s *GalleryState) displayHighlights(topic *models.Topic, from string, perUs
 func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max int) (string, *DataSlideshow) {
 
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, _ := s.app.UserStore.Get(show.User)
+	user, _ := s.app.UserStore.Get(show.User.Int64)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide

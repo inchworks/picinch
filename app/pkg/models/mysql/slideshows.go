@@ -53,9 +53,13 @@ const (
 	slideshowWhereTopicSeq = slideshowSelect + ` WHERE topic = ?` + slideshowRevisedSeq
 
 	slideshowsWhereTopic    = slideshowSelect + ` WHERE topic = ?`
-	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ?  AND visible >= ?` + slideshowOrder
+	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrder
 	slideshowsWhereGallery  = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
+	slideshowsWhereNoUser   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderTitle
 	slideshowsUserPublished = slideshowSelect + ` WHERE user = ? AND visible <> 0 AND slideshow.image <> ""` + slideshowOrderRevised
+
+	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ?` + slideshowOrderTitle
+	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderTitle
 
 	// most recent public slideshow for each user
 	slideshowsRecentPublished = `
@@ -69,7 +73,7 @@ const (
 		)
 		SELECT id, visible, user, title, caption, format, image
 		FROM s1
-		WHERE rnk <= ?
+		WHERE user == 0 OR rnk <= ?
 		ORDER BY created DESC
 	`
 	slideshowsTopicPublished = `
@@ -81,7 +85,8 @@ const (
 )
 
 type SlideshowStore struct {
-	GalleryId int64
+	GalleryId    int64
+	HighlightsId int64
 	store
 }
 
@@ -110,6 +115,44 @@ func (st *SlideshowStore) All() []*models.Slideshow {
 		return nil
 	}
 	return slideshows
+}
+
+// All editable topics
+
+func (st *SlideshowStore) AllEditableTopics() []*models.Slideshow {
+
+	var topics []*models.Slideshow
+
+	if err := st.DBX.Select(&topics, topicsWhereEditable, st.GalleryId, st.HighlightsId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return topics
+}
+
+// AllForUsers returns all slideshows except topics.
+func (st *SlideshowStore) AllForUsers() []*models.Slideshow {
+
+	var slideshows []*models.Slideshow
+
+	if err := st.DBX.Select(&slideshows, slideshowsWhereNoUser, st.GalleryId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
+}
+
+// All topics
+
+func (st *SlideshowStore) AllTopics() []*models.Slideshow {
+
+	var topics []*models.Slideshow
+
+	if err := st.DBX.Select(&topics, topicsWhereGallery, st.GalleryId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return topics
 }
 
 // Count of slideshows for topic
@@ -245,7 +288,7 @@ func (st *SlideshowStore) GetIf(id int64) *models.Slideshow {
 	return &r
 }
 
-// Most recent shows, up to N per user, excluding RecentPublic, in descending publication date
+// Most recent shows, up to N per user, excluding RecentPublic and including topics, in descending publication date
 
 func (st *SlideshowStore) RecentPublished(visible int, max int) []*models.Slideshow {
 

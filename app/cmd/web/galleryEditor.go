@@ -22,6 +22,7 @@ package main
 // These functions may modify application state.
 
 import (
+	"database/sql"
 	"net/url"
 	"strconv"
 	"time"
@@ -39,7 +40,7 @@ func (s *GalleryState) ForAssignShows() (f *form.SlideshowsForm) {
 	defer s.updatesNone()()
 
 	// get slideshows
-	slideshows := s.app.SlideshowStore.All()
+	slideshows := s.app.SlideshowStore.AllForUsers()
 
 	// form
 	var d = make(url.Values)
@@ -48,7 +49,7 @@ func (s *GalleryState) ForAssignShows() (f *form.SlideshowsForm) {
 	// add template and slideshows to form
 	f.AddTemplate()
 	for i, sh := range slideshows {
-		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Title, s.app.UserStore.Name(sh.User))
+		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Title, s.app.UserStore.Name(sh.User.Int64))
 	}
 
 	return
@@ -94,7 +95,7 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.SlideshowFormData) bool {
 				rSrc.Title != rDest.Title ||
 				rSrc.NTopic != rDest.Topic {
 
-				if rSrc.NTopic != 0 && s.app.TopicStore.GetIf(rSrc.NTopic) == nil {
+				if rSrc.NTopic != 0 && s.app.SlideshowStore.GetIf(rSrc.NTopic) == nil {
 					nConflicts++ // another curator deleted the topic!
 
 				} else {
@@ -238,8 +239,8 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 					qDest.Format = slideFormat(qsSrc[iSrc])
 					qDest.ShowOrder = qsSrc[iSrc].ShowOrder
 					qDest.Revised = now
-					qDest.Title = s.sanitize(qsSrc[iSrc].Title, "")
-					qDest.Caption = s.sanitize(qsSrc[iSrc].Caption, "")
+					qDest.Title = s.sanitize(qsSrc[iSrc].Title, qDest.Title)
+					qDest.Caption = s.sanitize(qsSrc[iSrc].Caption, qDest.Caption)
 					qDest.Image = images.FileFromName(showId, qsSrc[iSrc].ImageName, 0)
 
 					s.app.SlideStore.Update(qDest)
@@ -287,7 +288,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 	}
 
 	ok = true
-	userId = show.User
+	userId = show.User.Int64
 	return
 }
 
@@ -358,10 +359,10 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 			r := models.Slideshow{
 				GalleryOrder: 5, // default order
 				Visible:      visible,
-				User:         userId,
+				User:         sql.NullInt64{Int64: userId, Valid: true},
 				Created:      created,
 				Revised:      now,
-				Title:        rsSrc[iSrc].Title,
+				Title:        s.sanitize(rsSrc[iSrc].Title, ""),
 			}
 			s.app.SlideshowStore.Update(&r)
 			iSrc++
@@ -382,7 +383,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 					rSrc.Title != rDest.Title {
 
 					rDest.Visible = rSrc.Visible
-					rDest.Title = rSrc.Title
+					rDest.Title = s.sanitize(rSrc.Title, rDest.Title)
 
 					// set creation date just once, when published
 					if rSrc.Visible > models.SlideshowPrivate && rDest.Created.IsZero() {
@@ -415,7 +416,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.Slides
 	// user's show for topic
 	show = s.app.SlideshowStore.ForTopicUser(topicId, userId)
 	if show == nil {
-		topic, _ := s.app.TopicStore.Get(topicId)
+		topic, _ := s.app.SlideshowStore.Get(topicId)
 
 		// create slideshow for topic
 		now := time.Now()
@@ -423,7 +424,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.Slides
 		show = &models.Slideshow{
 			GalleryOrder: 5, // default
 			Visible:      models.SlideshowTopic,
-			User:         userId,
+			User:         sql.NullInt64{Int64: userId, Valid: true},
 			Topic:        topicId,
 			Created:      now,
 			Revised:      now,
@@ -459,7 +460,7 @@ func (s *GalleryState) ForEditTopics() (f *form.SlideshowsForm) {
 	defer s.updatesNone()()
 
 	// get topics
-	topics := s.app.TopicStore.AllEditable()
+	topics := s.app.SlideshowStore.AllEditableTopics()
 
 	// form
 	var d = make(url.Values)
@@ -488,7 +489,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 	now := time.Now()
 
 	// compare modified slideshows against current ones, and update
-	rsDest := s.app.TopicStore.AllEditable()
+	rsDest := s.app.SlideshowStore.AllEditableTopics()
 
 	nSrc := len(rsSrc)
 	nDest := len(rsDest)
@@ -514,14 +515,14 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 			}
 
 			// no more destination slideshows - add new one
-			r := models.Topic{
+			r := models.Slideshow{
 				GalleryOrder: 5, // default order
 				Visible:      visible,
 				Created:      created,
 				Revised:      now,
-				Title:        rsSrc[iSrc].Title,
+				Title:        s.sanitize(rsSrc[iSrc].Title, ""),
 			}
-			s.app.TopicStore.Update(&r)
+			s.app.SlideshowStore.Update(&r)
 			iSrc++
 
 		} else {
@@ -540,7 +541,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 					rSrc.Title != rDest.Title {
 
 					rDest.Visible = rSrc.Visible
-					rDest.Title = rSrc.Title
+					rDest.Title = s.sanitize(rSrc.Title, rDest.Title)
 
 					// set creation date just once, when published
 					if rSrc.Visible > models.SlideshowPrivate && rDest.Created.IsZero() {
@@ -548,7 +549,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 					}
 					rDest.Revised = now
 
-					s.app.TopicStore.Update(rDest)
+					s.app.SlideshowStore.Update(rDest)
 				}
 				iSrc++
 				iDest++
@@ -600,7 +601,7 @@ func (s *GalleryState) onRemoveSlideshow(slideshow *models.Slideshow) {
 
 // Processing when a topic is removed
 
-func (s *GalleryState) onRemoveTopic(t *models.Topic) {
+func (s *GalleryState) onRemoveTopic(t *models.Slideshow) {
 
 	// give the users back their own slideshows
 	store := s.app.SlideshowStore
@@ -611,7 +612,7 @@ func (s *GalleryState) onRemoveTopic(t *models.Topic) {
 		store.Update(s)
 	}
 
-	s.app.TopicStore.DeleteId(t.Id)
+	s.app.SlideshowStore.DeleteId(t.Id)
 }
 
 // Sanitize HTML for reuse

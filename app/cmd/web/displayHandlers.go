@@ -122,26 +122,41 @@ func (app *Application) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// Slideshow
+// Slideshow or slideshows for a topic
 
 func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
-	showId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	seq, _ := strconv.ParseInt(ps.ByName("seq"), 10, 32)
 
 	// allow access to show?
 	// ## reads show, and DisplaySlideshow will read it again
-	if !app.allowViewShow(r, showId) {
+	isVisible, isTopic := app.allowViewShow(r, id)
+
+	if !isVisible {
 		app.clientError(w, http.StatusUnauthorized)
 		return
 	}
 
-	// template and data for slides
-	template, data := app.galleryState.DisplaySlideshow(showId, r.Referer())
-	if data == nil {
-		app.clientError(w, http.StatusBadRequest)
-		return
+	var template string
+	var data *DataSlideshow
+	if isTopic {
+		// template and data for slides
+		template, data = app.galleryState.DisplayTopic(id, int(seq), "/")
+		if data == nil {
+			app.session.Put(r, "flash", "No contributions to this topic yet.")
+			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+			return
+		}
+	} else {
+		// template and data for slides
+		template, data = app.galleryState.DisplaySlideshow(id, r.Referer())
+		if data == nil {
+			app.clientError(w, http.StatusBadRequest)
+			return
+		}
 	}
 
 	// display page
@@ -174,34 +189,6 @@ func (app *Application) slideshowsUser(w http.ResponseWriter, r *http.Request) {
 	data := app.galleryState.ForMyGallery(userId)
 
 	app.render(w, r, "my-gallery.page.tmpl", data)
-}
-
-// All slideshows for topic
-
-func (app *Application) topic(w http.ResponseWriter, r *http.Request) {
-
-	ps := httprouter.ParamsFromContext(r.Context())
-
-	id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
-	seq, _ := strconv.ParseInt(ps.ByName("seq"), 10, 32)
-
-	// allow access to topic?
-	// ## reads topic, and DisplayTopic will read it again
-	if !app.allowViewTopic(r, id) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
-	// template and data for slides
-	template, data := app.galleryState.DisplayTopic(id, int(seq), "/")
-	if data == nil {
-		app.session.Put(r, "flash", "No contributions to this topic yet.")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
-		return
-	}
-
-	// display page
-	app.render(w, r, template, data)
 }
 
 // Topic slides for user

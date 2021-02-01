@@ -141,7 +141,6 @@ type Application struct {
 	SlideStore     *mysql.SlideStore
 	GalleryStore   *mysql.GalleryStore
 	SlideshowStore *mysql.SlideshowStore
-	TopicStore     *mysql.TopicStore
 	UserStore      *mysql.UserStore
 	StatisticStore *mysql.StatisticStore
 
@@ -373,7 +372,6 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.SlideStore = mysql.NewSlideStore(app.db, &app.tx, app.errorLog)
 	app.GalleryStore = mysql.NewGalleryStore(app.db, &app.tx, app.errorLog)
 	app.SlideshowStore = mysql.NewSlideshowStore(app.db, &app.tx, app.errorLog)
-	app.TopicStore = mysql.NewTopicStore(app.db, &app.tx, app.errorLog)
 	app.UserStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
 	app.StatisticStore = mysql.NewStatisticStore(app.db, &app.statsTx, app.errorLog)
 
@@ -385,11 +383,18 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 
 	// save gallery ID for stores that need it
 	app.SlideshowStore.GalleryId = g.Id
-	app.TopicStore.GalleryId = g.Id
 	app.UserStore.GalleryId = g.Id
 
-	// highlights topicID
-	app.TopicStore.HighlightsId = 1
+	// highlights topic ID
+	app.SlideshowStore.HighlightsId = 1
+
+	// database changes from previous version(s)
+	topicStore := mysql.NewTopicStore(app.db, &app.tx, app.errorLog)
+	topicStore.GalleryId = g.Id
+	err = mysql.MigrateTopics(topicStore, app.SlideshowStore, app.SlideStore)
+	if err != nil {
+		app.errorLog.Fatal(err)
+	}
 
 	return g
 }

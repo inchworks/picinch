@@ -45,14 +45,13 @@ const (
 	topicOrderTitle   = ` ORDER BY title ASC`
 
 	topicWhereId         = topicSelect + ` WHERE id = ?`
-	topicsWhereEditable  = topicSelect + ` WHERE gallery = ? AND id <> ?` + topicOrderTitle
-	topicsWhereGallery   = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
+	topicsWhereEditable0 = topicSelect + ` WHERE gallery = ? AND id <> ?` + topicOrderTitle
+	topicsWhereGallery0  = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
 	topicsWherePublished = topicSelect + ` WHERE gallery = ? AND visible = ?` + topicOrderDisplay
 )
 
 type TopicStore struct {
-	GalleryId    int64
-	HighlightsId int64
+	GalleryId     int64
 	store
 }
 
@@ -76,72 +75,22 @@ func (st *TopicStore) All() []*models.Topic {
 
 	var topics []*models.Topic
 
-	if err := st.DBX.Select(&topics, topicsWhereGallery, st.GalleryId); err != nil {
+	if err := st.DBX.Select(&topics, topicsWhereGallery0, st.GalleryId); err != nil {
 		st.logError(err)
 		return nil
 	}
 	return topics
 }
 
-// All editable topics
-
-func (st *TopicStore) AllEditable() []*models.Topic {
-
-	var topics []*models.Topic
-
-	if err := st.DBX.Select(&topics, topicsWhereEditable, st.GalleryId, st.HighlightsId); err != nil {
-		st.logError(err)
-		return nil
-	}
-	return topics
-}
-
-// topic by ID
-
-func (st *TopicStore) Get(id int64) (*models.Topic, error) {
-
-	var r models.Topic
-
-	if err := st.DBX.Get(&r, topicWhereId, id); err != nil {
-		return nil, st.logError(err)
-	}
-
-	return &r, nil
-}
-
-// Topic, if it still exists
+// Topic, if it or the table still exists
 
 func (st *TopicStore) GetIf(id int64) *models.Topic {
 
 	var r models.Topic
 
 	if err := st.DBX.Get(&r, topicWhereId, id); err != nil {
-		if st.convertError(err) != models.ErrNoRecord {
-			st.logError(err)
-		}
 		return nil
 	}
 
 	return &r
-}
-
-// Published topics
-
-func (st *TopicStore) Published(visible int) []*models.Topic {
-
-	var topics []*models.Topic
-
-	if err := st.DBX.Select(&topics, topicsWherePublished, st.GalleryId, visible); err != nil {
-		st.logError(err)
-		return nil
-	}
-	return topics
-}
-
-// Insert or update topic
-
-func (st *TopicStore) Update(r *models.Topic) error {
-	r.Gallery = st.GalleryId
-
-	return st.updateData(&r.Id, r)
 }
