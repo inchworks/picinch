@@ -92,7 +92,7 @@ func (s *GalleryState) onRefresh() error {
 
 	defer s.updatesGallery()()
 
-	topics := s.app.TopicStore.All()
+	topics := s.app.SlideshowStore.AllTopics()
 
 	for _, topic := range topics {
 		if err := s.updateTopicImage(topic); err != nil {
@@ -135,7 +135,7 @@ func (s *GalleryState) onUpdateTopic(id int64) error {
 
 	defer s.updatesGallery()()
 
-	topic := s.app.TopicStore.GetIf(id)
+	topic := s.app.SlideshowStore.GetIf(id)
 	if topic == nil {
 		return nil
 	}
@@ -153,7 +153,7 @@ func (s *GalleryState) updateHighlights(id int64) error {
 	}
 
 	// is this for the highlights topic?
-	if show.Topic == s.app.TopicStore.HighlightsId {
+	if show.Topic == s.app.SlideshowStore.HighlightsId {
 		return s.cacheHighlights()
 	}
 
@@ -227,7 +227,7 @@ func (s *GalleryState) updateSlides(showId int64) error {
 
 // Change topic thumbnail
 
-func (s *GalleryState) updateTopicImage(t *models.Topic) error {
+func (s *GalleryState) updateTopicImage(t *models.Slideshow) error {
 
 	if t.Visible >= models.SlideshowClub {
 		images := s.app.SlideStore.ImagesForTopic(t.Id)
@@ -239,7 +239,7 @@ func (s *GalleryState) updateTopicImage(t *models.Topic) error {
 			i := int(rand.Float32() * float32(nImages))
 			t.Image = images[i]
 
-			if err := s.app.TopicStore.Update(t); err != nil {
+			if err := s.app.SlideshowStore.Update(t); err != nil {
 				return err
 			}
 		}

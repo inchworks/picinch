@@ -62,12 +62,9 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request) {
 // template data for display pages
 
 type DataHome struct {
-	DisplayName      string
-	Highlights       []*DataSlide
-	TopicsPublic     []*DataPublished
-	TopicsClub       []*DataPublished
-	SlideshowsPublic []*DataPublished
-	SlideshowsClub   []*DataPublished
+	DisplayName string
+	Highlights  []*DataSlide
+	Slideshows  []*DataPublished
 	DataCommon
 }
 

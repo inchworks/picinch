@@ -68,7 +68,7 @@ var cmds = [...]string{
 	gallery int(11) NOT NULL,
 	gallery_order int(11) NOT NULL,
 	visible smallint(6) NOT NULL,
-	user int(11) NOT NULL,
+	user int(11) NULL,
 	shared int(11) NOT NULL,
 	topic int(11) NOT NULL,
 	created datetime NOT NULL,
@@ -86,6 +86,9 @@ var cmds = [...]string{
 	CONSTRAINT FK_SLIDESHOW_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 
+	`INSERT INTO slideshow (id, gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image) VALUES
+	(1,	1, 1, 2, 0, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '');`,
+
 	`CREATE TABLE statistic (
 		id int(11) NOT NULL AUTO_INCREMENT,
 		event varchar(60) COLLATE utf8_unicode_ci NOT NULL,
@@ -97,26 +100,6 @@ var cmds = [...]string{
 		UNIQUE KEY IDX_STATISTIC (event, start, period),
 		KEY IDX_START_PERIOD (start, period)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
-
-	`CREATE TABLE topic (
-		id int(11) NOT NULL AUTO_INCREMENT,
-		gallery int(11) NOT NULL,
-		gallery_order int(11) NOT NULL,
-		visible smallint(6) NOT NULL,
-		shared int(11) NOT NULL,
-		created datetime NOT NULL,
-		revised datetime NOT NULL,
-		title varchar(128) COLLATE utf8_unicode_ci NOT NULL,
-		caption varchar(512) COLLATE utf8_unicode_ci NOT NULL,
-		format varchar(16) COLLATE utf8_unicode_ci NOT NULL,
-		image varchar(256) COLLATE utf8_unicode_ci NOT NULL,
-		PRIMARY KEY (id),
-		KEY IDX_TOPIC_GALLERY (gallery),
-		CONSTRAINT FK_TOPIC_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
-
-	`INSERT INTO topic (id, gallery, gallery_order, visible, shared, created, revised, title, caption, format, image) VALUES
-	(1,	1,	1,	2,	0,	'2020-04-25 15:52:42',	'2020-04-25 15:52:42',	'Highlights',	'',	'H.4', '');`,
 
 	`CREATE TABLE user (
 		id int(11) NOT NULL AUTO_INCREMENT,
@@ -206,5 +189,92 @@ func setupTables(db *sqlx.DB, tx *sqlx.Tx) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// migrateTopics replaces old topic records with corresponding slideshow records.
+func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *SlideStore) error {
+
+	var cmdSlideshow = `ALTER TABLE slideshow MODIFY COLUMN user int(11) NULL;`
+	var cmdTopic = `DROP TABLE topic;`
+
+	// do we have topics?
+	t := stTopic.GetIf(stSlideshow.HighlightsId)
+	if t == nil {
+		return nil // nothing to do
+	}
+
+	// allow null references to user
+	tx := *stSlideshow.ptx
+	if _, err := tx.Exec(cmdSlideshow); err != nil {
+		return err
+	}
+
+	// move existing first slideshow, if there is one
+	s := stSlideshow.GetIf(stSlideshow.HighlightsId)
+	if s != nil {
+		oldId := s.Id
+		s.Id = 0
+		err := stSlideshow.Update(s) // sets s.Id
+		if err != nil {
+			return err
+		}
+
+		// reassign slides
+		slides := stSlide.ForSlideshow(oldId, 1000)
+		for _, slide := range slides {
+			slide.Slideshow = s.Id
+			err := stSlide.Update(slide)
+			if err != nil {
+				return err
+			}
+		}
+
+		// delete old slideshow
+		err = stSlideshow.DeleteId(stSlideshow.HighlightsId)
+		if err != nil {
+			return err
+		}
+	}
+
+	// move topics
+	ts := stTopic.All()
+	for _, t = range ts {
+
+		// corresponding slideshow for topic
+		topicShow := &models.Slideshow {
+			Gallery: t.Gallery,
+			GalleryOrder: t.GalleryOrder,
+			Visible:      t.Visible,
+			Shared:       t.Shared,
+			Created:      t.Created,
+			Revised:      t.Revised,
+			Title:        t.Title,
+			Caption:      t.Caption,
+			Format:       t.Format,
+			Image:        t.Image,
+		}
+		err := stSlideshow.Update(topicShow)
+		if err != nil {
+			return err
+		}
+
+		// reassign slideshows for topic
+		ss := stSlideshow.ForTopic(t.Id)
+		for _, s = range ss {
+			s.Topic = topicShow.Id
+			err = stSlideshow.Update(s)
+			if err != nil {
+				return err
+			}
+		}
+
+		// delete topics table
+		if _, err := tx.Exec(cmdTopic); err != nil {
+			return err
+		}	
+	}
+
+
 	return nil
 }

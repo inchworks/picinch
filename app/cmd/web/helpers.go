@@ -56,69 +56,56 @@ func (app *Application) allowUpdateShow(r *http.Request, showId int64) bool {
 		return false
 	}
 
-	return app.allowAccessUser(r, s.User) // owner or curator
+	return app.allowAccessUser(r, s.User.Int64) // owner or curator
 }
 
 // allow show to be viewed
 
-func (app *Application) allowViewShow(r *http.Request, id int64) bool {
+func (app *Application) allowViewShow(r *http.Request, id int64) (bool, bool) {
 
 	// get show user and visibility
 	s, err := app.SlideshowStore.Get(id)
 	if err != nil {
-		return false
+		return false, false
 	}
+
+	// is this a topic
+	isTopic := !s.User.Valid
 
 	switch s.Visible {
 
 	case models.SlideshowPublic:
-		return true // everyone
+		return true, isTopic // everyone
 
 	case models.SlideshowClub:
 		if app.isAuthenticated(r) {
-			return true
-		} // all club members
+			return true, isTopic // all club members
+		}
 
 	case models.SlideshowTopic:
 		// depends on topic visibility
-		t, err := app.TopicStore.Get(s.Topic)
+		t, err := app.SlideshowStore.Get(s.Topic)
 		if err != nil {
-			return false
+			return false, isTopic
 		}
 
 		switch t.Visible {
 
 		case models.SlideshowPublic:
-			return true
+			return true, isTopic // public topic
 
 		case models.SlideshowClub:
 			if app.isAuthenticated(r) {
-				return true
-			} // all club members
+				return true, isTopic // all club members
+			}
 		}
 	}
 
-	return app.allowAccessUser(r, s.User) // owner or curator
-}
-
-// allow topic to be viewed
-
-func (app *Application) allowViewTopic(r *http.Request, id int64) bool {
-
-	// get show user and visibility
-	s, err := app.TopicStore.Get(id)
-	if err != nil {
-		return false
+	if isTopic {
+		return app.isCurator(r), true // curator or admin
+	} else {
+		return app.allowAccessUser(r, s.User.Int64), false // owner or curator
 	}
-
-	if s.Visible == models.SlideshowPublic {
-		return true // everyone
-
-	} else if s.Visible == models.SlideshowClub && app.isAuthenticated(r) {
-		return true // all club members
-	}
-
-	return app.isCurator(r) // curator or admin
 }
 
 // get authenticated user ID
