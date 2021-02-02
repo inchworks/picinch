@@ -40,9 +40,10 @@ const (
 )
 
 const (
+	// note that ID is included for stable ordering of selections for editing
 	slideshowSelect       = `SELECT * FROM slideshow`
-	slideshowOrder        = ` ORDER BY created DESC`
-	slideshowOrderTitle   = ` ORDER BY title ASC, id`
+	slideshowOrder        = ` ORDER BY revised DESC, id`
+	slideshowOrderTitle   = ` ORDER BY title, id`
 	slideshowRevisedSeq   = ` ORDER BY revised ASC LIMIT ?,1`
 
 	slideshowCountForTopic = `SELECT COUNT(*) FROM slideshow WHERE topic = ?`
