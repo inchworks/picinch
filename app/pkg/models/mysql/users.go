@@ -41,8 +41,9 @@ const (
 )
 
 const (
+	// note that ID is included for stable ordering of selections for editing
 	userSelect    = `SELECT * FROM user`
-	userOrderName = ` ORDER BY name`
+	userOrderName = ` ORDER BY name, id`
 
 	userWhereId       = userSelect + ` WHERE id = ?`
 	userWhereName     = userSelect + ` WHERE gallery = ? AND username = ?`

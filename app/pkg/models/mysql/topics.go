@@ -40,9 +40,10 @@ const (
 )
 
 const (
+	// note that ID is included for stable ordering of selections for editing
 	topicSelect       = `SELECT * FROM topic`
-	topicOrderDisplay = ` ORDER BY gallery_order ASC, created DESC`
-	topicOrderTitle   = ` ORDER BY title ASC`
+	topicOrderDisplay = ` ORDER BY gallery_order ASC, revised DESC`
+	topicOrderTitle   = ` ORDER BY title, id`
 
 	topicWhereId         = topicSelect + ` WHERE id = ?`
 	topicsWhereEditable  = topicSelect + ` WHERE gallery = ? AND id <> ?` + topicOrderTitle
