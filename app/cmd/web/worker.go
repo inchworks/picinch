@@ -30,8 +30,8 @@ import (
 
 func (s *GalleryState) worker(
 	chImage <-chan images.ReqSave,
-	chShowId <-chan int64,
-	chShowIds <-chan []int64,
+	chShow <-chan reqUpdateShow,
+	chShows <-chan []reqUpdateShow,
 	chTopicId <-chan int64,
 	chRefresh <-chan time.Time,
 	done <-chan bool) {
@@ -48,18 +48,18 @@ func (s *GalleryState) worker(
 				s.app.errorLog.Print(err.Error())
 			}
 
-		case showId := <-chShowId:
+		case req := <-chShow:
 
 			// a slideshow has been updated or removed
-			if err := s.onUpdateShow(showId); err != nil {
+			if err := s.onUpdateShow(req.showId, req.userId); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
 
-		case showIds := <-chShowIds:
+		case reqs := <-chShows:
 
 			// a set of slideshows have been updated (e.g. user removed)
-			for _, showId := range showIds {
-				if err := s.onUpdateShow(showId); err != nil {
+			for _, req := range reqs {
+				if err := s.onUpdateShow(req.showId, req.userId); err != nil {
 					s.app.errorLog.Print(err.Error())
 				}
 				runtime.Gosched()
@@ -105,13 +105,13 @@ func (s *GalleryState) onRefresh() error {
 
 // A slideshow has been updated or removed
 
-func (s *GalleryState) onUpdateShow(showId int64) error {
+func (s *GalleryState) onUpdateShow(showId int64, userId int64) error {
 
 	// images
 	im := s.app.imager
 
 	// setup
-	if err := im.ReadVersions(showId); err != nil {
+	if err := im.ReadVersions(showId, userId); err != nil {
 		return err
 	}
 
@@ -168,6 +168,13 @@ func (s *GalleryState) updateSlides(showId int64) error {
 
 	defer s.updatesGallery()()
 
+	// check if this is an update or deletion
+	show := s.app.SlideshowStore.GetIf(showId)
+	if show == nil {
+		// No slides to be updated. A following call to imager.RemoveVersions will delete all images.
+		return nil
+	}
+
 	thumbnail := ""
 	nImages := 0
 
@@ -177,13 +184,14 @@ func (s *GalleryState) updateSlides(showId int64) error {
 
 		if slide.Image != "" {
 
-			var updated bool
+			var newImage string
 			var err error
-			if updated, slide.Image, err = s.app.imager.Updated(slide.Image); err != nil {
+			if newImage, err = s.app.imager.Updated(slide.Image); err != nil {
 				s.app.errorLog.Print(err.Error()) // log the error, but process the remaining slides
 			}
 
-			if updated {
+			if newImage != "" {
+				slide.Image = newImage
 				s.app.SlideStore.Update(slide)
 			}
 
@@ -195,31 +203,26 @@ func (s *GalleryState) updateSlides(showId int64) error {
 		}
 	}
 
-	// check if this is an update or deletion
-	show := s.app.SlideshowStore.GetIf(showId)
-	if show != nil {
+	// remove empty show for topic
+	// ## beware race with user re-opening show to add back an image
+	if nImages == 0 && show.Visible == models.SlideshowTopic {
+		s.app.SlideshowStore.DeleteId(showId)
 
-		// remove empty show for topic
-		// ## beware race with user re-opening show to add back an image
-		if nImages == 0 && show.Visible == models.SlideshowTopic {
-			s.app.SlideshowStore.DeleteId(showId)
+	} else {
 
-		} else {
-
-			// update slideshow thumbnail, if changed
-			if thumbnail != show.Image {
-				show.Image = thumbnail
-			}
-
-			// ## temporary fix for missing creation time
-			if show.Topic == 1 && show.Created == (time.Time{}) {
-				show.Created = time.Now()
-			}
-
-			// update slideshow revision date
-			show.Revised = time.Now()
-			s.app.SlideshowStore.Update(show)
+		// update slideshow thumbnail, if changed
+		if thumbnail != show.Image {
+			show.Image = thumbnail
 		}
+
+		// ## temporary fix for missing creation time
+		if show.Topic == 1 && show.Created == (time.Time{}) {
+			show.Created = time.Now()
+		}
+
+		// update slideshow revision date
+		show.Revised = time.Now()
+		s.app.SlideshowStore.Update(show)
 	}
 
 	return nil
