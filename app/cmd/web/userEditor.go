@@ -170,10 +170,10 @@ func (s *GalleryState) onRemoveUser(user *models.User) {
 
 	// all slideshow IDs for user
 	shows := s.app.SlideshowStore.ForUser(user.Id, models.SlideshowTopic)
-	showIds := make([]int64, 0, 10)
+	reqShows := make([]reqUpdateShow, 0, 10)
 	topics := make(map[int64]bool)
 	for _, show := range shows {
-		showIds = append(showIds, show.Id)
+		reqShows = append(reqShows, reqUpdateShow{showId: show.Id, userId: user.Id})
 		if show.Topic != 0 {
 			topics[show.Topic] = true
 		}
@@ -183,7 +183,7 @@ func (s *GalleryState) onRemoveUser(user *models.User) {
 	s.app.UserStore.DeleteId(user.Id)
 
 	// remove user's images
-	s.app.chShowIds <- showIds
+	s.app.chShows <- reqShows
 
 	// change topic images as needed
 	for topicId := range topics {

@@ -34,8 +34,10 @@
 		<form action='/edit-slides/{{ .NShow }}' method='POST' enctype="multipart/form-data" >
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
+	        	<input type='hidden' name='nTopic' value='{{.NTopic}}'>
+    	        <input type='hidden' name='nUser' value='{{.NUser}}'>
 
-				<div id="formChildren">
+ 				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
 							<div style='display:none'>
@@ -154,7 +156,7 @@
 			fd.append('image', $inp[0].files[0]);
   
 			$.ajax({
-				url: '/upload/{{ .NShow }}',  
+				url: '/upload/{{ .Form.NUser }}',  
 				type: 'POST',
 				data: fd,
 				dataType: 'json',

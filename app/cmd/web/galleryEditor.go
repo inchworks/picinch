@@ -161,6 +161,8 @@ func (s *GalleryState) ForEditSlideshow(showId int64) (f *form.SlidesForm, show 
 	// form
 	var d = make(url.Values)
 	f = form.NewSlides(d, len(slides))
+	f.NTopic = show.Topic
+	f.NUser = show.User
 
 	// template for new slide form
 	f.AddTemplate(len(slides))
@@ -174,20 +176,47 @@ func (s *GalleryState) ForEditSlideshow(showId int64) (f *form.SlidesForm, show 
 	return
 }
 
-// Processing when slideshow is modified
+// Processing when slideshow is modified.
+// topicId and userId are needed only for a new slideshow for a topic. Otherwise we prefer to trust the database.
 
-func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData) (ok bool, userId int64) {
+func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64, qsSrc []*form.SlideFormData) (ok bool, userIdRet int64) {
 
 	// serialisation
 	defer s.updatesGallery()()
 
 	now := time.Now()
+	nSrc := len(qsSrc)
+
+	if showId != 0 {
+		// slideshow already exists
+		show, err := s.app.SlideshowStore.Get(showId)
+		if err != nil {
+			return
+		}
+		topicId = show.Topic
+		userId = show.User
+
+	} else if nSrc > 0 {
+		// create a new slideshow from the topic
+		topic, _ := s.app.TopicStore.Get(topicId)
+
+		show := &models.Slideshow{
+			GalleryOrder: 5, // default
+			Visible:      models.SlideshowTopic,
+			User:         userId,
+			Topic:        topicId,
+			Created:      now,
+			Revised:      now,
+			Title:        topic.Title,
+		}
+		s.app.SlideshowStore.Update(show)
+		showId = show.Id
+	}
 
 	// compare modified slides against current slides, and update
 	qsDest := s.app.SlideStore.ForSlideshow(showId, 100)
 
 	updated := false
-	nSrc := len(qsSrc)
 	nDest := len(qsDest)
 
 	iSrc := 1 // skip template slide
@@ -203,6 +232,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 
 		} else if iDest == nDest {
 			// no more destination slides - add new one
+			imageName := images.CleanName(qsSrc[iSrc].ImageName)
 			qd := models.Slide{
 				Slideshow: showId,
 				Format:    slideFormat(qsSrc[iSrc]),
@@ -211,7 +241,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 				Revised:   now,
 				Title:     s.sanitize(qsSrc[iSrc].Title, ""),
 				Caption:   s.sanitize(qsSrc[iSrc].Caption, ""),
-				Image:     images.FileFromName(showId, qsSrc[iSrc].ImageName, 0),
+				Image:     images.FileFromName(userId, imageName, 0),
 			}
 			s.app.SlideStore.Update(&qd)
 			updated = true
@@ -228,19 +258,20 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 			} else if ix == iDest {
 				// check if details changed
 				// (checking image name at this point, version change will be handled later)
+				imageName := images.CleanName(qsSrc[iSrc].ImageName)
 				qDest := qsDest[iDest]
 				_, dstName, _ := images.NameFromFile(qDest.Image)
 				if qsSrc[iSrc].ShowOrder != qDest.ShowOrder ||
 					qsSrc[iSrc].Title != qDest.Title ||
 					qsSrc[iSrc].Caption != qDest.Caption ||
-					qsSrc[iSrc].ImageName != dstName {
+					imageName != dstName {
 
 					qDest.Format = slideFormat(qsSrc[iSrc])
 					qDest.ShowOrder = qsSrc[iSrc].ShowOrder
 					qDest.Revised = now
 					qDest.Title = s.sanitize(qsSrc[iSrc].Title, "")
 					qDest.Caption = s.sanitize(qsSrc[iSrc].Caption, "")
-					qDest.Image = images.FileFromName(showId, qsSrc[iSrc].ImageName, 0)
+					qDest.Image = images.FileFromName(userId, imageName, 0)
 
 					s.app.SlideStore.Update(qDest)
 					updated = true
@@ -278,16 +309,18 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 	}
 
 	// request worker to generate image versions, and remove unused images
-	s.app.chShowId <- showId
+	// (skipped if the user didn't add any slides for a new topic)
+	if showId != 0 {
+		s.app.chShow <- reqUpdateShow{showId: showId, userId: userId}
+	}
 
 	// then worker should change the topic thumbnail, in case we just updated or removed the current one
-	show, err := s.app.SlideshowStore.Get(showId)
-	if err == nil && show.Topic != 0 {
-		s.app.chTopicId <- show.Topic
+	if topicId != 0 {
+		s.app.chTopicId <- topicId
 	}
 
 	ok = true
-	userId = show.User
+	userIdRet = userId
 	return
 }
 
@@ -407,37 +440,35 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 
 // Get data to edit a user's contribution to a topic
 
-func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.SlidesForm, show *models.Slideshow) {
+func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.SlidesForm, showId int64, title string) {
 
 	// serialisation
-	defer s.updatesGallery()()
+	defer s.updatesNone()()
 
 	// user's show for topic
-	show = s.app.SlideshowStore.ForTopicUser(topicId, userId)
-	if show == nil {
-		topic, _ := s.app.TopicStore.Get(topicId)
+	show := s.app.SlideshowStore.ForTopicUser(topicId, userId)
 
-		// create slideshow for topic
-		now := time.Now()
+	// topic and slides
+	var slides []*models.Slide
+	if show != nil {
+		showId = show.Id
+		title = show.Title
+		slides = s.app.SlideStore.ForSlideshow(show.Id, 100)
 
-		show = &models.Slideshow{
-			GalleryOrder: 5, // default
-			Visible:      models.SlideshowTopic,
-			User:         userId,
-			Topic:        topicId,
-			Created:      now,
-			Revised:      now,
-			Title:        topic.Title,
+	} else {
+		// default title for topic
+		topic, err := s.app.TopicStore.Get(topicId)
+		if err != nil {
+			return
 		}
-		s.app.SlideshowStore.Update(show)
+		title = topic.Title
 	}
-
-	// slides
-	slides := s.app.SlideStore.ForSlideshow(show.Id, 100)
 
 	// form
 	var d = make(url.Values)
 	f = form.NewSlides(d, len(slides))
+	f.NTopic = topicId
+	f.NUser = userId
 
 	// template for new slide form
 	f.AddTemplate(len(slides))
@@ -591,11 +622,10 @@ func (s *GalleryState) onRemoveSlideshow(slideshow *models.Slideshow) {
 	s.app.SlideshowStore.DeleteId(slideshow.Id)
 
 	// request worker to remove images, and change topic image
-	s.app.chShowId <- slideshow.Id
+	s.app.chShow <- reqUpdateShow{showId: slideshow.Id, userId: slideshow.User}
 	if topicId != 0 {
 		s.app.chTopicId <- topicId
 	}
-
 }
 
 // Processing when a topic is removed

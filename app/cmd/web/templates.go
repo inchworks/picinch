@@ -145,7 +145,6 @@ type simpleFormData struct {
 type slidesFormData struct {
 	Form  *form.SlidesForm
 	NShow int64
-	NUser int64 // set for a topic, 0 for a normal slideshow
 	Title string
 	DataCommon
 }

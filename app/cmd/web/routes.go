@@ -72,7 +72,7 @@ func (app *Application) routes() http.Handler {
 	router.Handler("GET", "/edit-topic/:nShow/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormTopic))
 
 	// upload image
-	router.Handler("POST", "/upload/:nShow", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormImage))
+	router.Handler("POST", "/upload/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormImage))
 
 	// displays
 	router.Handler("GET", "/slideshow/:nShow", dynHs.ThenFunc(app.slideshow))
