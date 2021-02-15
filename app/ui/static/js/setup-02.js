@@ -50,9 +50,6 @@ function addChildForm($collectionHolder) {
     // clone the prototype
     var $newForm = $prototype.clone();
 
-    // any +ve value will do for index, so that form shows when redisplayed on error
-    $newForm.find('input[name="index"]').val(100)
-
 	  // add change handlers (not copied with prototype, it seems)
 	  $newForm.find('.btnDeleteChild').on('click', function(evt) {
         // prevent the link from creating a "#" on the URL
@@ -68,16 +65,24 @@ function addChildForm($collectionHolder) {
     });
 
     // hide any buttons that need child to exist
-    $newForm.find('.notOnNew').hide()
+    $newForm.find('.notOnNew').hide();
 
     // do any page-specific processing
     childAdded($prototype, $newForm);
 
+    // display the form in the page, after the final one
+    var $prev = $collectionHolder.children().last();
+    $collectionHolder.append($newForm);
+
+    // set the index, needed so that form shows when redisplayed on error, and for checkbox values
+    var newIx = Number($prev.find('input[name="index"]').val()) + 1
+    $newForm.find('input[name="index"]').val(newIx)
+
+		// set value of any checkboxes to the child index
+		$newForm.find(':checkbox').val(newIx)
+
     // make form visible
     $newForm.css('display', 'block');
- 
-    // display the form in the page, after the final one
-    $collectionHolder.append($newForm);
 	
     return $newForm;
 }

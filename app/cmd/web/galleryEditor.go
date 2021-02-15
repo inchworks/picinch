@@ -23,6 +23,9 @@ package main
 
 import (
 	"database/sql"
+	"math"
+	"math/big"
+	"crypto/rand"
 	"net/url"
 	"strconv"
 	"time"
@@ -49,7 +52,7 @@ func (s *GalleryState) ForAssignShows() (f *form.SlideshowsForm) {
 	// add template and slideshows to form
 	f.AddTemplate()
 	for i, sh := range slideshows {
-		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Title, s.app.UserStore.Name(sh.User.Int64))
+		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Shared != 0, sh.Title, s.app.UserStore.Name(sh.User.Int64))
 	}
 
 	return
@@ -162,6 +165,8 @@ func (s *GalleryState) ForEditSlideshow(showId int64) (f *form.SlidesForm, show 
 	// form
 	var d = make(url.Values)
 	f = form.NewSlides(d, len(slides))
+	f.NTopic = show.Topic
+	f.NUser = show.User
 
 	// template for new slide form
 	f.AddTemplate(len(slides))
@@ -175,20 +180,47 @@ func (s *GalleryState) ForEditSlideshow(showId int64) (f *form.SlidesForm, show 
 	return
 }
 
-// Processing when slideshow is modified
+// Processing when slideshow is modified.
+// topicId and userId are needed only for a new slideshow for a topic. Otherwise we prefer to trust the database.
 
-func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData) (ok bool, userId int64) {
+func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64, qsSrc []*form.SlideFormData) (ok bool, userIdRet int64) {
 
 	// serialisation
 	defer s.updatesGallery()()
 
 	now := time.Now()
+	nSrc := len(qsSrc)
+
+	if showId != 0 {
+		// slideshow already exists
+		show, err := s.app.SlideshowStore.Get(showId)
+		if err != nil {
+			return
+		}
+		topicId = show.Topic
+		userId = show.User
+
+	} else if nSrc > 0 {
+		// create a new slideshow from the topic
+		topic, _ := s.app.TopicStore.Get(topicId)
+
+		show := &models.Slideshow{
+			GalleryOrder: 5, // default
+			Visible:      models.SlideshowTopic,
+			User:         userId,
+			Topic:        topicId,
+			Created:      now,
+			Revised:      now,
+			Title:        topic.Title,
+		}
+		s.app.SlideshowStore.Update(show)
+		showId = show.Id
+	}
 
 	// compare modified slides against current slides, and update
 	qsDest := s.app.SlideStore.ForSlideshow(showId, 100)
 
 	updated := false
-	nSrc := len(qsSrc)
 	nDest := len(qsDest)
 
 	iSrc := 1 // skip template slide
@@ -204,6 +236,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 
 		} else if iDest == nDest {
 			// no more destination slides - add new one
+			imageName := images.CleanName(qsSrc[iSrc].ImageName)
 			qd := models.Slide{
 				Slideshow: showId,
 				Format:    slideFormat(qsSrc[iSrc]),
@@ -212,7 +245,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 				Revised:   now,
 				Title:     s.sanitize(qsSrc[iSrc].Title, ""),
 				Caption:   s.sanitize(qsSrc[iSrc].Caption, ""),
-				Image:     images.FileFromName(showId, qsSrc[iSrc].ImageName, 0),
+				Image:     images.FileFromName(userId, imageName, 0),
 			}
 			s.app.SlideStore.Update(&qd)
 			updated = true
@@ -229,12 +262,13 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 			} else if ix == iDest {
 				// check if details changed
 				// (checking image name at this point, version change will be handled later)
+				imageName := images.CleanName(qsSrc[iSrc].ImageName)
 				qDest := qsDest[iDest]
 				_, dstName, _ := images.NameFromFile(qDest.Image)
 				if qsSrc[iSrc].ShowOrder != qDest.ShowOrder ||
 					qsSrc[iSrc].Title != qDest.Title ||
 					qsSrc[iSrc].Caption != qDest.Caption ||
-					qsSrc[iSrc].ImageName != dstName {
+					imageName != dstName {
 
 					qDest.Format = slideFormat(qsSrc[iSrc])
 					qDest.ShowOrder = qsSrc[iSrc].ShowOrder
@@ -279,16 +313,18 @@ func (s *GalleryState) OnEditSlideshow(showId int64, qsSrc []*form.SlideFormData
 	}
 
 	// request worker to generate image versions, and remove unused images
-	s.app.chShowId <- showId
+	// (skipped if the user didn't add any slides for a new topic)
+	if showId != 0 {
+		s.app.chShow <- reqUpdateShow{showId: showId, userId: userId}
+	}
 
 	// then worker should change the topic thumbnail, in case we just updated or removed the current one
-	show, err := s.app.SlideshowStore.Get(showId)
-	if err == nil && show.Topic != 0 {
-		s.app.chTopicId <- show.Topic
+	if topicId != 0 {
+		s.app.chTopicId <- topicId
 	}
 
 	ok = true
-	userId = show.User.Int64
+	userIdRet = show.User.Int64
 	return
 }
 
@@ -312,7 +348,7 @@ func (s *GalleryState) ForEditSlideshows(userId int64) (f *form.SlideshowsForm, 
 	// add template and slideshows to form
 	f.AddTemplate()
 	for i, sh := range slideshows {
-		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Title, "")
+		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Shared != 0, sh.Title, "")
 	}
 
 	return
@@ -408,13 +444,13 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 
 // Get data to edit a user's contribution to a topic
 
-func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.SlidesForm, show *models.Slideshow) {
+func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.SlidesForm, showId int64, title string) {
 
 	// serialisation
-	defer s.updatesGallery()()
+	defer s.updatesNone()()
 
 	// user's show for topic
-	show = s.app.SlideshowStore.ForTopicUser(topicId, userId)
+	show := s.app.SlideshowStore.ForTopicUser(topicId, userId)
 	if show == nil {
 		topic, _ := s.app.SlideshowStore.Get(topicId)
 
@@ -430,15 +466,14 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64) (f *form.Slides
 			Revised:      now,
 			Title:        topic.Title,
 		}
-		s.app.SlideshowStore.Update(show)
+		title = topic.Title
 	}
-
-	// slides
-	slides := s.app.SlideStore.ForSlideshow(show.Id, 100)
 
 	// form
 	var d = make(url.Values)
 	f = form.NewSlides(d, len(slides))
+	f.NTopic = topicId
+	f.NUser = userId
 
 	// template for new slide form
 	f.AddTemplate(len(slides))
@@ -469,7 +504,7 @@ func (s *GalleryState) ForEditTopics() (f *form.SlideshowsForm) {
 	// add template and slideshows to form
 	f.AddTemplate()
 	for i, sh := range topics {
-		f.Add(i, sh.Id, 0, sh.Visible, sh.Title, "")
+		f.Add(i, sh.Id, 0, sh.Visible, sh.Shared != 0, sh.Title, "")
 	}
 
 	return
@@ -519,6 +554,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 				GalleryOrder: 5, // default order
 				Visible:      visible,
 				Created:      created,
+				Shared:       s.shareCode(rsSrc[iSrc].IsShared, 0),
 				Revised:      now,
 				Title:        s.sanitize(rsSrc[iSrc].Title, ""),
 			}
@@ -538,10 +574,12 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 				rDest := rsDest[iDest]
 
 				if rSrc.Visible != rDest.Visible ||
-					rSrc.Title != rDest.Title {
+					rSrc.Title != rDest.Title ||
+					rSrc.IsShared != (rDest.Shared > 0) {
 
 					rDest.Visible = rSrc.Visible
-					rDest.Title = s.sanitize(rSrc.Title, rDest.Title)
+					rDest.Shared = s.shareCode(rSrc.IsShared, rDest.Shared)
+					rDest.Title = rs.sanitize(rSrc.Title, rDest.Title)
 
 					// set creation date just once, when published
 					if rSrc.Visible > models.SlideshowPrivate && rDest.Created.IsZero() {
@@ -592,11 +630,10 @@ func (s *GalleryState) onRemoveSlideshow(slideshow *models.Slideshow) {
 	s.app.SlideshowStore.DeleteId(slideshow.Id)
 
 	// request worker to remove images, and change topic image
-	s.app.chShowId <- slideshow.Id
+	s.app.chShow <- reqUpdateShow{showId: slideshow.Id, userId: slideshow.User}
 	if topicId != 0 {
 		s.app.chTopicId <- topicId
 	}
-
 }
 
 // Processing when a topic is removed
@@ -624,3 +661,30 @@ func (s *GalleryState) sanitize(new string, current string) string {
 
 	return s.app.sanitizer.Sanitize(new)
 }
+
+// shareCode returns an access code for a shared slideshow or topic.
+func (s *GalleryState) shareCode(isShared bool, hasCode int64) int64 {
+	if isShared {
+		if hasCode == 0 {
+
+			// generate exactly 6 characters, just for neatness
+			// (using big because crypto needs it, not because the mnumbers get large
+			// ## 8 characters would be better - needs a database change
+			min := new(big.Int).Exp(big.NewInt(36), big.NewInt(5), nil) 
+			max := big.NewInt(math.MaxInt32)
+			max.Sub(max, min)
+
+			// OK, cryptographically secure generation is overkill for this use.
+			code, err := rand.Int(rand.Reader, max)
+			if err != nil {
+				return 0
+			}
+			return code.Add(code, min).Int64()
+		} else {
+			return hasCode
+		}
+	} else {
+		return 0
+	}
+}
+

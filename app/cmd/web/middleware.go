@@ -268,6 +268,14 @@ func secureHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// shared sets headers for shared topic and slideshows
+func (app *Application) shared(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=600")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Note attempted intrusion
 
 func (app *Application) threat(event string, r *http.Request) {

@@ -46,6 +46,9 @@ func (app *Application) routes() http.Handler {
 	router.Handler("GET", "/", dynHs.Append(app.public).ThenFunc(app.home))
 	router.Handler("GET", "/about", dynHs.Append(app.public).ThenFunc(app.about))
 
+	// pages shared with an access code
+	router.Handler("GET", "/shared/:code/:seq", dynHs.Append(app.shared).ThenFunc(app.topicShared))
+
 	// embedding
 	router.Handler("GET", "/highlight/:prefix/:nImage", dynHs.Append(app.public).ThenFunc(app.highlight))
 	router.Handler("GET", "/highlights/:nImages", dynHs.Append(app.public).ThenFunc(app.highlights))
@@ -72,7 +75,7 @@ func (app *Application) routes() http.Handler {
 	router.Handler("GET", "/edit-topic/:nShow/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormTopic))
 
 	// upload image
-	router.Handler("POST", "/upload/:nShow", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormImage))
+	router.Handler("POST", "/upload/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormImage))
 
 	// displays
 	router.Handler("GET", "/slideshow/:nShow/:seq", dynHs.ThenFunc(app.slideshow))
