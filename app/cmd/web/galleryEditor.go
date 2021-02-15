@@ -22,6 +22,9 @@ package main
 // These functions may modify application state.
 
 import (
+	"math"
+	"math/big"
+	"crypto/rand"
 	"net/url"
 	"strconv"
 	"time"
@@ -48,7 +51,7 @@ func (s *GalleryState) ForAssignShows() (f *form.SlideshowsForm) {
 	// add template and slideshows to form
 	f.AddTemplate()
 	for i, sh := range slideshows {
-		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Title, s.app.UserStore.Name(sh.User))
+		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Shared != 0, sh.Title, s.app.UserStore.Name(sh.User))
 	}
 
 	return
@@ -344,7 +347,7 @@ func (s *GalleryState) ForEditSlideshows(userId int64) (f *form.SlideshowsForm, 
 	// add template and slideshows to form
 	f.AddTemplate()
 	for i, sh := range slideshows {
-		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Title, "")
+		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Shared != 0, sh.Title, "")
 	}
 
 	return
@@ -499,7 +502,7 @@ func (s *GalleryState) ForEditTopics() (f *form.SlideshowsForm) {
 	// add template and slideshows to form
 	f.AddTemplate()
 	for i, sh := range topics {
-		f.Add(i, sh.Id, 0, sh.Visible, sh.Title, "")
+		f.Add(i, sh.Id, 0, sh.Visible, sh.Shared != 0, sh.Title, "")
 	}
 
 	return
@@ -549,6 +552,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 				GalleryOrder: 5, // default order
 				Visible:      visible,
 				Created:      created,
+				Shared:       s.shareCode(rsSrc[iSrc].IsShared, 0),
 				Revised:      now,
 				Title:        rsSrc[iSrc].Title,
 			}
@@ -568,9 +572,11 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 				rDest := rsDest[iDest]
 
 				if rSrc.Visible != rDest.Visible ||
-					rSrc.Title != rDest.Title {
+					rSrc.Title != rDest.Title ||
+					rSrc.IsShared != (rDest.Shared > 0) {
 
 					rDest.Visible = rSrc.Visible
+					rDest.Shared = s.shareCode(rSrc.IsShared, rDest.Shared)
 					rDest.Title = rSrc.Title
 
 					// set creation date just once, when published
@@ -653,3 +659,30 @@ func (s *GalleryState) sanitize(new string, current string) string {
 
 	return s.app.sanitizer.Sanitize(new)
 }
+
+// shareCode returns an access code for a shared slideshow or topic.
+func (s *GalleryState) shareCode(isShared bool, hasCode int64) int64 {
+	if isShared {
+		if hasCode == 0 {
+
+			// generate exactly 6 characters, just for neatness
+			// (using big because crypto needs it, not because the mnumbers get large
+			// ## 8 characters would be better - needs a database change
+			min := new(big.Int).Exp(big.NewInt(36), big.NewInt(5), nil) 
+			max := big.NewInt(math.MaxInt32)
+			max.Sub(max, min)
+
+			// OK, cryptographically secure generation is overkill for this use.
+			code, err := rand.Int(rand.Reader, max)
+			if err != nil {
+				return 0
+			}
+			return code.Add(code, min).Int64()
+		} else {
+			return hasCode
+		}
+	} else {
+		return 0
+	}
+}
+
