@@ -84,6 +84,7 @@ type DataMySlideshow struct {
 	NUser   int64
 	Title   string
 	Visible string
+	Shared  string
 }
 
 type DataPublished struct {
@@ -164,6 +165,7 @@ type usersFormData struct {
 // Define functions callable from a template
 
 var functions = template.FuncMap{
+	"checked":    checked,
 	"humanDate":  humanDate,
 	"thumbnail":  thumbnail,
 	"userStatus": userStatus,
@@ -260,6 +262,16 @@ func parseGlobIf(ts *template.Template, pattern string) (*template.Template, err
 		}
 	}
 	return ts, err
+}
+
+// checked returns "checked" if the parameter is true, for use with a form checkbox.
+func checked(isChecked bool) string {
+
+	if isChecked {
+		return "checked"
+	} else {
+		return ""
+	}
 }
 
 // get thumbnail image

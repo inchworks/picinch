@@ -193,8 +193,38 @@ func (app *Application) topic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// template and data for slides
-	template, data := app.galleryState.DisplayTopic(id, int(seq), "/")
+	template, data := app.galleryState.DisplayTopicHome(id, int(seq),"/")
 	if data == nil {
+		app.session.Put(r, "flash", "No contributions to this topic yet.")
+		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+		return
+	}
+
+	// display page
+	app.render(w, r, template, data)
+}
+
+// topicShared handles a request to view slideshows for shared topic.
+func (app *Application) topicShared(w http.ResponseWriter, r *http.Request) {
+
+	ps := httprouter.ParamsFromContext(r.Context())
+
+	// access is allowed to anyone with the sharing code
+	code, err := strconv.ParseInt(ps.ByName("code"), 36, 64)
+	if err != nil {
+		app.clientError(w, http.StatusUnauthorized)
+		return
+	}
+
+	seq, _ := strconv.ParseInt(ps.ByName("seq"), 10, 32)
+
+	// template and data for slides
+	template, data := app.galleryState.DisplayTopicShared(code, int(seq))
+	if template == "" {
+		app.clientError(w, http.StatusUnauthorized)
+		return
+
+	} else if data == nil {
 		app.session.Put(r, "flash", "No contributions to this topic yet.")
 		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
 		return

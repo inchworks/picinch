@@ -24,6 +24,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 
 	"inchworks.com/picinch/pkg/models"
 )
@@ -156,86 +157,53 @@ func (s *GalleryState) DisplaySlideshow(id int64, from string) (string, *DataSli
 	return s.displaySlides(show, from, 100)
 }
 
-// Topic with all contributions
-
-func (s *GalleryState) DisplayTopic(id int64, seq int, from string) (string, *DataSlideshow) {
+// DisplayTopicHome returns a template and data for a topic shown on a website page.
+func (s *GalleryState) DisplayTopicHome(id int64, seq int, from string) (string, *DataSlideshow) {
 
 	defer s.updatesNone()()
 
+	// check if topic ID is valid
 	topic, _ := s.app.TopicStore.Get(id)
-	fmt, max := topic.ParseFormat()
-
-	// special selection and ordering for highlights
-	if fmt == "H" {
-		return s.displayHighlights(topic, from, max)
+	if topic == nil {
+		return "", nil
 	}
 
-	// get N'th slideshow in sequence
-	show := s.app.SlideshowStore.ForTopicSeq(id, seq)
-	if show == nil {
-		return "", nil // no contributions yet, ## or could be because user removed a slideshow
+	return s.displayTopic(topic, false, seq, from)
+}
+
+// DisplayTopicShared selects a template and data for a shared topic
+func (s *GalleryState) DisplayTopicShared(code int64, seq int) (string, *DataSlideshow) {
+
+	defer s.updatesNone()()
+
+	// check if code is valid
+	topic := s.app.TopicStore.GetIfShared(code)
+	if topic == nil {
+		return "", nil
 	}
 
-	// slides and user
-	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, _ := s.app.UserStore.Get(show.User)
+	// return to this page at the end, as we have nowhere else to go.
+	from := href(true, topic, 0)
 
-	// replace slide data with HTML formatted fields
-	var dataSlides []*DataSlide
-	for _, slide := range slides {
-		dataSlides = append(dataSlides, &DataSlide{
-			Title:       slide.TitleBr(),
-			Caption:     slide.CaptionBr(),
-			DisplayName: user.Name,
-			Image:       slide.Image,
-			Format:      slide.Format,
-		})
-	}
-
-	// show user's title, if different from topic
-	var title string
-	if show.Title != topic.Title {
-		title = show.Title
-	}
-
-	// next user's slides
-	var after string
-	if seq < s.app.SlideshowStore.CountForTopic(id)-1 {
-		after = href(id, seq+1)
-	} else {
-		after = from
-	}
-
-	// previous user's slides
-	var before string
 	if seq == 0 {
-		before = from
+		// first user's slides
+		after, before := s.topicHRefs(topic, 0, true, from)
+
+		// home page for topic
+		// Annoyingly, the slideshow must have at least two slides,
+		// otherwise Bootstrap Carousel doesn't give any events to trigger loading of the first user's slideshow.
+		return "carousel-shared.page.tmpl", &DataSlideshow{
+			Topic:       topic.Title,
+			Title: s.app.galleryState.gallery.Organiser,
+			AfterHRef:   after,
+			BeforeHRef:  before,
+			DataCommon: DataCommon{
+				ParentHRef: from,
+			},
+		}
 	} else {
-		before = href(id, seq-1)
-	}
-
-	// select template
-	var template string
-	switch fmt {
-
-	case "T":
-		fallthrough
-
-	default:
-		template = "carousel-topic.page.tmpl"
-	}
-
-	// template and its data
-	return template, &DataSlideshow{
-		Topic:       topic.Title,
-		AfterHRef:   after,
-		BeforeHRef:  before,
-		DisplayName: user.Name,
-		Title:       title,
-		Slides:      dataSlides,
-		DataCommon: DataCommon{
-			ParentHRef: from,
-		},
+		// contribution to topic
+		return s.displayTopic(topic, true, seq, from)
 	}
 }
 
@@ -353,6 +321,7 @@ func (s *GalleryState) ForTopics() *DataMyGallery {
 			NShow:   topic.Id,
 			Title:   topic.Title,
 			Visible: topic.VisibleStr(),
+			Shared: s.formatShared(topic.Shared),
 		})
 	}
 
@@ -579,9 +548,110 @@ func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max in
 	}
 }
 
-// Path to previous or next show for topic
+// displayTopic returns a template and data for a section of a topic.
+// It is called for topics on the home page and for shared topics. from specifies the parent URL.
+func (s *GalleryState) displayTopic(topic *models.Topic, shared bool, seq int, from string) (string, *DataSlideshow) {
 
-func href(id int64, seq int) string {
+	id := topic.Id
+	fmt, max := topic.ParseFormat()
 
-	return fmt.Sprintf("/topic/%d/%d", id, seq)
+	// special selection and ordering for highlights
+	if fmt == "H" {
+		return s.displayHighlights(topic, from, max)
+	}
+
+	// get N'th slideshow in sequence
+	show := s.app.SlideshowStore.ForTopicSeq(id, seq-1)
+	if show == nil {
+		return "", nil // no contributions yet, ## or could be because user removed a slideshow
+	}
+
+	// slides and user
+	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
+	user, _ := s.app.UserStore.Get(show.User)
+
+	// replace slide data with HTML formatted fields
+	var dataSlides []*DataSlide
+	for _, slide := range slides {
+		dataSlides = append(dataSlides, &DataSlide{
+			Title:       slide.TitleBr(),
+			Caption:     slide.CaptionBr(),
+			DisplayName: user.Name,
+			Image:       slide.Image,
+			Format:      slide.Format,
+		})
+	}
+
+	// show user's title, if different from topic
+	var title string
+	if show.Title != topic.Title {
+		title = show.Title
+	}
+
+	// next and previous user's slides
+	after, before := s.topicHRefs(topic, seq, shared, from)
+
+	// select template
+	var template string
+	switch fmt {
+
+	case "T":
+		fallthrough
+
+	default:
+		template = "carousel-topic.page.tmpl"
+	}
+
+	// template and its data
+	return template, &DataSlideshow{
+		Topic:       topic.Title,
+		AfterHRef:   after,
+		BeforeHRef:  before,
+		DisplayName: user.Name,
+		Title:       title,
+		Slides:      dataSlides,
+		DataCommon: DataCommon{
+			ParentHRef: from,
+		},
+	}
+}
+
+// formatShared returns the displayable code for a shared slideshow or topic.
+func (s *GalleryState) formatShared(code int64) string {
+	if code == 0 {
+		return "-"
+	} else {
+		return strconv.FormatInt(code, 36)
+	}
+}
+
+// href returns the path to the previous or next show for a topic.
+func href(shared bool, topic *models.Topic, seq int) string {
+
+	if shared {
+		// base-36 access code
+		return fmt.Sprintf("/shared/%s/%d", strconv.FormatInt(topic.Shared, 36), seq)
+	} else {
+		// decimal topic number
+		return fmt.Sprintf("/topic/%d/%d", topic.Id, seq)
+	}
+}
+
+// topicHRefs returns links to the next and previous slideshows for a topic.
+func (s *GalleryState) topicHRefs(topic *models.Topic, seq int, shared bool, from string) (after string, before string) {
+
+	// next user's slides
+	if seq < s.app.SlideshowStore.CountForTopic(topic.Id) {
+		after = href(shared, topic, seq+1)
+	} else {
+		after = from
+	}
+
+	// previous user's slides
+	if seq == 0 {
+		before = from
+	} else {
+		before = href(shared, topic, seq-1)
+	}
+	return
 }

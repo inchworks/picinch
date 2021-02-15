@@ -34,7 +34,7 @@ const (
 
 	topicUpdate = `
 		UPDATE topic
-		SET gallery_order=:gallery_order, visible=:visible, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
+		SET gallery_order=:gallery_order, visible=:visible, shared=:shared, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
 		WHERE id = :id
 	`
 )
@@ -46,6 +46,7 @@ const (
 	topicOrderTitle   = ` ORDER BY title, id`
 
 	topicWhereId         = topicSelect + ` WHERE id = ?`
+	topicWhereShared = topicSelect + ` WHERE shared = ?`
 	topicsWhereEditable  = topicSelect + ` WHERE gallery = ? AND id <> ?` + topicOrderTitle
 	topicsWhereGallery   = topicSelect + ` WHERE gallery = ?` + topicOrderDisplay
 	topicsWherePublished = topicSelect + ` WHERE gallery = ? AND visible = ?` + topicOrderDisplay
@@ -117,6 +118,22 @@ func (st *TopicStore) GetIf(id int64) *models.Topic {
 	var r models.Topic
 
 	if err := st.DBX.Get(&r, topicWhereId, id); err != nil {
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+		}
+		return nil
+	}
+
+	return &r
+}
+
+// Shared topic
+
+func (st *TopicStore) GetIfShared(shared int64) *models.Topic {
+
+	var r models.Topic
+
+	if err := st.DBX.Get(&r, topicWhereShared, shared); err != nil {
 		if st.convertError(err) != models.ErrNoRecord {
 			st.logError(err)
 		}
