@@ -44,7 +44,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.9.2"
+	version = "0.9.3"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -124,6 +124,12 @@ type Configuration struct {
 	UsageAnonymised usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 }
 
+// Request to update slideshow images,
+type reqUpdateShow struct {
+	showId int64
+	userId int64
+}
+
 // Application struct supplies application-wide dependencies.
 type Application struct {
 	cfg *Configuration
@@ -155,8 +161,8 @@ type Application struct {
 
 	// Channels to background worker
 	chImage   chan images.ReqSave
-	chShowId  chan int64
-	chShowIds chan []int64
+	chShow  chan reqUpdateShow
+	chShows chan []reqUpdateShow
 	chTopicId chan int64
 
 	// Since we support just one gallery at a time, we can cache state here.
@@ -210,7 +216,7 @@ func main() {
 	defer t.Stop()
 
 	chDone := make(chan bool, 1)
-	go app.galleryState.worker(app.chImage, app.chShowId, app.chShowIds, app.chTopicId, t.C, chDone)
+	go app.galleryState.worker(app.chImage, app.chShow, app.chShows, app.chTopicId, t.C, chDone)
 
 	// live server if we have a domain specified
 	if len(cfg.Domains) > 0 {
@@ -354,8 +360,8 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// create worker channels
 	app.chImage = make(chan images.ReqSave, 20)
-	app.chShowId = make(chan int64, 10)
-	app.chShowIds = make(chan []int64, 1)
+	app.chShow = make(chan reqUpdateShow, 10)
+	app.chShows = make(chan []reqUpdateShow, 1)
 	app.chTopicId = make(chan int64, 10)
 
 	return app

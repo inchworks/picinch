@@ -40,10 +40,10 @@ const (
 )
 
 const (
+	// note that ID is included for stable ordering of selections for editing
 	slideshowSelect       = `SELECT * FROM slideshow`
-	slideshowOrder        = ` ORDER BY gallery_order ASC, created DESC`
-	slideshowOrderRevised = ` ORDER BY revised DESC`
-	slideshowOrderTitle   = ` ORDER BY title ASC, id`
+	slideshowOrder        = ` ORDER BY revised DESC, id`
+	slideshowOrderTitle   = ` ORDER BY title, id`
 	slideshowRevisedSeq   = ` ORDER BY revised ASC LIMIT ?,1`
 
 	slideshowCountForTopic = `SELECT COUNT(*) FROM slideshow WHERE topic = ?`
@@ -56,7 +56,14 @@ const (
 	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrder
 	slideshowsWhereGallery  = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
 	slideshowsWhereNoUser   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderTitle
-	slideshowsUserPublished = slideshowSelect + ` WHERE user = ? AND visible <> 0 AND slideshow.image <> ""` + slideshowOrderRevised
+
+	// published slideshows for a user
+	slideshowsUserPublished = `
+		SELECT slideshow.* FROM slideshow
+		LEFT JOIN topic ON topic.id = slideshow.topic
+		WHERE user = ? AND (slideshow.visible > 0 OR slideshow.visible = -1 AND topic.visible > 0) AND slideshow.image <> ""
+		ORDER BY slideshow.created DESC
+	`
 
 	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ?` + slideshowOrderTitle
 	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderTitle
@@ -233,7 +240,7 @@ func (st *SlideshowStore) ForTopicUser(topicId int64, userId int64) *models.Slid
 	return &r
 }
 
-// All slideshows for user, in published order, specified visibility
+// All slideshows for user, in latest published order, specified visibility
 
 func (st *SlideshowStore) ForUser(userId int64, visible int) []*models.Slideshow {
 

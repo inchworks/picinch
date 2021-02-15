@@ -106,18 +106,25 @@ func (f *Form) NChildItems() int {
 	return len(f.Values["index"])
 }
 
-// Boolean from child form
-
-func (f *Form) ChildBool(field string, i int) bool {
+// ChildBool returns a checkbox value from child form.
+// Unlike other fields, only checked fields are returned, and the value is the child index.
+func (f *Form) ChildBool(field string, ix int) bool {
 
 	// ignore template
-	if i == 0 {
+	if ix == -1 {
 		return false
 	}
 
-	// any value at all means checked
-	value := f.Values[field][i]
-	return value != ""
+	// ## Better to convert the returned checkbox values to ints just once.
+	ixStr := strconv.Itoa((ix))
+
+	// a value returned means checked
+	for _, v := range f.Values[field] {
+		if v == ixStr {
+			return true
+		}
+	}
+	return false
 }
 
 // Image name from child form
