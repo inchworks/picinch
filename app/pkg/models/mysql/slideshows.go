@@ -34,9 +34,14 @@ const (
 
 	slideshowUpdate = `
 		UPDATE slideshow
-		SET gallery_order=:gallery_order, visible=:visible, topic=:topic, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
+		SET gallery_order=:gallery_order, visible=:visible, shared=:shared, topic=:topic, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
 		WHERE id = :id
 	`
+
+	slideshowSet = `
+		INSERT INTO slideshow (id, gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image)
+		VALUES (:id, :gallery, :gallery_order, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image)`
+
 )
 
 const (
@@ -57,10 +62,12 @@ const (
 	slideshowsWhereGallery  = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
 	slideshowsWhereNoUser   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderTitle
 
+	slideshowWhereShared = slideshowSelect + ` WHERE shared = ?`
+
 	// published slideshows for a user
 	slideshowsUserPublished = `
 		SELECT slideshow.* FROM slideshow
-		LEFT JOIN topic ON topic.id = slideshow.topic
+		LEFT JOIN slideshow AS topic ON topic.id = slideshow.topic
 		WHERE user = ? AND (slideshow.visible > 0 OR slideshow.visible = -1 AND topic.visible > 0) AND slideshow.image <> ""
 		ORDER BY slideshow.created DESC
 	`
@@ -80,7 +87,7 @@ const (
 		)
 		SELECT id, visible, user, title, caption, format, image
 		FROM s1
-		WHERE user == 0 OR rnk <= ?
+		WHERE user = 0 OR rnk <= ?
 		ORDER BY created DESC
 	`
 	slideshowsTopicPublished = `
@@ -295,6 +302,20 @@ func (st *SlideshowStore) GetIf(id int64) *models.Slideshow {
 	return &r
 }
 
+// GetIfShared returns a shared slideshow.
+func (st *SlideshowStore) GetIfShared(shared int64) *models.Slideshow {
+
+	var r models.Slideshow
+
+	if err := st.DBX.Get(&r, slideshowWhereShared, shared); err != nil {
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+		}
+		return nil
+	}
+
+	return &r
+}
 // Most recent shows, up to N per user, excluding RecentPublic and including topics, in descending publication date
 
 func (st *SlideshowStore) RecentPublished(visible int, max int) []*models.Slideshow {
@@ -314,4 +335,22 @@ func (st *SlideshowStore) Update(r *models.Slideshow) error {
 	r.Gallery = st.GalleryId
 
 	return st.updateData(&r.Id, r)
+}
+
+// Set slideshow with specified ID (temporary function used to migrate topics)
+
+func (st *SlideshowStore) Set(r *models.Slideshow) error {
+	r.Gallery = st.GalleryId
+
+	tx := *st.ptx
+	if tx == nil {
+		panic("Transaction not begun")
+	}
+
+	if _, err := tx.NamedExec(slideshowSet, r); err != nil {
+		st.logError(err)
+		return st.convertError(err)
+	}
+
+	return nil
 }

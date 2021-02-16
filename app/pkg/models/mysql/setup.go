@@ -254,7 +254,17 @@ func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *Sl
 			Format:       t.Format,
 			Image:        t.Image,
 		}
-		err := stSlideshow.Update(topicShow)
+
+		var err error
+
+		// preserve highlights ID
+		if t.Id == stSlideshow.HighlightsId {
+			topicShow.Id = stSlideshow.HighlightsId
+			err = stSlideshow.Set(topicShow)
+
+		} else {
+			err = stSlideshow.Update(topicShow)
+		}
 		if err != nil {
 			return err
 		}
@@ -268,13 +278,12 @@ func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *Sl
 				return err
 			}
 		}
-
-		// delete topics table
-		if _, err := tx.Exec(cmdTopic); err != nil {
-			return err
-		}	
 	}
 
+	// delete topics table
+	if _, err := tx.Exec(cmdTopic); err != nil {
+		return err
+	}
 
 	return nil
 }
