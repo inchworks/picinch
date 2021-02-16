@@ -74,17 +74,17 @@ const (
 
 	usersByLatestSlideshow = `
 		WITH s1 AS (
-			SELECT user AS userId, slideshow.created,
-				RANK() OVER (PARTITION BY user
-									ORDER BY slideshow.created DESC
+			SELECT contrib.user AS userId, contrib.created,
+				RANK() OVER (PARTITION BY userId
+									ORDER BY contrib.created DESC
 							) AS rnk
-			FROM slideshow
-			LEFT JOIN topic ON topic.id = slideshow.topic
-			WHERE slideshow.gallery = ? AND (slideshow.visible > 0 OR (slideshow.visible = -1 AND topic.visible > 0))
+			FROM slideshow AS contrib
+			LEFT JOIN slideshow AS topic ON topic.id = contrib.topic
+			WHERE contrib.gallery = ? AND (contrib.visible > 0 OR (contrib.visible = -1 AND topic.visible > 0))
 		)
 		SELECT user.*
 		FROM s1
-		LEFT JOIN user ON userId = user.id
+		JOIN user ON userId = user.id
 		WHERE rnk = 1
 		ORDER BY s1.created DESC
 	`

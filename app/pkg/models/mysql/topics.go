@@ -42,15 +42,10 @@ const (
 const (
 	// note that ID is included for stable ordering of selections for editing
 	topicSelect       = `SELECT * FROM topic`
-	topicOrderDisplay = ` ORDER BY gallery_order ASC, revised DESC`
 	topicOrderTitle   = ` ORDER BY title, id`
 
 	topicWhereId         = topicSelect + ` WHERE id = ?`
-	topicsWhereEditable0 = topicSelect + ` WHERE gallery = ? AND id <> ?` + topicOrderTitle
 	topicsWhereGallery0  = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
-	topicsWherePublished = topicSelect + ` WHERE gallery = ? AND visible = ?` + topicOrderDisplay
-
-	topicWhereShared = topicSelect + ` WHERE shared = ?`
 )
 
 type TopicStore struct {
@@ -96,41 +91,4 @@ func (st *TopicStore) GetIf(id int64) *models.Topic {
 	}
 
 	return &r
-}
-
-// Shared topic
-
-func (st *TopicStore) GetIfShared(shared int64) *models.Topic {
-
-	var r models.Topic
-
-	if err := st.DBX.Get(&r, topicWhereShared, shared); err != nil {
-		if st.convertError(err) != models.ErrNoRecord {
-			st.logError(err)
-		}
-		return nil
-	}
-
-	return &r
-}
-
-// Published topics
-
-func (st *TopicStore) Published0(visible int) []*models.Topic {
-
-	var topics []*models.Topic
-
-	if err := st.DBX.Select(&topics, topicsWherePublished, st.GalleryId, visible); err != nil {
-		st.logError(err)
-		return nil
-	}
-	return topics
-}
-
-// Insert or update topic
-
-func (st *TopicStore) Update0(r *models.Topic) error {
-	r.Gallery = st.GalleryId
-
-	return st.updateData(&r.Id, r)
 }

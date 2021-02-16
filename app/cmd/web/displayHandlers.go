@@ -122,8 +122,7 @@ func (app *Application) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// Slideshow or slideshows for a topic
-
+// slideshow handles a request to view a slideshow, or a topic
 func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
@@ -143,8 +142,8 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 	var template string
 	var data *DataSlideshow
 	if isTopic {
-		// template and data for slides
-		template, data = app.galleryState.DisplayTopic(id, int(seq), "/")
+		// template and data for topic
+		template, data = app.galleryState.DisplayTopicHome(id, int(seq), "/")
 		if data == nil {
 			app.session.Put(r, "flash", "No contributions to this topic yet.")
 			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
@@ -191,36 +190,8 @@ func (app *Application) slideshowsUser(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "my-gallery.page.tmpl", data)
 }
 
-// All slideshows for topic
-
-func (app *Application) topic(w http.ResponseWriter, r *http.Request) {
-
-	ps := httprouter.ParamsFromContext(r.Context())
-
-	id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
-	seq, _ := strconv.ParseInt(ps.ByName("seq"), 10, 32)
-
-	// allow access to topic?
-	// ## reads topic, and DisplayTopic will read it again
-	if !app.allowViewTopic(r, id) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
-	// template and data for slides
-	template, data := app.galleryState.DisplayTopicHome(id, int(seq),"/")
-	if data == nil {
-		app.session.Put(r, "flash", "No contributions to this topic yet.")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
-		return
-	}
-
-	// display page
-	app.render(w, r, template, data)
-}
-
-// topicShared handles a request to view slideshows for shared topic.
-func (app *Application) topicShared(w http.ResponseWriter, r *http.Request) {
+// slideshowShared handles a request to view a shared slideshow or topic.
+func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
@@ -234,7 +205,7 @@ func (app *Application) topicShared(w http.ResponseWriter, r *http.Request) {
 	seq, _ := strconv.ParseInt(ps.ByName("seq"), 10, 32)
 
 	// template and data for slides
-	template, data := app.galleryState.DisplayTopicShared(code, int(seq))
+	template, data := app.galleryState.DisplayShared(code, int(seq))
 	if template == "" {
 		app.clientError(w, http.StatusUnauthorized)
 		return
