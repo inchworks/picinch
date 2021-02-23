@@ -44,7 +44,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.9.3"
+	version = "0.9.4"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -112,6 +112,7 @@ type Configuration struct {
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
 	MaxHighlightsTotal  int `yaml:"highlights-page" env-default:"12"`    // highlights for home page, and user's page
 	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`   // total slides in H format topic // ## misleading name?
+	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`   // total slideshows on home page
 
 	// per user limits
 	MaxHighlights       int `yaml:"highlights-user"  env-default:"2"`  // highlights on home page
@@ -124,10 +125,17 @@ type Configuration struct {
 	UsageAnonymised usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 }
 
-// Request to update slideshow images,
+// Request to update slideshow images.
 type reqUpdateShow struct {
-	showId int64
-	userId int64
+	showId  int64
+	userId  int64
+	revised bool
+}
+
+// Request to update topic images.
+type reqUpdateTopic struct {
+	topicId  int64
+	revised bool
 }
 
 // Application struct supplies application-wide dependencies.
@@ -161,9 +169,9 @@ type Application struct {
 
 	// Channels to background worker
 	chImage   chan images.ReqSave
-	chShow  chan reqUpdateShow
-	chShows chan []reqUpdateShow
-	chTopicId chan int64
+	chShow    chan reqUpdateShow
+	chShows   chan []reqUpdateShow
+	chTopic chan reqUpdateTopic
 
 	// Since we support just one gallery at a time, we can cache state here.
 	// With multiple galleries, we'd need a per-gallery cache.
@@ -216,7 +224,7 @@ func main() {
 	defer t.Stop()
 
 	chDone := make(chan bool, 1)
-	go app.galleryState.worker(app.chImage, app.chShow, app.chShows, app.chTopicId, t.C, chDone)
+	go app.galleryState.worker(app.chImage, app.chShow, app.chShows, app.chTopic, t.C, chDone)
 
 	// live server if we have a domain specified
 	if len(cfg.Domains) > 0 {
@@ -362,7 +370,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.chImage = make(chan images.ReqSave, 20)
 	app.chShow = make(chan reqUpdateShow, 10)
 	app.chShows = make(chan []reqUpdateShow, 1)
-	app.chTopicId = make(chan int64, 10)
+	app.chTopic = make(chan reqUpdateTopic, 10)
 
 	return app
 }

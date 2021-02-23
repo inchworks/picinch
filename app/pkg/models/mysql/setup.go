@@ -69,7 +69,7 @@ var cmds = [...]string{
 	gallery_order int(11) NOT NULL,
 	visible smallint(6) NOT NULL,
 	user int(11) NULL,
-	shared int(11) NOT NULL,
+	shared bigint(20) NOT NULL,
 	topic int(11) NOT NULL,
 	created datetime NOT NULL,
 	revised datetime NOT NULL,
@@ -87,7 +87,7 @@ var cmds = [...]string{
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 
 	`INSERT INTO slideshow (id, gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image) VALUES
-	(1,	1, 1, 2, 0, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '');`,
+	(1,	1, 10, 2, 0, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '');`,
 
 	`CREATE TABLE statistic (
 		id int(11) NOT NULL AUTO_INCREMENT,
@@ -195,7 +195,7 @@ func setupTables(db *sqlx.DB, tx *sqlx.Tx) error {
 // migrateTopics replaces old topic records with corresponding slideshow records.
 func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *SlideStore) error {
 
-	var cmdSlideshow = `ALTER TABLE slideshow MODIFY COLUMN user int(11) NULL;`
+	var cmdSlideshow = `ALTER TABLE slideshow MODIFY COLUMN shared bigint(20), MODIFY COLUMN user int(11) NULL;`
 	var cmdTopic = `DROP TABLE topic;`
 
 	// do we have topics?
@@ -257,9 +257,10 @@ func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *Sl
 
 		var err error
 
-		// preserve highlights ID
+		// preserve highlights ID, and use new ordering scheme
 		if t.Id == stSlideshow.HighlightsId {
 			topicShow.Id = stSlideshow.HighlightsId
+			topicShow.GalleryOrder = 10
 			err = stSlideshow.Set(topicShow)
 
 		} else {
@@ -270,12 +271,29 @@ func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *Sl
 		}
 
 		// reassign slideshows for topic
+		var latest time.Time
 		ss := stSlideshow.ForTopic(t.Id)
 		for _, s = range ss {
 			s.Topic = topicShow.Id
-			err = stSlideshow.Update(s)
-			if err != nil {
+			s.Visible = models.SlideshowTopic
+			s.GalleryOrder = 5
+			if err := stSlideshow.Update(s); err != nil {
 				return err
+			}
+			// latest revision, for highlights topic
+			if s.Revised.After(latest) {
+				latest = s.Revised
+			}
+		}
+
+		// change creation date for highlights topic
+		if topicShow.Id == stSlideshow.HighlightsId {
+			if latest.After(topicShow.Created) {
+				topicShow.Created = latest
+				topicShow.Revised = latest
+				if err := stSlideshow.Update(topicShow); err != nil {
+					return err
+				}
 			}
 		}
 	}

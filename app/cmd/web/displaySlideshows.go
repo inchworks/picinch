@@ -114,10 +114,10 @@ func (s *GalleryState) DisplayHome(member bool) (string, *DataHome) {
 	var dShows []*DataPublished
 	if member {
 		dShows = s.dataShowsPublished(
-			a.SlideshowStore.RecentPublished(models.SlideshowClub, a.cfg.MaxSlideshowsPublic+a.cfg.MaxSlideshowsClub), a.cfg.MaxSlideshowsClub)
+			a.SlideshowStore.RecentPublished(models.SlideshowClub, a.cfg.MaxSlideshowsClub), a.cfg.MaxSlideshowsClub, a.cfg.MaxSlideshowsTotal)
 	} else {
 		dShows = s.dataShowsPublished(
-			a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic), a.cfg.MaxSlideshowsPublic)
+			a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic), a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
 	}
 
 	// template and its data
@@ -427,12 +427,13 @@ func (s *GalleryState) dataSlides(showId int64, max int) []*DataSlide {
 
 // Public or club slideshows and topics for home page
 
-func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, max int) []*DataPublished {
+func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int, maxTotal int) []*DataPublished {
 
 	a := s.app
 	count := make(map[int64]int, 16) // count slideshows per-user
 
 	var data []*DataPublished
+	var total int
 
 	for _, show := range shows {
 
@@ -440,7 +441,7 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, max int) []
 
 			// slideshow - check if user's limit reached
 			userId := show.User.Int64
-			if count[userId] < max {
+			if count[userId] < maxUser {
 
 				// contributor of slideshow
 				user, err := a.UserStore.Get(userId)
@@ -468,6 +469,12 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, max int) []
 				Title: show.Title,
 				Image: show.Image,
 			})
+		}
+
+		// limit on total slideshows and topics
+		total++
+		if total == maxTotal {
+			break
 		}
 	}
 	return data

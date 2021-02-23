@@ -32,7 +32,7 @@ func (s *GalleryState) worker(
 	chImage <-chan images.ReqSave,
 	chShow <-chan reqUpdateShow,
 	chShows <-chan []reqUpdateShow,
-	chTopicId <-chan int64,
+	chTopic <-chan reqUpdateTopic,
 	chRefresh <-chan time.Time,
 	done <-chan bool) {
 
@@ -51,7 +51,7 @@ func (s *GalleryState) worker(
 		case req := <-chShow:
 
 			// a slideshow has been updated or removed
-			if err := s.onUpdateShow(req.showId, req.userId); err != nil {
+			if err := s.onUpdateShow(req.showId, req.userId, req.revised); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
 
@@ -59,16 +59,16 @@ func (s *GalleryState) worker(
 
 			// a set of slideshows have been updated (e.g. user removed)
 			for _, req := range reqs {
-				if err := s.onUpdateShow(req.showId, req.userId); err != nil {
+				if err := s.onUpdateShow(req.showId, req.userId, req.revised); err != nil {
 					s.app.errorLog.Print(err.Error())
 				}
 				runtime.Gosched()
 			}
 
-		case topicId := <-chTopicId:
+		case req:= <-chTopic:
 
 			// a topic slideshow has been updated or removed
-			if err := s.onUpdateTopic(topicId); err != nil {
+			if err := s.onUpdateTopic(req.topicId, req.revised); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
 
@@ -95,7 +95,7 @@ func (s *GalleryState) onRefresh() error {
 	topics := s.app.SlideshowStore.AllTopics()
 
 	for _, topic := range topics {
-		if err := s.updateTopicImage(topic); err != nil {
+		if err := s.updateTopic(topic, false); err != nil {
 			return err
 		}
 	}
@@ -105,7 +105,7 @@ func (s *GalleryState) onRefresh() error {
 
 // A slideshow has been updated or removed
 
-func (s *GalleryState) onUpdateShow(showId int64, userId int64) error {
+func (s *GalleryState) onUpdateShow(showId int64, userId int64, revised bool) error {
 
 	// images
 	im := s.app.imager
@@ -116,7 +116,7 @@ func (s *GalleryState) onUpdateShow(showId int64, userId int64) error {
 	}
 
 	// set versioned images, and update slideshow
-	if err := s.updateSlides(showId); err != nil {
+	if err := s.updateSlides(showId, revised); err != nil {
 		return err
 	}
 
@@ -131,7 +131,7 @@ func (s *GalleryState) onUpdateShow(showId int64, userId int64) error {
 
 // A slideshow for a topic has been updated or deleted
 
-func (s *GalleryState) onUpdateTopic(id int64) error {
+func (s *GalleryState) onUpdateTopic(id int64, revised bool) error {
 
 	defer s.updatesGallery()()
 
@@ -140,7 +140,7 @@ func (s *GalleryState) onUpdateTopic(id int64) error {
 		return nil
 	}
 
-	return s.updateTopicImage(topic)
+	return s.updateTopic(topic, revised)
 }
 
 // Update highlighted images when a highlight slideshow is changed
@@ -162,7 +162,7 @@ func (s *GalleryState) updateHighlights(id int64) error {
 
 // Update image versions for a slideshow. Also sets slideshow revision time.
 
-func (s *GalleryState) updateSlides(showId int64) error {
+func (s *GalleryState) updateSlides(showId int64, revised bool) error {
 
 	// serialise display state while slides are changing
 
@@ -218,19 +218,27 @@ func (s *GalleryState) updateSlides(showId int64) error {
 		// ## temporary fix for missing creation time
 		if show.Topic == 1 && show.Created == (time.Time{}) {
 			show.Created = time.Now()
+			show.Revised = time.Now()
 		}
 
 		// update slideshow revision date
-		show.Revised = time.Now()
+		if revised {
+			show.Revised = time.Now()
+			if show.Topic == s.app.SlideshowStore.HighlightsId {
+				// highlights show moved up display order when images added 
+				show.Created = show.Revised
+			}	
+		}
 		s.app.SlideshowStore.Update(show)
 	}
 
 	return nil
 }
 
-// Change topic thumbnail
+// updateTopic changes the topic thumbnail, and if required updates the revision date
+func (s *GalleryState) updateTopic(t *models.Slideshow, revised bool) error {
 
-func (s *GalleryState) updateTopicImage(t *models.Slideshow) error {
+	update := false
 
 	if t.Visible >= models.SlideshowClub {
 		images := s.app.SlideStore.ImagesForTopic(t.Id)
@@ -241,10 +249,22 @@ func (s *GalleryState) updateTopicImage(t *models.Slideshow) error {
 			// select random image for topic thumbnail
 			i := int(rand.Float32() * float32(nImages))
 			t.Image = images[i]
+			update = true
+		}
+	}
+	if revised {
+		// change revision date	
+		t.Revised = time.Now()
+		if t.Id == s.app.SlideshowStore.HighlightsId {
+			// highlights topic moved up display order when images added 
+			t.Created = t.Revised
+		}
+		update = true
+	}
 
-			if err := s.app.SlideshowStore.Update(t); err != nil {
-				return err
-			}
+	if update {
+		if err := s.app.SlideshowStore.Update(t); err != nil {
+			return err
 		}
 	}
 	return nil
