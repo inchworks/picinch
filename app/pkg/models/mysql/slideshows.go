@@ -47,7 +47,7 @@ const (
 const (
 	// note that ID is included for stable ordering of selections for editing
 	slideshowSelect       = `SELECT * FROM slideshow`
-	slideshowOrder        = ` ORDER BY revised DESC, id`
+	slideshowOrderRevised = ` ORDER BY gallery_order DESC, revised DESC, id`
 	slideshowOrderTitle   = ` ORDER BY title, id`
 	slideshowRevisedSeq   = ` ORDER BY revised ASC LIMIT ?,1`
 
@@ -58,9 +58,9 @@ const (
 	slideshowWhereTopicSeq = slideshowSelect + ` WHERE topic = ?` + slideshowRevisedSeq
 
 	slideshowsWhereTopic    = slideshowSelect + ` WHERE topic = ?`
-	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrder
+	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
 	slideshowsWhereGallery  = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
-	slideshowsWhereNoUser   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderTitle
+	slideshowsNotTopics   = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL` + slideshowOrderTitle
 
 	slideshowWhereShared = slideshowSelect + ` WHERE shared = ?`
 
@@ -68,14 +68,14 @@ const (
 	slideshowsUserPublished = `
 		SELECT slideshow.* FROM slideshow
 		LEFT JOIN slideshow AS topic ON topic.id = slideshow.topic
-		WHERE user = ? AND (slideshow.visible > 0 OR slideshow.visible = -1 AND topic.visible > 0) AND slideshow.image <> ""
+		WHERE slideshow.user = ? AND (slideshow.visible > 0 OR slideshow.visible = -1 AND topic.visible > 0) AND slideshow.image <> ""
 		ORDER BY slideshow.created DESC
 	`
 
 	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ?` + slideshowOrderTitle
-	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderTitle
+	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderRevised
 
-	// most recent public slideshow for each user
+	// most recent visible topics and slideshows, with a per-user limit
 	slideshowsRecentPublished = `
 		WITH s1 AS (
 			SELECT slideshow.*,
@@ -87,7 +87,7 @@ const (
 		)
 		SELECT id, visible, user, title, caption, format, image
 		FROM s1
-		WHERE user = 0 OR rnk <= ?
+		WHERE user IS NULL OR rnk <= ?
 		ORDER BY created DESC
 	`
 	slideshowsTopicPublished = `
@@ -149,7 +149,7 @@ func (st *SlideshowStore) AllForUsers() []*models.Slideshow {
 
 	var slideshows []*models.Slideshow
 
-	if err := st.DBX.Select(&slideshows, slideshowsWhereNoUser, st.GalleryId); err != nil {
+	if err := st.DBX.Select(&slideshows, slideshowsNotTopics, st.GalleryId); err != nil {
 		st.logError(err)
 		return nil
 	}
@@ -316,6 +316,7 @@ func (st *SlideshowStore) GetIfShared(shared int64) *models.Slideshow {
 
 	return &r
 }
+
 // Most recent shows, up to N per user, excluding RecentPublic and including topics, in descending publication date
 
 func (st *SlideshowStore) RecentPublished(visible int, max int) []*models.Slideshow {

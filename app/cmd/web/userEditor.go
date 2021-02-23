@@ -173,7 +173,7 @@ func (s *GalleryState) onRemoveUser(user *models.User) {
 	reqShows := make([]reqUpdateShow, 0, 10)
 	topics := make(map[int64]bool)
 	for _, show := range shows {
-		reqShows = append(reqShows, reqUpdateShow{showId: show.Id, userId: user.Id})
+		reqShows = append(reqShows, reqUpdateShow{showId: show.Id, userId: user.Id, revised: false})
 		if show.Topic != 0 {
 			topics[show.Topic] = true
 		}
@@ -187,6 +187,6 @@ func (s *GalleryState) onRemoveUser(user *models.User) {
 
 	// change topic images as needed
 	for topicId := range topics {
-		s.app.chTopicId <- topicId
+		s.app.chTopic <- reqUpdateTopic{ topicId: topicId, revised: false }
 	}
 }

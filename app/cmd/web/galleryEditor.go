@@ -190,6 +190,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64
 
 	now := time.Now()
 	nSrc := len(qsSrc)
+	revised := false
 
 	if showId != 0 {
 		// slideshow already exists
@@ -248,6 +249,11 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64
 				Caption:   s.sanitize(qsSrc[iSrc].Caption, ""),
 				Image:     images.FileFromName(userId, imageName, 0),
 			}
+			// only a new image is counted as a revision to the slideshow
+			if imageName != "" {
+				revised = true
+			}
+
 			s.app.SlideStore.Update(&qd)
 			updated = true
 			iSrc++
@@ -309,19 +315,18 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64
 				sl.ShowOrder = nOrder
 				s.app.SlideStore.Update(sl)
 			}
-
 		}
 	}
 
 	// request worker to generate image versions, and remove unused images
 	// (skipped if the user didn't add any slides for a new topic)
 	if showId != 0 {
-		s.app.chShow <- reqUpdateShow{showId: showId, userId: userId}
+		s.app.chShow <- reqUpdateShow{showId: showId, userId: userId, revised: revised}
 	}
 
 	// then worker should change the topic thumbnail, in case we just updated or removed the current one
 	if topicId != 0 {
-		s.app.chTopicId <- topicId
+		s.app.chTopic <- reqUpdateTopic{ topicId: topicId, revised: revised }
 	}
 
 	ok = true
@@ -425,8 +430,8 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 					// set creation date just once, when published
 					if rSrc.Visible > models.SlideshowPrivate && rDest.Created.IsZero() {
 						rDest.Created = now
+						rDest.Revised = now
 					}
-					rDest.Revised = now
 
 					s.app.SlideshowStore.Update(rDest)
 				}
@@ -580,8 +585,8 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 					// set creation date just once, when published
 					if rSrc.Visible > models.SlideshowPrivate && rDest.Created.IsZero() {
 						rDest.Created = now
+						rDest.Revised = now
 					}
-					rDest.Revised = now
 
 					s.app.SlideshowStore.Update(rDest)
 				}
@@ -625,9 +630,9 @@ func (s *GalleryState) onRemoveSlideshow(slideshow *models.Slideshow) {
 	s.app.SlideshowStore.DeleteId(slideshow.Id)
 
 	// request worker to remove images, and change topic image
-	s.app.chShow <- reqUpdateShow{showId: slideshow.Id, userId: slideshow.User.Int64}
+	s.app.chShow <- reqUpdateShow{showId: slideshow.Id, userId: slideshow.User.Int64, revised: false}
 	if topicId != 0 {
-		s.app.chTopicId <- topicId
+		s.app.chTopic <- reqUpdateTopic{ topicId: topicId, revised: false }
 	}
 }
 
