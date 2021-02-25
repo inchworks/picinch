@@ -341,6 +341,14 @@ func (app *Application) authAs(w http.ResponseWriter, r *http.Request, minRole i
 	return true
 }
 
+// shared sets headers for shared topic and slideshows
+func (app *Application) shared(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=600")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // threat records an attempted intrusion
 func (app *Application) threat(event string, r *http.Request) {
 	app.threatLog.Printf("%s - %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
@@ -350,8 +358,7 @@ func (app *Application) threat(event string, r *http.Request) {
 	rec.Seen(usage.FormatIP(r.RemoteAddr), "suspect")
 }
 
-// Redirect www.domain to domain
-
+// wwwRedirect redirects a request for the www sub-domain to the parent domain.
 func wwwRedirect(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if host := strings.TrimPrefix(r.Host, "www."); host != r.Host {

@@ -27,12 +27,10 @@
 		{{block "homePage" .}}
 			<p>This website allows the members of a photography club to share their photos with the public and with each other.</p>
 		{{end}}
-		
 		<h3>Highlights</h3>
 	</div>
 
 	<div class="container photo-thumbnails rounded">
-
 		<div class="row photos ">
 		{{range .Highlights}}
 			{{ if eq .Format 2 }}
@@ -49,84 +47,39 @@
 	</div>
 
 	<div class="container">
-		<h3>Slideshows</h3>
+		{{if .IsAuthenticated}}
+			<h3>Latest</h3>
+		{{else}}
+			<h3>Slideshows</h3>
+		{{end}}
 		<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 mb-4">
-
-			{{range .TopicsPublic}}
+			{{range .Slideshows}}
 				<div class="col mb-4">
 					<div class="card text-white bg-dark h-100">
 						<div class="card-body">
-							<a class="card-link text-light" href="/topic/{{ .Id }}/0">
+							<a class="card-link text-light" href="/slideshow/{{ .Id }}/1">
 								<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
 								<h5 class="card-title">{{ .Title }}</h5>
 							</a>
-							<div class="text-right mt-2">
-								<a href="/topic-contributors/{{ .Id }}" class="btn btn-secondary">Contributors</a>
-							</div>
-						</div>
-					</div>
-				</div>
-			{{end}}
-
-			{{range .SlideshowsPublic}}
-				<div class="col mb-4">
-					<div class="card text-white bg-dark h-100">
-						<div class="card-body">
-							<a class="card-link text-light" href="/slideshow/{{ .Id }}">
-								<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
-								<h5 class="card-title">{{ .Title }}</h5>
-							</a>
-							<p class="card-text text-light">{{ .DisplayName }}</p>
+							{{if eq .NUser 0}}
+								<div class="text-right mt-2">
+									<a href="/topic-contributors/{{ .Id }}" class="btn btn-secondary">Contributors</a>
+								</div>
+							{{else}}
+								<p class="card-text"><a class="card-link text-light" href="/contributor/{{ .NUser }}">{{ .DisplayName }}</a></p>
+							{{end}}
 						</div>
 					</div>
 				</div>
 			{{end}}
 		</div>
-
-		{{if .IsAuthenticated}}
-			<h3>Topics</h3>
-			<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 mb-4">
-				{{range .TopicsClub}}
-					<div class="col mb-4">
-						<div class="card text-white bg-dark h-100">
-							<div class="card-body">
-								<a class="card-link text-light" href="/topic/{{ .Id }}/0">
-									<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
-									<h5 class="card-title">{{ .Title }}</h5>
-								</a>
-								<div class="text-right mt-2">
-									<a href="/topic-contributors/{{ .Id }}" class="btn btn-secondary">Contributors</a>
-								</div>
-							</div>
-						</div>
-					</div>
-				{{end}}
-			</div>
-
-			<h3>Members Latest</h3>
-			<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 mb-4">
-				{{range .SlideshowsClub}}
-					<div class="col mb-4">
-						<div class="card text-white bg-dark h-100">
-							<div class="card-body">
-								<a class="card-link text-light" href="/slideshow/{{ .Id }}">
-									<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
-									<h5 class="card-title">{{ .Title }}</h5>
-								</a>
-								<p class="card-text"><a class="card-link text-light" href="/contributor/{{ .NUser }}">{{ .DisplayName }}</a></p>
-							</div>
-						</div>
-					</div>
-				{{end}}
-			</div>
-		{{end}}
-
-		{{if not .IsAuthenticated}}
-			<div class="container">
-				<p><strong>More slideshows</strong> are available to to club members. Please sign up or log in.</p>
-			</div>
-		{{end}}
 	</div>
+
+	{{if not .IsAuthenticated}}
+		<div class="container">
+			<p><strong>More slideshows</strong> are available to to club members. Please sign up or log in.</p>
+		</div>
+	{{end}}
 
 	<footer class="text-muted">
 		<div class="container">

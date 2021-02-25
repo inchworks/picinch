@@ -42,8 +42,9 @@ const (
 )
 
 const (
+	// note that ID is included for stable ordering of selections for editing
 	userSelect    = `SELECT * FROM user`
-	userOrderName = ` ORDER BY name`
+	userOrderName = ` ORDER BY name, id`
 
 	userWhereId       = userSelect + ` WHERE id = ?`
 	userWhereName     = userSelect + ` WHERE parent = ? AND username = ?`
@@ -67,23 +68,24 @@ const (
 			ORDER BY user.name ASC
 	`
 
-	// Users ordered by most recent slideshow.
+	// Users ordered by most recent published slideshow.
 	// This is tricky. First get all slideshows, partition them by user and sort within users by date.
 	// Then take the first ranked ones, and join the users.
 	// https://dev.mysql.com/doc/refman/8.0/en/example-maximum-column-group-row.html
 
 	usersByLatestSlideshow = `
 		WITH s1 AS (
-			SELECT user AS userId, created,
-				RANK() OVER (PARTITION BY user
-									ORDER BY created DESC, id
+			SELECT contrib.user AS userId, contrib.created,
+				RANK() OVER (PARTITION BY userId
+									ORDER BY contrib.created DESC
 							) AS rnk
-			FROM slideshow
-			WHERE parent = ? AND visible <> 0
+			FROM slideshow AS contrib
+			LEFT JOIN slideshow AS topic ON topic.id = contrib.topic
+			WHERE contrib.gallery = ? AND (contrib.visible > 0 OR (contrib.visible = -1 AND topic.visible > 0))
 		)
 		SELECT user.*
 		FROM s1
-		LEFT JOIN user ON userId = user.id
+		JOIN user ON userId = user.id
 		WHERE rnk = 1
 		ORDER BY s1.created DESC
 	`

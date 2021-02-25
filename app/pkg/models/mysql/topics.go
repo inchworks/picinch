@@ -34,25 +34,22 @@ const (
 
 	topicUpdate = `
 		UPDATE topic
-		SET gallery_order=:gallery_order, visible=:visible, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
+		SET gallery_order=:gallery_order, visible=:visible, shared=:shared, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
 		WHERE id = :id
 	`
 )
 
 const (
+	// note that ID is included for stable ordering of selections for editing
 	topicSelect       = `SELECT * FROM topic`
-	topicOrderDisplay = ` ORDER BY gallery_order ASC, created DESC`
-	topicOrderTitle   = ` ORDER BY title ASC`
+	topicOrderTitle   = ` ORDER BY title, id`
 
 	topicWhereId         = topicSelect + ` WHERE id = ?`
-	topicsWhereEditable  = topicSelect + ` WHERE gallery = ? AND id <> ?` + topicOrderTitle
-	topicsWhereGallery   = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
-	topicsWherePublished = topicSelect + ` WHERE gallery = ? AND visible = ?` + topicOrderDisplay
+	topicsWhereGallery0  = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
 )
 
 type TopicStore struct {
-	GalleryId    int64
-	HighlightsId int64
+	GalleryId     int64
 	store
 }
 
@@ -76,72 +73,22 @@ func (st *TopicStore) All() []*models.Topic {
 
 	var topics []*models.Topic
 
-	if err := st.DBX.Select(&topics, topicsWhereGallery, st.GalleryId); err != nil {
+	if err := st.DBX.Select(&topics, topicsWhereGallery0, st.GalleryId); err != nil {
 		st.logError(err)
 		return nil
 	}
 	return topics
 }
 
-// All editable topics
-
-func (st *TopicStore) AllEditable() []*models.Topic {
-
-	var topics []*models.Topic
-
-	if err := st.DBX.Select(&topics, topicsWhereEditable, st.GalleryId, st.HighlightsId); err != nil {
-		st.logError(err)
-		return nil
-	}
-	return topics
-}
-
-// topic by ID
-
-func (st *TopicStore) Get(id int64) (*models.Topic, error) {
-
-	var r models.Topic
-
-	if err := st.DBX.Get(&r, topicWhereId, id); err != nil {
-		return nil, st.logError(err)
-	}
-
-	return &r, nil
-}
-
-// Topic, if it still exists
+// Topic, if it or the table still exists
 
 func (st *TopicStore) GetIf(id int64) *models.Topic {
 
 	var r models.Topic
 
 	if err := st.DBX.Get(&r, topicWhereId, id); err != nil {
-		if st.convertError(err) != models.ErrNoRecord {
-			st.logError(err)
-		}
 		return nil
 	}
 
 	return &r
-}
-
-// Published topics
-
-func (st *TopicStore) Published(visible int) []*models.Topic {
-
-	var topics []*models.Topic
-
-	if err := st.DBX.Select(&topics, topicsWherePublished, st.GalleryId, visible); err != nil {
-		st.logError(err)
-		return nil
-	}
-	return topics
-}
-
-// Insert or update topic
-
-func (st *TopicStore) Update(r *models.Topic) error {
-	r.Gallery = st.GalleryId
-
-	return st.updateData(&r.Id, r)
 }

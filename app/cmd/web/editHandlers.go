@@ -141,14 +141,14 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	showId, err := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	userId, err := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 	if err != nil {
 		app.log(err)
 		app.clientError(w, http.StatusBadRequest)
 	}
 
-	// allow access to slideshow?
-	if !app.allowUpdateShow(r, showId) {
+	// allow uploads?
+	if !app.allowAccessUser(r, userId) {
 		app.clientError(w, http.StatusUnauthorized)
 		return
 	}
@@ -165,7 +165,7 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 	// save image returned with form
 	fh := r.MultipartForm.File["image"][0]
 
-	err, byUser := images.Save(fh, showId, app.chImage)
+	err, byUser := images.Save(fh, userId, app.chImage)
 	var s string
 	if err != nil {
 		if byUser {
@@ -202,7 +202,6 @@ func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 		Form:  f,
 		NShow: showId,
-		NUser: 0,
 		Title: slideshow.Title, // ## could be in form, to allow editing
 	})
 }
@@ -217,7 +216,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// allow access to slideshow?
-	if !app.allowUpdateShow(r, showId) {
+	if showId != 0 && !app.allowUpdateShow(r, showId) {
 		app.clientError(w, http.StatusUnauthorized)
 		return
 	}
@@ -238,6 +237,24 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	nUser, _ := strconv.ParseInt(f.Get("nUser"), 10, 64)
+
+	// need topic if there is no slideshow (otherwise we prefer to trust the database)
+	var nTopic int64
+	if showId == 0 {
+		nTopic, _ = strconv.ParseInt(f.Get("nTopic"), 10, 64)
+	
+		if nTopic == 0 {
+			app.clientError(w, http.StatusBadRequest)
+			return	
+		}
+
+		// allow access for user?
+		if !app.allowAccessUser(r, nUser) {
+			app.clientError(w, http.StatusUnauthorized)
+		}
+	}
+
 	// redisplay form if data invalid
 	if !f.Valid() {
 		app.errorLog.Print(f.Errors)
@@ -249,7 +266,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save changes
-	ok, userId := app.galleryState.OnEditSlideshow(showId, slides)
+	ok, userId := app.galleryState.OnEditSlideshow(showId, nTopic, nUser, slides)
 	if ok {
 		app.session.Put(r, "flash", "Slide changes saved.")
 		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
@@ -336,14 +353,13 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 	topicId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
-	f, show := app.galleryState.ForEditTopic(topicId, userId, nosurf.Token(r))
+	f, showId, title := app.galleryState.ForEditTopic(topicId, userId, nosurf.Token(r))
 
 	// display form
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 		Form:  f,
-		NShow: show.Id,
-		NUser: userId,
-		Title: show.Title,
+		NShow: showId,
+		Title: title,
 	})
 }
 

@@ -46,6 +46,9 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/", dynHs.Append(app.public).ThenFunc(app.home))
 	router.Handler("GET", "/about", dynHs.Append(app.public).ThenFunc(app.about))
 
+	// pages shared with an access code
+	router.Handler("GET", "/shared/:code/:seq", dynHs.Append(app.shared).ThenFunc(app.slideshowShared))
+
 	// embedding
 	router.Handler("GET", "/highlight/:prefix/:nImage", dynHs.Append(app.public).ThenFunc(app.highlight))
 	router.Handler("GET", "/highlights/:nImages", dynHs.Append(app.public).ThenFunc(app.highlights))
@@ -69,16 +72,15 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/edit-topic/:nShow/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.getFormTopic))
 
 	// upload image
-	router.Handler("POST", "/upload/:nShow", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormImage))
+	router.Handler("POST", "/upload/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormImage))
 
 	// displays
-	router.Handler("GET", "/slideshow/:nShow", dynHs.ThenFunc(app.slideshow))
+	router.Handler("GET", "/slideshow/:nShow/:seq", dynHs.ThenFunc(app.slideshow))
 	router.Handler("GET", "/contributors", dynHs.Append(app.requireAuthentication).ThenFunc(app.contributors))
 	router.Handler("GET", "/contributor/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.contributor))
 	router.Handler("GET", "/my-slideshows", dynHs.Append(app.requireAuthentication).ThenFunc(app.slideshowsOwn))
-	router.Handler("GET", "/slideshows-user/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.slideshowsUser))
-	router.Handler("GET", "/topic/:nShow/:seq", dynHs.ThenFunc(app.topic))
-	router.Handler("GET", "/topic-user/:nShow/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.topicUser))
+	router.Handler("GET", "/slideshows-user/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.slideshowsUser))
+	router.Handler("GET", "/topic-user/:nShow/:nUser", dynHs.ThenFunc(app.topicUser))
 	router.Handler("GET", "/topic-contributors/:nTopic", dynHs.ThenFunc(app.topicContributors))
 	router.Handler("GET", "/topics", dynHs.Append(app.requireCurator).ThenFunc(app.topics))
 	router.Handler("GET", "/usage-days", dynHs.Append(app.requireAdmin).ThenFunc(app.usageDays))

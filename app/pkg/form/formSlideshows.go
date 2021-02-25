@@ -34,6 +34,7 @@ type SlideshowsForm struct {
 type SlideshowFormData struct {
 	multiforms.Child
 	Visible     int
+	IsShared    bool
 	Title       string
 	NShow       int64
 	NTopic      int64
@@ -52,11 +53,12 @@ func NewSlideshows(data url.Values, token string) *SlideshowsForm {
 
 // Add slideshow to form
 
-func (f *SlideshowsForm) Add(index int, id int64, topicId int64, visible int, title string, user string) {
+func (f *SlideshowsForm) Add(index int, id int64, topicId int64, visible int, isShared bool, title string, user string) {
 
 	f.Children = append(f.Children, &SlideshowFormData{
 		Child:       multiforms.Child{Parent: f.Form, ChildIndex: index},
 		Visible:     visible,
+		IsShared:    isShared,
 		Title:       title,
 		NShow:       id,
 		NTopic:      topicId,
@@ -103,10 +105,11 @@ func (f *SlideshowsForm) GetSlideshows(withTopics bool) (items []*SlideshowFormD
 		items = append(items, &SlideshowFormData{
 
 			Child:   multiforms.Child{Parent: f.Form, ChildIndex: ix},
-			Visible: visible,
-			NShow:   showId,
-			NTopic:  topicId,
-			Title:   f.ChildRequired("title", i, ix),
+			Visible:  visible,
+			IsShared: f.ChildBool("shared", ix),
+			NShow:    showId,
+			NTopic:   topicId,
+			Title:    f.ChildRequired("title", i, ix),
 		})
 	}
 

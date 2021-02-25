@@ -44,7 +44,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.9.2"
+	version = "0.9.4"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -112,6 +112,7 @@ type Configuration struct {
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
 	MaxHighlightsTotal  int `yaml:"highlights-page" env-default:"12"`    // highlights for home page, and user's page
 	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`   // total slides in H format topic // ## misleading name?
+	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`   // total slideshows on home page
 
 	// per user limits
 	MaxHighlights       int `yaml:"highlights-user"  env-default:"2"`  // highlights on home page
@@ -122,6 +123,19 @@ type Configuration struct {
 	MiscName        string          `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscelleneous files, as in "example.com/misc/file"
 	SiteRefresh     time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`          // refresh interval for topic thumbnails. Units m or h.
 	UsageAnonymised usage.Anonymise `yaml:"usage-anon" env-default:"1"`
+}
+
+// Request to update slideshow images.
+type reqUpdateShow struct {
+	showId  int64
+	userId  int64
+	revised bool
+}
+
+// Request to update topic images.
+type reqUpdateTopic struct {
+	topicId  int64
+	revised bool
 }
 
 // Application struct supplies application-wide dependencies.
@@ -141,8 +155,7 @@ type Application struct {
 	SlideStore     *mysql.SlideStore
 	GalleryStore   *mysql.GalleryStore
 	SlideshowStore *mysql.SlideshowStore
-	TopicStore     *mysql.TopicStore
-	userStore      *mysql.UserStore
+	UserStore      *mysql.UserStore
 	StatisticStore *mysql.StatisticStore
 
 	// common components
@@ -157,9 +170,9 @@ type Application struct {
 
 	// Channels to background worker
 	chImage   chan images.ReqSave
-	chShowId  chan int64
-	chShowIds chan []int64
-	chTopicId chan int64
+	chShow    chan reqUpdateShow
+	chShows   chan []reqUpdateShow
+	chTopic chan reqUpdateTopic
 
 	// Since we support just one gallery at a time, we can cache state here.
 	// With multiple galleries, we'd need a per-gallery cache.
@@ -212,7 +225,7 @@ func main() {
 	defer t.Stop()
 
 	chDone := make(chan bool, 1)
-	go app.galleryState.worker(app.chImage, app.chShowId, app.chShowIds, app.chTopicId, t.C, chDone)
+	go app.galleryState.worker(app.chImage, app.chShow, app.chShows, app.chTopic, t.C, chDone)
 
 	// preconfigured HTTP/HTTPS server
 	// ## name stutter!
@@ -370,9 +383,9 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// create worker channels
 	app.chImage = make(chan images.ReqSave, 20)
-	app.chShowId = make(chan int64, 10)
-	app.chShowIds = make(chan []int64, 1)
-	app.chTopicId = make(chan int64, 10)
+	app.chShow = make(chan reqUpdateShow, 10)
+	app.chShows = make(chan []reqUpdateShow, 1)
+	app.chTopic = make(chan reqUpdateTopic, 10)
 
 	return app
 }
@@ -388,8 +401,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.SlideStore = mysql.NewSlideStore(app.db, &app.tx, app.errorLog)
 	app.GalleryStore = mysql.NewGalleryStore(app.db, &app.tx, app.errorLog)
 	app.SlideshowStore = mysql.NewSlideshowStore(app.db, &app.tx, app.errorLog)
-	app.TopicStore = mysql.NewTopicStore(app.db, &app.tx, app.errorLog)
-	app.userStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
+	app.UserStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
 	app.StatisticStore = mysql.NewStatisticStore(app.db, &app.statsTx, app.errorLog)
 
 	// setup new database and administrator, if needed, and get gallery record
@@ -400,11 +412,18 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 
 	// save gallery ID for stores that need it
 	app.SlideshowStore.GalleryId = g.Id
-	app.TopicStore.GalleryId = g.Id
-	app.userStore.GalleryId = g.Id
+	app.UserStore.GalleryId = g.Id
 
-	// highlights topicID
-	app.TopicStore.HighlightsId = 1
+	// highlights topic ID
+	app.SlideshowStore.HighlightsId = 1
+
+	// database changes from previous version(s)
+	topicStore := mysql.NewTopicStore(app.db, &app.tx, app.errorLog)
+	topicStore.GalleryId = g.Id
+	err = mysql.MigrateTopics(topicStore, app.SlideshowStore, app.SlideStore)
+	if err != nil {
+		app.errorLog.Fatal(err)
+	}
 
 	return g
 }

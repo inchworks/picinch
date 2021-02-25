@@ -64,12 +64,9 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request) {
 // template data for display pages
 
 type DataHome struct {
-	DisplayName      string
-	Highlights       []*DataSlide
-	TopicsPublic     []*DataPublished
-	TopicsClub       []*DataPublished
-	SlideshowsPublic []*DataPublished
-	SlideshowsClub   []*DataPublished
+	DisplayName string
+	Highlights  []*DataSlide
+	Slideshows  []*DataPublished
 	DataCommon
 }
 
@@ -86,6 +83,7 @@ type DataMySlideshow struct {
 	NUser   int64
 	Title   string
 	Visible string
+	Shared  string
 }
 
 type DataPublished struct {
@@ -147,7 +145,6 @@ type simpleFormData struct {
 type slidesFormData struct {
 	Form  *form.SlidesForm
 	NShow int64
-	NUser int64 // set for a topic, 0 for a normal slideshow
 	Title string
 	DataCommon
 }
@@ -167,6 +164,7 @@ type usersFormData struct {
 // Define functions callable from a template
 
 var functions = template.FuncMap{
+	"checked":    checked,
 	"humanDate":  humanDate,
 	"thumbnail":  thumbnail,
 	"userStatus": userStatus,
@@ -263,6 +261,16 @@ func parseGlobIf(ts *template.Template, pattern string) (*template.Template, err
 		}
 	}
 	return ts, err
+}
+
+// checked returns "checked" if the parameter is true, for use with a form checkbox.
+func checked(isChecked bool) string {
+
+	if isChecked {
+		return "checked"
+	} else {
+		return ""
+	}
 }
 
 // get thumbnail image

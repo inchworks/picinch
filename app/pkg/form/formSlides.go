@@ -27,6 +27,8 @@ import (
 
 type SlidesForm struct {
 	*multiforms.Form
+	NTopic   int64 // 0 for a normal slideshow
+	NUser    int64 // set for a topic, 0 otherwise
 	Children []*SlideFormData
 }
 

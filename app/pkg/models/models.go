@@ -20,6 +20,7 @@ package models
 // Database models PicInch.
 
 import (
+	"database/sql"
 	"errors"
 	"html/template"
 	"strconv"
@@ -83,8 +84,8 @@ type Slide struct {
 	ShowOrder int `db:"show_order"`
 	Created   time.Time
 	Revised   time.Time
-	Title     string
-	Caption   string
+	Title     string // sanitized HTML
+	Caption   string // sanitized HTML
 	Image     string
 }
 
@@ -93,9 +94,9 @@ type Slideshow struct {
 	Gallery      int64
 	GalleryOrder int `db:"gallery_order"`
 	Visible      int
-	User         int64
+	User         sql.NullInt64 // null for a topic
 	Shared       int64 // link for external access
-	Topic        int64 // 0 for a normal slideshow
+	Topic        int64 // parent topic, 0 for a normal slideshow
 	Created      time.Time
 	Revised      time.Time
 	Title        string
@@ -177,7 +178,7 @@ func (s *Topic) VisibleStr() string {
 
 // Formats
 
-func (t *Topic) ParseFormat() (fmt string, max int) {
+func (t *Slideshow) ParseFormat() (fmt string, max int) {
 
 	var err error
 	ss := strings.Split(t.Format, ".")

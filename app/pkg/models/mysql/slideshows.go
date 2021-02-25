@@ -34,16 +34,21 @@ const (
 
 	slideshowUpdate = `
 		UPDATE slideshow
-		SET gallery_order=:gallery_order, visible=:visible, topic=:topic, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
+		SET gallery_order=:gallery_order, visible=:visible, shared=:shared, topic=:topic, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
 		WHERE id = :id
 	`
+
+	slideshowSet = `
+		INSERT INTO slideshow (id, gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image)
+		VALUES (:id, :gallery, :gallery_order, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image)`
+
 )
 
 const (
+	// note that ID is included for stable ordering of selections for editing
 	slideshowSelect       = `SELECT * FROM slideshow`
-	slideshowOrder        = ` ORDER BY gallery_order ASC, created DESC`
-	slideshowOrderRevised = ` ORDER BY revised DESC`
-	slideshowOrderTitle   = ` ORDER BY title ASC, id`
+	slideshowOrderRevised = ` ORDER BY gallery_order DESC, revised DESC, id`
+	slideshowOrderTitle   = ` ORDER BY title, id`
 	slideshowRevisedSeq   = ` ORDER BY revised ASC LIMIT ?,1`
 
 	slideshowCountForTopic = `SELECT COUNT(*) FROM slideshow WHERE topic = ?`
@@ -53,11 +58,24 @@ const (
 	slideshowWhereTopicSeq = slideshowSelect + ` WHERE topic = ?` + slideshowRevisedSeq
 
 	slideshowsWhereTopic    = slideshowSelect + ` WHERE topic = ?`
-	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ?  AND visible >= ?` + slideshowOrder
+	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
 	slideshowsWhereGallery  = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
-	slideshowsUserPublished = slideshowSelect + ` WHERE user = ? AND visible <> 0 AND slideshow.image <> ""` + slideshowOrderRevised
+	slideshowsNotTopics   = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL` + slideshowOrderTitle
 
-	// most recent public slideshow for each user
+	slideshowWhereShared = slideshowSelect + ` WHERE shared = ?`
+
+	// published slideshows for a user
+	slideshowsUserPublished = `
+		SELECT slideshow.* FROM slideshow
+		LEFT JOIN slideshow AS topic ON topic.id = slideshow.topic
+		WHERE slideshow.user = ? AND (slideshow.visible > 0 OR slideshow.visible = -1 AND topic.visible > 0) AND slideshow.image <> ""
+		ORDER BY slideshow.created DESC
+	`
+
+	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ?` + slideshowOrderTitle
+	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderRevised
+
+	// most recent visible topics and slideshows, with a per-user limit
 	slideshowsRecentPublished = `
 		WITH s1 AS (
 			SELECT slideshow.*,
@@ -69,7 +87,7 @@ const (
 		)
 		SELECT id, visible, user, title, caption, format, image
 		FROM s1
-		WHERE rnk <= ?
+		WHERE user IS NULL OR rnk <= ?
 		ORDER BY created DESC
 	`
 	slideshowsTopicPublished = `
@@ -81,7 +99,8 @@ const (
 )
 
 type SlideshowStore struct {
-	GalleryId int64
+	GalleryId    int64
+	HighlightsId int64
 	store
 }
 
@@ -110,6 +129,44 @@ func (st *SlideshowStore) All() []*models.Slideshow {
 		return nil
 	}
 	return slideshows
+}
+
+// All editable topics
+
+func (st *SlideshowStore) AllEditableTopics() []*models.Slideshow {
+
+	var topics []*models.Slideshow
+
+	if err := st.DBX.Select(&topics, topicsWhereEditable, st.GalleryId, st.HighlightsId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return topics
+}
+
+// AllForUsers returns all slideshows except topics.
+func (st *SlideshowStore) AllForUsers() []*models.Slideshow {
+
+	var slideshows []*models.Slideshow
+
+	if err := st.DBX.Select(&slideshows, slideshowsNotTopics, st.GalleryId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
+}
+
+// All topics
+
+func (st *SlideshowStore) AllTopics() []*models.Slideshow {
+
+	var topics []*models.Slideshow
+
+	if err := st.DBX.Select(&topics, topicsWhereGallery, st.GalleryId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return topics
 }
 
 // Count of slideshows for topic
@@ -190,7 +247,7 @@ func (st *SlideshowStore) ForTopicUser(topicId int64, userId int64) *models.Slid
 	return &r
 }
 
-// All slideshows for user, in published order, specified visibility
+// All slideshows for user, in latest published order, specified visibility
 
 func (st *SlideshowStore) ForUser(userId int64, visible int) []*models.Slideshow {
 
@@ -245,7 +302,22 @@ func (st *SlideshowStore) GetIf(id int64) *models.Slideshow {
 	return &r
 }
 
-// Most recent shows, up to N per user, excluding RecentPublic, in descending publication date
+// GetIfShared returns a shared slideshow.
+func (st *SlideshowStore) GetIfShared(shared int64) *models.Slideshow {
+
+	var r models.Slideshow
+
+	if err := st.DBX.Get(&r, slideshowWhereShared, shared); err != nil {
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+		}
+		return nil
+	}
+
+	return &r
+}
+
+// Most recent shows, up to N per user, excluding RecentPublic and including topics, in descending publication date
 
 func (st *SlideshowStore) RecentPublished(visible int, max int) []*models.Slideshow {
 
@@ -264,4 +336,22 @@ func (st *SlideshowStore) Update(r *models.Slideshow) error {
 	r.Gallery = st.GalleryId
 
 	return st.updateData(&r.Id, r)
+}
+
+// Set slideshow with specified ID (temporary function used to migrate topics)
+
+func (st *SlideshowStore) Set(r *models.Slideshow) error {
+	r.Gallery = st.GalleryId
+
+	tx := *st.ptx
+	if tx == nil {
+		panic("Transaction not begun")
+	}
+
+	if _, err := tx.NamedExec(slideshowSet, r); err != nil {
+		st.logError(err)
+		return st.convertError(err)
+	}
+
+	return nil
 }

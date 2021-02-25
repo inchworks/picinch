@@ -33,17 +33,20 @@
        <div>
             {{range .Topics}}
                 <div class="row">
-                    <div class="col">
+                    <div class="col-md-1">
                         <span class="input-group-text">{{ .NShow }}</span>
                     </div>
-                    <div class="col-xl-6 col-lg-5 col-md-4 col-sm-6">
+                    <div class="col-xl-6 col-lg-5 col-md-4">
                         <span class="input-group-text">{{ .Title }}</span>
                     </div>
-                    <div class="col-xl-2 col-lg-3 col-md-3 col-sm-4">
+                    <div class="col-xl-2 col-lg-2 col-md-3">
                         <span class="input-group-text">Show: {{.Visible}}</span>
                     </div>
-                    <div class="col">
-                        <a class='btn btn-light' href='/topic/{{ .NShow }}/0'>View</a>
+                    <div class="col-md-2">
+                        <span class="input-group-text">{{.Shared}}</span>
+                    </div>
+                    <div class="col-xl-1 col-lg-2 col-md-2">
+                        <a class='btn btn-light' href='/slideshow/{{ .NShow }}/1'>View</a>
                     </div>
                 </div>
             {{end}}

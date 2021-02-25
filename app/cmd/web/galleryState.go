@@ -50,7 +50,7 @@ func (s *GalleryState) Init(a *Application) {
 func (s *GalleryState) cacheHighlights() error {
 
 	// highlight slides, most recent first
-	slides := s.app.SlideStore.RecentForTopic(s.app.TopicStore.HighlightsId, s.app.cfg.MaxHighlights, s.app.cfg.MaxHighlightsParent)
+	slides := s.app.SlideStore.RecentForTopic(s.app.SlideshowStore.HighlightsId, s.app.cfg.MaxHighlights, s.app.cfg.MaxHighlightsParent)
 
 	// cache the image names
 	var images []string
