@@ -51,11 +51,11 @@ func (s *GalleryState) ForAssignShows(tok string) (f *form.SlideshowsForm) {
 	// form
 	var d = make(url.Values)
 	f = form.NewSlideshows(d, tok)
-
+	
 	// add template and slideshows to form
 	f.AddTemplate()
 	for i, sh := range slideshows {
-		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Shared != 0, sh.Title, s.app.UserStore.Name(sh.User.Int64))
+		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Shared != 0, sh.Title, s.app.userStore.Name(sh.User.Int64))
 	}
 
 	return
@@ -621,7 +621,7 @@ func (s *GalleryState) OnRemoveUser(user *users.User) {
 	}
 
 	// slideshows and slides will be removed by cascade delete
-	s.app.UserStore.DeleteId(user.Id)
+	s.app.userStore.DeleteId(user.Id)
 
 	// remove user's images
 	s.app.chShows <- reqShows

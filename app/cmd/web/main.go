@@ -44,7 +44,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.9.4"
+	version = "0.9.5"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -155,8 +155,8 @@ type Application struct {
 	SlideStore     *mysql.SlideStore
 	GalleryStore   *mysql.GalleryStore
 	SlideshowStore *mysql.SlideshowStore
-	UserStore      *mysql.UserStore
-	StatisticStore *mysql.StatisticStore
+	statisticStore *mysql.StatisticStore
+	userStore      *mysql.UserStore
 
 	// common components
 	usage *usage.Recorder
@@ -370,7 +370,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// setup usage, with defaults
-	if app.usage, err = usage.New(app.StatisticStore, cfg.UsageAnonymised, 0, 0, 0, 0, 0); err != nil {
+	if app.usage, err = usage.New(app.statisticStore, cfg.UsageAnonymised, 0, 0, 0, 0, 0); err != nil {
 		errorLog.Fatal(err)
 	}
 
@@ -401,8 +401,8 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.SlideStore = mysql.NewSlideStore(app.db, &app.tx, app.errorLog)
 	app.GalleryStore = mysql.NewGalleryStore(app.db, &app.tx, app.errorLog)
 	app.SlideshowStore = mysql.NewSlideshowStore(app.db, &app.tx, app.errorLog)
-	app.UserStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
-	app.StatisticStore = mysql.NewStatisticStore(app.db, &app.statsTx, app.errorLog)
+	app.statisticStore = mysql.NewStatisticStore(app.db, &app.statsTx, app.errorLog)
+	app.userStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
 
 	// setup new database and administrator, if needed, and get gallery record
 	g, err := mysql.Setup(app.GalleryStore, app.userStore, 1, cfg.AdminName, cfg.AdminPassword)
@@ -412,7 +412,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 
 	// save gallery ID for stores that need it
 	app.SlideshowStore.GalleryId = g.Id
-	app.UserStore.GalleryId = g.Id
+	app.userStore.GalleryId = g.Id
 
 	// highlights topic ID
 	app.SlideshowStore.HighlightsId = 1

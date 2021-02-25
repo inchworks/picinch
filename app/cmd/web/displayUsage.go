@@ -46,7 +46,7 @@ func (s *GalleryState) ForUsage(period usage.Detail) *DataUsagePeriods {
 	defer s.updatesNone()()
 
 	// get stats
-	stats := usage.Get(s.app.StatisticStore, period)
+	stats := usage.Get(s.app.statisticStore, period)
 	var dataUsage []*DataUsage
 
 	for _, s := range stats {

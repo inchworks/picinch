@@ -50,7 +50,7 @@ const (
 	// user roles
 	// These must match the database, so prefer specified values to iota.
 	UserUnknown = 0
-	UserFriend   = 1 // not used
+	UserFriend   = 1 // ## not implemented yet
 	UserMember    = 2
 	UserCurator   = 3
 	UserAdmin     = 4
@@ -117,19 +117,6 @@ type Topic struct {
 	Caption      string
 	Format       string
 	Image        string
-}
-
-type User0 struct {
-	Id      int64
-	Gallery int64
-	// Shared       int64  // ## link for external access
-	Username string
-	Name     string
-
-	// user management
-	Status   int
-	Password []byte
-	Created  time.Time
 }
 
 // Join results

@@ -444,7 +444,7 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 			if count[userId] < maxUser {
 
 				// contributor of slideshow
-				user, err := a.UserStore.Get(userId)
+				user, err := a.userStore.Get(userId)
 				if err != nil {
 					a.log(err)
 					return nil
@@ -516,7 +516,7 @@ func (s *GalleryState) displayHighlights(topic *models.Slideshow, from string, p
 func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max int) (string, *DataSlideshow) {
 
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, _ := s.app.UserStore.Get(show.User.Int64)
+	user, _ := s.app.userStore.Get(show.User.Int64)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide
@@ -562,7 +562,7 @@ func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq in
 
 	// slides and user
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, _ := s.app.UserStore.Get(show.User.Int64)
+	user, _ := s.app.userStore.Get(show.User.Int64)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide

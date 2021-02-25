@@ -20,6 +20,7 @@ package mysql
 // Setup application database
 
 import (
+	"errors"
 	"time"
 
 	"github.com/inchworks/webparts/users"
@@ -168,7 +169,8 @@ func setupAdmin(st *UserStore, adminName string, adminPW string) error {
 	admin := &users.User{
 		Username: adminName,
 		Name:     "Administrator",
-		Status:   models.UserAdmin,
+		Role:     models.UserAdmin,
+		Status:   users.UserActive,
 		Created:  time.Now(),
 	}
 	if err := admin.SetPassword(adminPW); err != nil {
@@ -194,7 +196,8 @@ func setupTables(db *sqlx.DB, tx *sqlx.Tx) error {
 	return nil
 }
 
-// migrateTopics replaces old topic records with corresponding slideshow records.
+// MigrateTopics replaces old topic records with corresponding slideshow records.
+// Needed for version 0.9.4.
 func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *SlideStore) error {
 
 	var cmdSlideshow = `ALTER TABLE slideshow MODIFY COLUMN shared bigint(20), MODIFY COLUMN user int(11) NULL;`
@@ -244,8 +247,8 @@ func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *Sl
 	for _, t = range ts {
 
 		// corresponding slideshow for topic
-		topicShow := &models.Slideshow {
-			Gallery: t.Gallery,
+		topicShow := &models.Slideshow{
+			Gallery:      t.Gallery,
 			GalleryOrder: t.GalleryOrder,
 			Visible:      t.Visible,
 			Shared:       t.Shared,
@@ -304,6 +307,47 @@ func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *Sl
 	if _, err := tx.Exec(cmdTopic); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// MigrateWebparts upgrades the database with changes needed by inchworks/webparts.
+// Needed for version 0.9.4.
+func MigrateWebparts(stUser *UserStore) error {
+
+	var cmdUser = `ALTER TABLE user ADD COLUMN role smallint(6) NOT NULL;`
+
+	// are roles set for users?
+	tx := *stUser.ptx
+	if _, err := tx.Exec(cmdUser); err != nil {
+		return nil
+	}
+
+	// assign roles for all users
+	us := stUser.All()
+	for _, u := range us {
+
+		switch u.Status {
+		case 0, 1, 2: // Suspended, Known, Active
+			u.Role = models.UserMember
+
+		case 3: // Curator
+			u.Status = users.UserActive
+			u.Role = models.UserCurator
+
+		case 4: // Admin
+			u.Status = users.UserActive
+			u.Role = models.UserAdmin
+
+		default:
+			return errors.New("Unknown user status")
+		}
+
+		if err := stUser.Update(u); err != nil {
+			return err
+		}
+	}
+
 
 	return nil
 }

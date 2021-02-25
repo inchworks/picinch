@@ -54,13 +54,6 @@ const (
 
 	userCount = `SELECT COUNT(*) FROM user WHERE parent = ?`
 
-	usersWithSlideshows0 = `
-		SELECT user.id AS userid, user.name, slideshow.id AS slideshowid, slideshow.title as showtitle FROM user
-			LEFT JOIN slideshow ON slideshow.user = user.id
-			WHERE user.parent = ?
-			ORDER BY user.name ASC
-	`
-
 	usersHavingSlideshows = `
 		SELECT * FROM user
 			WHERE user.parent = ? AND EXISTS
