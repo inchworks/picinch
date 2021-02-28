@@ -586,6 +586,9 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 					if rSrc.Visible > models.SlideshowPrivate && rDest.Created.IsZero() {
 						rDest.Created = now
 						rDest.Revised = now
+
+						// needs an image before it will appear on home page
+						s.app.chTopic <- reqUpdateTopic{ topicId: rDest.Id, revised: false }
 					}
 
 					s.app.SlideshowStore.Update(rDest)
@@ -594,7 +597,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 				iDest++
 
 			} else {
-				// out of sequence round index
+				// out of sequence index
 				return false
 			}
 		}
