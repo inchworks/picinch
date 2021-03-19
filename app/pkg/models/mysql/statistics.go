@@ -31,11 +31,11 @@ const (
 	statsDelete = `DELETE FROM statistic WHERE id = ?`
 
 	statsInsert = `
-		INSERT INTO statistic (event, category, count, start, period) VALUES (:event, :category, :count, :start, :period)`
+		INSERT INTO statistic (event, category, count, detail, start) VALUES (:event, :category, :count, :detail, :start)`
 
 	statsUpdate = `
 		UPDATE statistic
-		SET event=:event, category=:category, count=:count, start=:start, period=:period
+		SET event=:event, category=:category, count=:count, detail=:detail, start=:start
 		WHERE id=:id
 	`
 )
@@ -46,16 +46,15 @@ const (
 	statsOrderEvent    = ` ORDER BY event, start`
 	statsOrderTime     = ` ORDER BY start DESC, category ASC, count DESC, event ASC`
 
-	statsWhereBefore = statsSelect + ` WHERE start < ? AND period = ?`
-	statsWherePeriod = statsSelect + ` WHERE period = ?`
-	statsWhereStart  = statsSelect + ` WHERE event = ? AND start = ? AND period = ?`
-	statsWhereEvent  = statsSelect + ` WHERE event = ? AND period = ?`
+	statsWhereBefore = statsSelect + ` WHERE start < ? AND detail = ?`
+	statsWhereStart  = statsSelect + ` WHERE event = ? AND start = ? AND detail = ?`
+	statsWhereEvent  = statsSelect + ` WHERE event = ? AND detail = ?`
 
 	statsBeforeByCategory = statsWhereBefore + statsOrderCategory
 	statsBeforeByEvent    = statsWhereBefore + statsOrderEvent
 	statsBeforeByTime     = statsWhereBefore + statsOrderTime
 
-	statsDeleteIf = `DELETE FROM statistic WHERE start < ? AND period = ?`
+	statsDeleteIf = `DELETE FROM statistic WHERE start < ? AND detail = ?`
 )
 
 type StatisticStore struct {

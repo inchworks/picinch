@@ -20,19 +20,19 @@ package mysql
 // SQL operations on user table.
 
 import (
-	"database/sql"
 	"log"
 
 	"github.com/jmoiron/sqlx"
-
 	"github.com/inchworks/webparts/users"
+
+	"inchworks.com/picinch/pkg/models"
 )
 
 const (
 	userDelete = `DELETE FROM user WHERE id = ?`
 
 	userInsert = `
-		INSERT INTO user (parent, username, name, role, status, password, created) VALUES (:parent, :username, :name, :status, :password, :created)`
+		INSERT INTO user (parent, username, name, role, status, password, created) VALUES (:parent, :username, :name, :role, :status, :password, :created)`
 
 	userUpdate = `
 		UPDATE user
@@ -186,7 +186,7 @@ func (st *UserStore) GetNamed(username string) (*users.User, error) {
 
 // IsNoRecord returns true if error is "record not found"
 func (st *UserStore) IsNoRecord(err error) bool {
-	return err == sql.ErrNoRows
+	return err == models.ErrNoRecord
 }
 
 // Convenience function for user's name

@@ -64,8 +64,8 @@ func (app *Application) allowUpdateShow(r *http.Request, showId int64) bool {
 func (app *Application) allowViewShow(r *http.Request, id int64) (bool, bool) {
 
 	// get show user and visibility
-	s, err := app.SlideshowStore.Get(id)
-	if err != nil {
+	s := app.SlideshowStore.GetIf(id)
+	if s == nil {
 		return false, false
 	}
 
@@ -102,7 +102,7 @@ func (app *Application) allowViewShow(r *http.Request, id int64) (bool, bool) {
 	}
 
 	if isTopic {
-		return app.isCurator(r), true // curator or admin
+		return app.isAuthenticated(r, models.UserCurator), true // curator or admin
 	} else {
 		return app.allowAccessUser(r, s.User.Int64), false // owner or curator
 	}
@@ -183,38 +183,15 @@ func (app *Application) intParam(w http.ResponseWriter, r *http.Request, s strin
 	return i, true
 }
 
-// isAdmin returns true if the request by an administrator. It is used just to configure menus and displays.
-func (app *Application) isAdmin(r *http.Request) bool {
-
-	auth, ok := r.Context().Value(contextKeyUser).(AuthenticatedUser)
-	if !ok {
-		return false
-	}
-
-	return auth.role == models.UserAdmin
-}
-
-// Check if request is by an authenticated active user (saved in context from session)
-
+// isAuthenticated checks if the request is by an authenticated active user (saved in context from session),
+// and that the user's role is sufficient.
 func (app *Application) isAuthenticated(r *http.Request, minRole int) bool {
 
 	auth, ok := r.Context().Value(contextKeyUser).(AuthenticatedUser)
 	if !ok {
 		return false
 	}
-	return auth.role > minRole
-}
-
-// Request by curator (or admin)?
-
-func (app *Application) isCurator(r *http.Request) bool {
-
-	auth, ok := r.Context().Value(contextKeyUser).(AuthenticatedUser)
-	if !ok {
-		return false
-	}
-
-	return auth.role >= models.UserCurator
+	return auth.role >= minRole
 }
 
 // Log an error for debugging

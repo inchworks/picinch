@@ -56,9 +56,9 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request) {
 
 	d.CSRFToken = nosurf.Token(r)
 	d.Flash = app.session.PopString(r, "flash")
-	d.IsAdmin = app.isAdmin(r)
+	d.IsAdmin = app.isAuthenticated(r, models.UserAdmin)
 	d.IsAuthenticated = app.isAuthenticated(r, models.UserFriend)
-	d.IsCurator = app.isCurator(r)
+	d.IsCurator = app.isAuthenticated(r, models.UserCurator)
 }
 
 // template data for display pages
@@ -170,22 +170,27 @@ var functions = template.FuncMap{
 	"userStatus": userStatus,
 }
 
-// Template cache
-//
-// Code modified from Let's Go (to add sub-directories)
+// newTemplateCache returns a cache of all templates for the application.
+// Code extended from Let's Go, to add sub-directories and package templates.
+func newTemplateCache(forPkgs []string, forApp string, forSite string) (map[string]*template.Template, error) {
 
-func newTemplateCache(forApp string, forSite string) (map[string]*template.Template, error) {
-
-	// Initialize a new map to act as the cache.
+	// cache of templates indexed by page name
 	cache := map[string]*template.Template{}
 
-	// Add templates from sub-directories
+	// add library page templates
+	for _, forPkg := range forPkgs {
+		if err := addTemplates(forPkg, forApp, filepath.Join(forApp, "pages"), forSite, cache); err != nil {
+			return nil, err
+		}
+	}
+
+	// add application templates from sub-directories
 	err := filepath.Walk(forApp, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if info.IsDir() {
-			return addTemplates(forApp, path, forSite, cache)
+			return addTemplates(path, forApp, path, forSite, cache)
 		}
 		return nil // ignore page templates in root
 	})
@@ -194,25 +199,24 @@ func newTemplateCache(forApp string, forSite string) (map[string]*template.Templ
 	return cache, err
 }
 
-func addTemplates(root string, dir string, site string, cache map[string]*template.Template) error {
+// addTemplates parses the files to define templates called by the specified page template.
+// Layout and partial files (subs) are usually taken from the same folder as the page template, but a different
+// folder is needed for library pages.
+func addTemplates(dir string, root string, subs string, site string, cache map[string]*template.Template) error {
 
-	// Use the filepath.Glob function to get a slice of all filepaths with
-	// the extension '.page.tmpl'. This essentially gives us a slice of all the
-	// 'page' templates for the application.
+	// get all filepaths with the extension '.page.tmpl' (all the 'page' templates for the application)
 	pages, err := filepath.Glob(filepath.Join(dir, "*.page.tmpl"))
 	if err != nil {
 		return err
 	}
 
-	// Loop through the pages one-by-one.
 	for _, page := range pages {
 
 		// Extract the file name (e.g. 'home.page.tmpl') from the full file path
 		name := filepath.Base(page)
 
-		// The template.FuncMap must be registered with the template set before you
-		// call the ParseFiles() method. So we create an empty template set, use the
-		// Funcs() method to register the map, and then parse the file as normal.
+		// The template.FuncMap must be registered with the template set before calling ParseFiles().
+		// So we create an empty template set, use the Funcs() method to register the map, and then parse the file.
 
 		// Parse the page template file in to a template set.
 		ts, err := template.New(name).Funcs(functions).ParseFiles(page)
@@ -220,28 +224,27 @@ func addTemplates(root string, dir string, site string, cache map[string]*templa
 			return err
 		}
 
-		// Add any 'layout' templates to the template set.
-		if ts, err = parseGlobIf(ts, filepath.Join(dir, "*.layout.tmpl")); err != nil {
-			return err
-		}
-
-		// Add root templates (assumes order of template types doesn't matter)
+		// Add any root template files (first, so templates can be redefined in a sub-folder)
 		if ts, err = parseGlobIf(ts, filepath.Join(root, "*.tmpl")); err != nil {
 			return err
 		}
 
-		// Add any 'partial' templates to the template set
-		if ts, err = parseGlobIf(ts, filepath.Join(dir, "*.partial.tmpl")); err != nil {
+		// Add any 'layout' template files to the template set.
+		if ts, err = parseGlobIf(ts, filepath.Join(subs, "*.layout.tmpl")); err != nil {
 			return err
 		}
 
-		// Add any site templates
+		// Add any 'partial' template files to the template set
+		if ts, err = parseGlobIf(ts, filepath.Join(subs, "*.partial.tmpl")); err != nil {
+			return err
+		}
+
+		// Add any site-specific template files (last, so they can redefine application templates)
 		if ts, err = parseGlobIf(ts, filepath.Join(site, "*.tmpl")); err != nil {
 			return err
 		}
 
-		// Add the template set to the cache, using the name of the page
-		// (like 'home.page.tmpl') as the key.
+		// Add the page's template set for the page to the cache, keyed by the file name
 		cache[name] = ts
 	}
 

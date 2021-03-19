@@ -163,7 +163,12 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save image returned with form
-	fh := r.MultipartForm.File["image"][0]
+	f := r.MultipartForm.File["image"]
+	if f == nil {
+		// ## don't know how we can get a form without a file, but we do
+		app.clientError(w, http.StatusBadRequest)
+	}
+	fh :=f[0]
 
 	err, byUser := images.Save(fh, userId, app.chImage)
 	var s string

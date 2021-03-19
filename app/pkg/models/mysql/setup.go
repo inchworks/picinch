@@ -96,8 +96,8 @@ var cmds = [...]string{
 		event varchar(60) COLLATE utf8_unicode_ci NOT NULL,
 		category varchar(60) COLLATE utf8_unicode_ci NOT NULL,
 		count int(11) NOT NULL,
+		detail smallint(6) NOT NULL,
 		start datetime NOT NULL,
-		period smallint(6) NOT NULL,
 		PRIMARY KEY (id),
 		UNIQUE KEY IDX_STATISTIC (event, start, period),
 		KEY IDX_START_PERIOD (start, period)
@@ -105,7 +105,7 @@ var cmds = [...]string{
 
 	`CREATE TABLE user (
 		id int(11) NOT NULL AUTO_INCREMENT,
-		gallery int(11) NOT NULL,
+		parent int(11) NOT NULL,
 		username varchar(60) COLLATE utf8_unicode_ci NOT NULL,
 		name varchar(60) COLLATE utf8_unicode_ci NOT NULL,
 		role smallint(6) NOT NULL,
@@ -311,15 +311,26 @@ func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *Sl
 	return nil
 }
 
-// MigrateWebparts upgrades the database with changes needed by inchworks/webparts.
-// Needed for version 0.9.4.
-func MigrateWebparts(stUser *UserStore) error {
+// MigrateWebparts1 upgrades the database with changes needed by inchworks/webparts,
+// before first table access. Needed for version 0.9.4.
+func MigrateWebparts1(tx *sqlx.Tx) error {
 
-	var cmdUser = `ALTER TABLE user ADD COLUMN role smallint(6) NOT NULL;`
+	var cmdUser = `ALTER TABLE user CHANGE COLUMN gallery parent int(11), ADD COLUMN role smallint(6) NOT NULL;`
 
-	// are roles set for users?
-	tx := *stUser.ptx
-	if _, err := tx.Exec(cmdUser); err != nil {
+	// new user table definition, if needed
+	tx.Exec(cmdUser)
+
+	return nil
+}
+
+// MigrateWebparts2 upgrades the database with changes needed by inchworks/webparts,
+// after stores are ready. Needed for version 0.9.4.
+func MigrateWebparts2(stUser *UserStore, tx *sqlx.Tx) error {
+
+	var cmdStatistic = `ALTER TABLE statistic CHANGE COLUMN period detail smallint(6);`
+
+	// has statistics column been renamed yet?
+	if _, err := tx.Exec(cmdStatistic); err != nil {
 		return nil
 	}
 
@@ -329,7 +340,10 @@ func MigrateWebparts(stUser *UserStore) error {
 
 		switch u.Status {
 		case 0, 1, 2: // Suspended, Known, Active
-			u.Role = models.UserMember
+			// don't overwrite a newly added admin
+			if u.Role == 0 {
+				u.Role = models.UserMember
+			}
 
 		case 3: // Curator
 			u.Status = users.UserActive
@@ -347,7 +361,6 @@ func MigrateWebparts(stUser *UserStore) error {
 			return err
 		}
 	}
-
 
 	return nil
 }

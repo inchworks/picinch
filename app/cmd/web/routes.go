@@ -30,8 +30,17 @@ import (
 
 func (app *Application) Routes() http.Handler {
 
-	commonHandlers := alice.New(secureHeaders, app.noQuery, wwwRedirect)             // ## removed app.recoverPanic
-	dynHs := alice.New(app.session.Enable, noSurf, app.authenticate, app.logRequest) // dynamic page handlers
+	commonHs := alice.New(secureHeaders, app.noQuery, wwwRedirect)
+	dynHs := alice.New(app.limitPage, app.session.Enable, noSurf, app.authenticate, app.logRequest) // dynamic page handlers
+	staticHs := alice.New(app.limitFile)
+
+	// access to page
+	adminHs := dynHs.Append(app.requireAdmin)
+	authHs := dynHs.Append(app.requireAuthentication) // friend authenticated, may be further restriction by application logic
+	curatorHs := dynHs.Append(app.requireCurator)
+	ownerHs := dynHs.Append(app.requireOwner)
+	publicHs := dynHs.Append(app.public)
+	sharedHs := dynHs.Append(app.shared)
 
 	// HttpRouter wrapped to allow middleware handlers
 	router := httprouter.New()
@@ -40,61 +49,61 @@ func (app *Application) Routes() http.Handler {
 	router.PanicHandler = app.recoverPanic()
 
 	// log rejected routes
-	router.NotFound = app.logNotFound()
+	router.NotFound = app.routeNotFound()
 
 	// public pages
-	router.Handler("GET", "/", dynHs.Append(app.public).ThenFunc(app.home))
-	router.Handler("GET", "/about", dynHs.Append(app.public).ThenFunc(app.about))
+	router.Handler("GET", "/", publicHs.ThenFunc(app.home))
+	router.Handler("GET", "/about", publicHs.ThenFunc(app.about))
 
 	// pages shared with an access code
-	router.Handler("GET", "/shared/:code/:seq", dynHs.Append(app.shared).ThenFunc(app.slideshowShared))
+	router.Handler("GET", "/shared/:code/:seq", sharedHs.ThenFunc(app.slideshowShared))
 
 	// embedding
-	router.Handler("GET", "/highlight/:prefix/:nImage", dynHs.Append(app.public).ThenFunc(app.highlight))
-	router.Handler("GET", "/highlights/:nImages", dynHs.Append(app.public).ThenFunc(app.highlights))
+	router.Handler("GET", "/highlight/:prefix/:nImage", publicHs.ThenFunc(app.highlight))
+	router.Handler("GET", "/highlights/:nImages", publicHs.ThenFunc(app.highlights))
 
 	// setup
-	router.Handler("GET", "/setup", dynHs.Append(app.requireAdmin).ThenFunc(app.getFormGallery))
-	router.Handler("POST", "/setup", dynHs.Append(app.requireAdmin).ThenFunc(app.postFormGallery))
+	router.Handler("GET", "/setup", adminHs.ThenFunc(app.getFormGallery))
+	router.Handler("POST", "/setup", adminHs.ThenFunc(app.postFormGallery))
 
-	router.Handler("GET", "/edit-topics", dynHs.Append(app.requireCurator).ThenFunc(app.getFormTopics))
-	router.Handler("POST", "/edit-topics", dynHs.Append(app.requireCurator).ThenFunc(app.postFormTopics))
+	router.Handler("GET", "/edit-topics", curatorHs.ThenFunc(app.getFormTopics))
+	router.Handler("POST", "/edit-topics", curatorHs.ThenFunc(app.postFormTopics))
 
 	// edit slideshows
-	router.Handler("GET", "/edit-slides/:nShow", dynHs.Append(app.requireAuthentication).ThenFunc(app.getFormSlides))
-	router.Handler("POST", "/edit-slides/:nShow", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormSlides))
-	router.Handler("GET", "/edit-slideshows/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.getFormSlideshows))
-	router.Handler("POST", "/edit-slideshows/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.postFormSlideshows))
+	router.Handler("GET", "/edit-slides/:nShow", authHs.ThenFunc(app.getFormSlides))
+	router.Handler("POST", "/edit-slides/:nShow", authHs.ThenFunc(app.postFormSlides))
+	router.Handler("GET", "/edit-slideshows/:nUser", ownerHs.ThenFunc(app.getFormSlideshows))
+	router.Handler("POST", "/edit-slideshows/:nUser", ownerHs.ThenFunc(app.postFormSlideshows))
 
 	// edit topics
-	router.Handler("GET", "/assign-slideshows", dynHs.Append(app.requireCurator).ThenFunc(app.getFormAssignShows))
-	router.Handler("POST", "/assign-slideshows", dynHs.Append(app.requireCurator).ThenFunc(app.postFormAssignShows))
-	router.Handler("GET", "/edit-topic/:nShow/:nUser", dynHs.Append(app.requireOwner).ThenFunc(app.getFormTopic))
+	router.Handler("GET", "/assign-slideshows", curatorHs.ThenFunc(app.getFormAssignShows))
+	router.Handler("POST", "/assign-slideshows", curatorHs.ThenFunc(app.postFormAssignShows))
+	router.Handler("GET", "/edit-topic/:nShow/:nUser", ownerHs.ThenFunc(app.getFormTopic))
 
 	// upload image
-	router.Handler("POST", "/upload/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.postFormImage))
+	router.Handler("POST", "/upload/:nUser", ownerHs.ThenFunc(app.postFormImage))
 
 	// displays
 	router.Handler("GET", "/slideshow/:nShow/:seq", dynHs.ThenFunc(app.slideshow))
-	router.Handler("GET", "/contributors", dynHs.Append(app.requireAuthentication).ThenFunc(app.contributors))
-	router.Handler("GET", "/contributor/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.contributor))
-	router.Handler("GET", "/my-slideshows", dynHs.Append(app.requireAuthentication).ThenFunc(app.slideshowsOwn))
-	router.Handler("GET", "/slideshows-user/:nUser", dynHs.Append(app.requireAuthentication).ThenFunc(app.slideshowsUser))
+	router.Handler("GET", "/contributors", authHs.ThenFunc(app.contributors))
+	router.Handler("GET", "/contributor/:nUser", authHs.ThenFunc(app.contributor))
+	router.Handler("GET", "/my-slideshows", authHs.ThenFunc(app.slideshowsOwn))
+	router.Handler("GET", "/slideshows-user/:nUser", authHs.ThenFunc(app.slideshowsUser))
 	router.Handler("GET", "/topic-user/:nShow/:nUser", dynHs.ThenFunc(app.topicUser))
 	router.Handler("GET", "/topic-contributors/:nTopic", dynHs.ThenFunc(app.topicContributors))
-	router.Handler("GET", "/topics", dynHs.Append(app.requireCurator).ThenFunc(app.topics))
-	router.Handler("GET", "/usage-days", dynHs.Append(app.requireAdmin).ThenFunc(app.usageDays))
-	router.Handler("GET", "/usage-months", dynHs.Append(app.requireAdmin).ThenFunc(app.usageMonths))
-	router.Handler("GET", "/users-curator", dynHs.Append(app.requireCurator).ThenFunc(app.usersCurator))
+	router.Handler("GET", "/topics", curatorHs.ThenFunc(app.topics))
+	router.Handler("GET", "/usage-days", adminHs.ThenFunc(app.usageDays))
+	router.Handler("GET", "/usage-months", adminHs.ThenFunc(app.usageMonths))
+	router.Handler("GET", "/users-curator", curatorHs.ThenFunc(app.usersCurator))
 
 	// user management
-	router.Handler("GET", "/edit-users", dynHs.Append(app.requireAdmin).ThenFunc(app.users.GetFormEdit))
-	router.Handler("POST", "/edit-users", dynHs.Append(app.requireAdmin).ThenFunc(app.users.PostFormEdit))
+	router.Handler("GET", "/edit-users", adminHs.ThenFunc(app.users.GetFormEdit))
+	router.Handler("POST", "/edit-users", adminHs.ThenFunc(app.users.PostFormEdit))
 
 	// user authentication
 	router.Handler("GET", "/user/login", dynHs.ThenFunc(app.users.GetFormLogin))
 	router.Handler("POST", "/user/login", dynHs.Append(app.limitLogin).ThenFunc(app.users.PostFormLogin))
-	router.Handler("POST", "/user/logout", dynHs.Append(app.requireAuthentication).ThenFunc(app.logout))
+	router.Handler("POST", "/user/logout", authHs.ThenFunc(app.logout))
 	router.Handler("GET", "/user/signup", dynHs.ThenFunc(app.users.GetFormSignup))
 	router.Handler("POST", "/user/signup", dynHs.Append(app.limitLogin).ThenFunc(app.users.PostFormSignup))
 
@@ -114,13 +123,13 @@ func (app *Application) Routes() http.Handler {
 	fsPhotos := noDirFileSystem{http.Dir(ImagePath)}
 	fsMisc := noDirFileSystem{http.Dir(MiscPath)}
 
-	// serve static files and content
-	router.Handler("GET", path.Join(misc, "*filepath"), http.StripPrefix(misc, http.FileServer(fsMisc)))
-	router.Handler("GET", "/static/*filepath", http.StripPrefix("/static", http.FileServer(fsStatic)))
-	router.Handler("GET", "/photos/*filepath", http.StripPrefix("/photos", http.FileServer(fsPhotos)))
+	// serve static files and content (Alice doesn't seem to simplify these)
+	router.Handler("GET", path.Join(misc, "*filepath"), staticHs.Then(http.StripPrefix(misc, app.fileServer(fsMisc))))
+	router.Handler("GET", "/static/*filepath", staticHs.Then(http.StripPrefix("/static", app.fileServer(fsStatic))))
+	router.Handler("GET", "/photos/*filepath", staticHs.Then(http.StripPrefix("/photos", app.fileServer(fsPhotos))))
 
 	// return 'standard' middleware chain followed by router
-	return commonHandlers.Then(router)
+	return commonHs.Then(router)
 }
 
 // Special handling for files that must be in root

@@ -18,5 +18,6 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy binary and templates from previous stage
 COPY --from=builder /picinch/picinch /app/
 COPY --from=builder /picinch/ui /app/ui/
+COPY --from=builder /picinch/imported /app/web/template/pages/
 
 CMD ["/app/picinch"]

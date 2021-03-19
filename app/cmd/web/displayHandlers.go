@@ -191,9 +191,10 @@ func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) 
 	ps := httprouter.ParamsFromContext(r.Context())
 
 	// access is allowed to anyone with the sharing code
-	code, err := strconv.ParseInt(ps.ByName("code"), 36, 64)
+	sc := ps.ByName("code")
+	code, err := strconv.ParseInt(sc, 36, 64)
 	if err != nil {
-		app.clientError(w, http.StatusUnauthorized)
+		app.wrongShare.ServeHTTP(w, r)
 		return
 	}
 
@@ -202,7 +203,7 @@ func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) 
 	// template and data for slides
 	template, data := app.galleryState.DisplayShared(code, int(seq))
 	if template == "" {
-		app.clientError(w, http.StatusUnauthorized)
+		app.wrongShare.ServeHTTP(w, r)
 		return
 
 	} else if data == nil {

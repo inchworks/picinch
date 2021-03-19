@@ -35,6 +35,7 @@ import (
 	"github.com/golangcollege/sessions"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/inchworks/usage"
+	"github.com/inchworks/webparts/limithandler"
 	"github.com/inchworks/webparts/server"
 	"github.com/inchworks/webparts/users"
 	"github.com/jmoiron/sqlx"
@@ -112,7 +113,7 @@ type Configuration struct {
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
 	MaxHighlightsTotal  int `yaml:"highlights-page" env-default:"12"`    // highlights for home page, and user's page
 	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`   // total slides in H format topic // ## misleading name?
-	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`   // total slideshows on home page
+	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`    // total slideshows on home page
 
 	// per user limits
 	MaxHighlights       int `yaml:"highlights-user"  env-default:"2"`  // highlights on home page
@@ -134,7 +135,7 @@ type reqUpdateShow struct {
 
 // Request to update topic images.
 type reqUpdateTopic struct {
-	topicId  int64
+	topicId int64
 	revised bool
 }
 
@@ -159,6 +160,7 @@ type Application struct {
 	userStore      *mysql.UserStore
 
 	// common components
+	lh    *limithandler.Handlers
 	usage *usage.Recorder
 	users users.Users
 
@@ -168,10 +170,13 @@ type Application struct {
 	// Image processing
 	imager *images.Imager
 
+	// HTML handlers for threats detected by application logic
+	wrongShare http.Handler
+
 	// Channels to background worker
-	chImage   chan images.ReqSave
-	chShow    chan reqUpdateShow
-	chShows   chan []reqUpdateShow
+	chImage chan images.ReqSave
+	chShow  chan reqUpdateShow
+	chShows chan []reqUpdateShow
 	chTopic chan reqUpdateTopic
 
 	// Since we support just one gallery at a time, we can cache state here.
@@ -217,6 +222,7 @@ func main() {
 	// initialise application
 	app := initialise(cfg, errorLog, infoLog, threatLog, db)
 
+	defer app.lh.Stop()
 	defer app.usage.Stop()
 
 	// start background worker
@@ -321,8 +327,19 @@ func importFiles(toDir, fromDir string) error {
 
 func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, threatLog *log.Logger, db *sqlx.DB) *Application {
 
+	// package templates
+	var pts []string
+
+	// templates for user management
+	pt, err := users.TemplatesPath()
+	if err != nil {
+		errorLog.Print(err)
+	} else if pt != "" {
+		pts = append(pts, pt)
+	}
+
 	// initialise template cache
-	templateCache, err := newTemplateCache(filepath.Join(UIPath, "html"), filepath.Join(SitePath, "templates"))
+	templateCache, err := newTemplateCache(pts, filepath.Join(UIPath, "html"), filepath.Join(SitePath, "templates"))
 	if err != nil {
 		errorLog.Fatal(err)
 	}
@@ -369,6 +386,13 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		ThumbH:    app.cfg.ThumbH,
 	}
 
+	// initialise rate limiter
+	// app.lh = limithandler.Start(8*time.Hour, 24*time.Hour)
+	app.lh = limithandler.Start(8*time.Minute, 24*time.Minute)
+
+	// handlers for HTTP threats detected by application logic
+	app.wrongShare = app.shareNotFound()
+
 	// setup usage, with defaults
 	if app.usage, err = usage.New(app.statisticStore, cfg.UsageAnonymised, 0, 0, 0, 0, 0); err != nil {
 		errorLog.Fatal(err)
@@ -404,6 +428,13 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.statisticStore = mysql.NewStatisticStore(app.db, &app.statsTx, app.errorLog)
 	app.userStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
 
+	// database change to users table, to use webparts
+	// The first part must be done before we add a missing admin,
+	var err error
+	if err = mysql.MigrateWebparts1(app.tx); err != nil {
+		app.errorLog.Fatal(err)
+	}
+
 	// setup new database and administrator, if needed, and get gallery record
 	g, err := mysql.Setup(app.GalleryStore, app.userStore, 1, cfg.AdminName, cfg.AdminPassword)
 	if err != nil {
@@ -420,8 +451,10 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	// database changes from previous version(s)
 	topicStore := mysql.NewTopicStore(app.db, &app.tx, app.errorLog)
 	topicStore.GalleryId = g.Id
-	err = mysql.MigrateTopics(topicStore, app.SlideshowStore, app.SlideStore)
-	if err != nil {
+	if err = mysql.MigrateTopics(topicStore, app.SlideshowStore, app.SlideStore); err != nil {
+		app.errorLog.Fatal(err)
+	}
+	if err = mysql.MigrateWebparts2(app.userStore, app.tx); err != nil {
 		app.errorLog.Fatal(err)
 	}
 

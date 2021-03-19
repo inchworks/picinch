@@ -25,9 +25,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/inchworks/usage"
-	"github.com/inchworks/webparts/limithandler"
 	"github.com/inchworks/webparts/users"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
@@ -35,8 +35,10 @@ import (
 	"inchworks.com/picinch/pkg/models"
 )
 
-// Authenticate user ID against database (i.e. still a valid user since last login)
+// HANDLERS.
 
+// authenticate returns a handler to check if this is an authenticated user or not.
+// It checks any ID against the database, to see if this is still a valid user since the last login.
 func (app *Application) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -68,19 +70,65 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 	})
 }
 
-// Limit login (and signup) rates
-// 50s per attempt, with an initial burst of 20, banned after 10 rejects
-// (Fail2Ban defaults are to jail for 10 minutes, ban after just 3 attempts within 10 minutes)
+// fileServer returns a handler that serves files.
+// It wraps http.File server with a limit on the number of bad requests accepted.
+// (Thanks https://stackoverflow.com/questions/34017342/log-404-on-http-fileserver.)
+func (app *Application) fileServer(root http.FileSystem) http.Handler {
 
+	fs := http.FileServer(root)
+
+	// allow 1 every 10 minutes, burst of 3, banned after 1 rejection,
+	// (probably probing to guess file names).
+	lim := app.lh.New("N", 10*time.Minute, 3, 1, "F,P", nil)
+
+	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+
+		app.threatLog.Printf("%s - %s for bad file names", addr, status)
+	})
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// use a response writer that saves status
+		sw := &statusWriter{ResponseWriter: w}
+
+		// serve file request
+		fs.ServeHTTP(sw, r)
+		if sw.status == http.StatusNotFound {
+
+			// Log threat. Limiter will ban user if there are too many.
+			if ok, _ := lim.Allow(r); ok {
+				app.threat("bad file", r)
+			}				
+		}
+	})
+}
+
+// limitFile returns a handler to limit file requests, per user.
+func (app *Application) limitFile(next http.Handler) http.Handler {
+
+	// no limit - but can be set to block after bad requests
+	lh := app.lh.New("F", 0, 0, 20, "", next)
+
+	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
+
+		app.threatLog.Printf("%s - %s file requests, too many after %s", addr, status, r.RequestURI)
+	})
+
+	return lh
+}
+
+// limitLogin returns a handler to restrict user login (and signup) rates, per-user.
 func (app *Application) limitLogin(next http.Handler) http.Handler {
-	h := limithandler.New("P", 0.02, 20, 10, next)
 
-	h.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 1 minute per attempt, with an initial burst of 5, banned after 15 rejects (20 attempts, total)
+	lh := app.lh.New("L", time.Minute, 5, 15, "", next)
+
+	lh.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		http.Error(w, "Too many failed attempts - wait a few minutes", http.StatusTooManyRequests)
 	}))
 
-	h.SetReportHandler(func(status string, r *http.Request) {
+	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
 
 		// try to get the username
 		username := "unknown"
@@ -88,31 +136,28 @@ func (app *Application) limitLogin(next http.Handler) http.Handler {
 			username = r.PostForm.Get("username")
 		}
 
-		app.threatLog.Printf("Login rate %s for %s, user \"%s\"", status, r.RemoteAddr, username)
+		app.threatLog.Printf("%s - %s login, too many for user \"%s\"", addr, status, username)
 	})
 
-	return h
+	return lh
 }
 
-// Limit web request rate
-// 1 per second with burst of 5, banned after 20 rejects
+// limitPage returns a handler to limit web page requests, per user.
+func (app *Application) limitPage(next http.Handler) http.Handler {
 
-func (app *Application) limitWeb(next http.Handler) http.Handler {
-	limitHandler := limithandler.New("W", 1, 5, 20, next)
+	// 1 per second with burst of 5, banned after 20 rejects,
+	// (This is too restrictive to be applied to file requests.)
+	lim := app.lh.New("P", time.Second, 5, 20, "", next)
 
-	return limitHandler
-}
+	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-// Logging
-
-func (app *Application) logNotFound() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		app.threat("bad URL", r)
-
-		http.NotFound(w, r)
+		app.threatLog.Printf("%s - %s page requests, too many after %s", addr, status, r.RequestURI)
 	})
+
+	return lim
 }
 
+// logRequest records an HTTP request.
 func (app *Application) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -140,42 +185,8 @@ func (app *Application) logRequest(next http.Handler) http.Handler {
 	})
 }
 
-// File system that blocks browse access to folder. Allows index.html to be served as default.
-//
-// From https://www.alexedwards.net/blog/disable-http-fileserver-directory-listings
-
-type noDirFileSystem struct {
-	fs http.FileSystem
-}
-
-func (nfs noDirFileSystem) Open(path string) (http.File, error) {
-	f, err := nfs.fs.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	s, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if s.IsDir() {
-		index := filepath.Join(path, "index.html")
-		if _, err := nfs.fs.Open(index); err != nil {
-			closeErr := f.Close()
-			if closeErr != nil {
-				return nil, closeErr
-			}
-
-			return nil, err
-		}
-	}
-
-	return f, nil
-}
-
-// Block probes with random query parameters
-// (mainly so we don't count them as valid visitors)
-
+// noQuery returns a handler that blocks probes with random query parameters
+// (mainly so we don't count them as valid visitors).
 func (app *Application) noQuery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.RawQuery != "" {
@@ -187,8 +198,7 @@ func (app *Application) noQuery(next http.Handler) http.Handler {
 	})
 }
 
-// CSRF protection
-
+// noSurf returns a handler that implements CSRF protection,
 func noSurf(next http.Handler) http.Handler {
 	csrfHandler := nosurf.New(next)
 	csrfHandler.SetBaseCookie(http.Cookie{
@@ -200,8 +210,7 @@ func noSurf(next http.Handler) http.Handler {
 	return csrfHandler
 }
 
-// Set headers for public web pages and resources
-
+// pubic returns a handler that sets headers for public web pages and resources.
 func (app *Application) public(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -218,24 +227,7 @@ func (app *Application) public(next http.Handler) http.Handler {
 	})
 }
 
-// Middleware handler: recover from panic
-// ## Not used, as httprouter has panic handling built-in.
-
-func (app *Application) recoverPanic0(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				w.Header().Set("Connection", "close")
-				app.serverError(w, fmt.Errorf("%s", err))
-			}
-		}()
-
-		next.ServeHTTP(w, r)
-	})
-}
-
 // Recover from panic, set in httprouter
-
 func (app *Application) recoverPanic() func(http.ResponseWriter, *http.Request, interface{}) {
 
 	return func(w http.ResponseWriter, r *http.Request, err interface{}) {
@@ -244,72 +236,98 @@ func (app *Application) recoverPanic() func(http.ResponseWriter, *http.Request, 
 	}
 }
 
-// requireAdmin specifies that administrator authentication is needed for access to this page.
-func (app *Application) requireAdmin(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !app.authAs(w, r, models.UserAdmin) {
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
+// reqAuth returns a handler that checks if the user has at least the specified role, or is owner of the data requested.
+// It also sets cache control, so should not be bypassed on any successful authentications.
+// ## Is it?
+func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http.Handler {
 
-// requireAuthentication specifies that minimum authentication is needed, for access to page,
-// or to log out.
-func (app *Application) requireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !app.isAuthenticated(r, models.UserFriend) {
-			app.session.Put(r, "redirectPathAfterLogin", r.URL.Path)
-			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+
+		var ok bool
+		if app.isAuthenticated(r, minRole) {
+			ok = true
+
+		} else if orUser > 0 && app.isAuthenticated(r, orUser) {
+			// owner of this path?
+			// #### must be a member too!
+			u := httprouter.ParamsFromContext(r.Context()).ByName("nUser")
+			userId, _ := strconv.ParseInt(u, 10, 64)
+			auth, ok := r.Context().Value(contextKeyUser).(AuthenticatedUser)
+			if ok && auth.id == userId {
+				ok = true
+			}
+		}
+
+		// reject access, or ask for login 
+		if !ok {
+			if app.isAuthenticated(r, models.UserUnknown) {
+				http.Error(w, "User is not authorised for role", http.StatusUnauthorized)
+
+			} else {
+				app.session.Put(r, "redirectPathAfterLogin", r.URL.Path)
+				http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+			}
 			return
 		}
 
 		// pages that require authentication should not be cached by browser
 		w.Header().Set("Cache-Control", "no-store")
+
 		next.ServeHTTP(w, r)
 	})
+}
+
+// requireAdmin specifies that administrator authentication is needed for access to this page.
+func (app *Application) requireAdmin(next http.Handler) http.Handler {
+
+	return app.reqAuth(models.UserAdmin, 0, next)
+}
+
+
+// requireAuthentication specifies that minimum authentication is needed, for access to a page,
+// or to log out.
+func (app *Application) requireAuthentication(next http.Handler) http.Handler {
+
+	return app.reqAuth(models.UserFriend, 0, next)
 }
 
 // requireCurator specifies that curator authentication is needed for access to this page.
 func (app *Application) requireCurator(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !app.authAs(w, r, models.UserCurator) {
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+
+	return app.reqAuth(models.UserCurator, 0, next)
 }
 
-// requireOwner specifies that the page is for a specified user, otherwise curator authentication is needed.
+// requireOwner specifies that the page is for a specified member, otherwise curator authentication is needed.
 func (app *Application) requireOwner(next http.Handler) http.Handler {
+
+	return app.reqAuth(models.UserCurator, models.UserMember, next)
+}
+
+// routeNotFound returns a handler that logs and rate limits HTTP requests to non-existent routes.
+// Typically these are intrusion attempts. Not called for non-existent files :-).
+func (app *Application) routeNotFound() http.Handler {
+
+	// allow 1 every 10 minutes, burst of 3, banned after 1 rejection,
+	// (typically probing for vulnerable PHP files).
+	lim := app.lh.New("R", 10*time.Minute, 3, 1, "F,P", nil)
+
+	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+
+		app.threatLog.Printf("%s - %s for bad requests, after %s", addr, status, r.RequestURI)
+	})
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		u := httprouter.ParamsFromContext(r.Context()).ByName("nUser")
-		userId, _ := strconv.ParseInt(u, 10, 64)
-
-		auth, ok := r.Context().Value(contextKeyUser).(AuthenticatedUser)
-		if !ok {
-			// need to log-in
-			app.session.Put(r, "redirectPathAfterLogin", r.URL.Path)
-			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
-			return
-
-		} else if auth.id == userId {
-			// access allowed to own data, but must still be a member
-			if !app.authAs(w, r, models.UserMember) {
-				return
-			}
-
-		} else if !app.authAs(w, r, models.UserCurator) {
-			return
+		ok, status := lim.Allow(r)
+		if ok {
+			app.threat("bad URL", r)
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Intrusion attempt suspected", status)
 		}
-
-		next.ServeHTTP(w, r)
 	})
 }
 
-// Add HTTP headers for security against XSS and Clickjacking.
-
+// secureHeaders adds HTTP headers for security against XSS and Clickjacking.
 func secureHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
@@ -319,26 +337,28 @@ func secureHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// Helper functions
+// shareNotFound returns a handler that logs and rate limits HTTP requests to non-existent shared slideshows.
+// Typically these are intrusion attempts. Not called for non-existent files :-).
+func (app *Application) shareNotFound() http.Handler {
 
-// authAs returns true if the user has at least the specified role.
-// It also sets cache control, so should not be bypassed on any successful authentications.
-// ## Is it?
-func (app *Application) authAs(w http.ResponseWriter, r *http.Request, minRole int) bool {
+	// allow 1 every 10 minutes, burst of 3, banned after 1 rejection,
+	// (typically probing for vulnerable PHP files).
+	lim := app.lh.New("S", 10*time.Minute, 3, 1, "P", nil)
 
-	if !app.isAuthenticated(r, minRole) {
-		if app.isAuthenticated(r, models.UserUnknown) {
-			http.Error(w, "User is not authorised for role", http.StatusUnauthorized)
+	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+
+		app.threatLog.Printf("%s - %s for bad share requests, after %s", addr, status, r.RequestURI)
+	})
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ok, status := lim.Allow(r)
+		if ok {
+			app.threat("bad share", r)
+			http.NotFound(w, r)
 		} else {
-			app.session.Put(r, "redirectPathAfterLogin", r.URL.Path)
-			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+			http.Error(w, "Intrusion attempt suspected", status)
 		}
-		return false
-	}
-
-	// pages that require authentication should not be cached by browser
-	w.Header().Set("Cache-Control", "no-store")
-	return true
+	})
 }
 
 // shared sets headers for shared topic and slideshows
@@ -347,15 +367,6 @@ func (app *Application) shared(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "public, max-age=600")
 		next.ServeHTTP(w, r)
 	})
-}
-
-// threat records an attempted intrusion
-func (app *Application) threat(event string, r *http.Request) {
-	app.threatLog.Printf("%s - %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
-
-	rec := app.usage
-	rec.Count(event, "threat")
-	rec.Seen(usage.FormatIP(r.RemoteAddr), "suspect")
 }
 
 // wwwRedirect redirects a request for the www sub-domain to the parent domain.
@@ -371,4 +382,60 @@ func wwwRedirect(h http.Handler) http.Handler {
 		}
 		h.ServeHTTP(w, r)
 	})
+}
+
+// HELPER FUNCTIONS.
+
+// A noDirFileSystem blocks browsing of directories.
+// It avoids the need to install copies of index.html but allows index.html to be served if there is one.
+// From https://www.alexedwards.net/blog/disable-http-fileserver-directory-listings.
+type noDirFileSystem struct {
+	http.FileSystem
+}
+
+func (nfs noDirFileSystem) Open(path string) (http.File, error) {
+	fs := nfs.FileSystem
+
+	f, err := fs.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	s, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if s.IsDir() {
+		index := filepath.Join(path, "index.html")
+		if _, err := fs.Open(index); err != nil {
+			closeErr := f.Close()
+			if closeErr != nil {
+				return nil, closeErr
+			}
+
+			return nil, err
+		}
+	}
+
+	return f, nil
+}
+
+// A statusWriter is a ResponseWriter that saves the response status.
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+    w.status = status
+    w.ResponseWriter.WriteHeader(status)
+}
+
+// threat records an attempted intrusion
+func (app *Application) threat(event string, r *http.Request) {
+	app.threatLog.Printf("%s - %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
+
+	rec := app.usage
+	rec.Count(event, "threat")
+	rec.Seen(usage.FormatIP(r.RemoteAddr), "suspect")
 }

@@ -16,3 +16,4 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.2
 	google.golang.org/appengine v1.6.7 // indirect
 )
+replace github.com/inchworks/webparts v0.4.0 => ../../webparts
