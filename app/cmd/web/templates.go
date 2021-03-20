@@ -96,8 +96,8 @@ type DataPublished struct {
 }
 
 type DataSlideshow struct {
-	Topic       string
 	Title       string
+	Info        string
 	DisplayName string
 	AfterHRef   string
 	BeforeHRef  string

@@ -183,9 +183,8 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (f *form.Slide
 	return
 }
 
-// Processing when slideshow is modified.
+// OnEditSlideshow processes the modification of a slideshow. It returns a success indication and the user ID.
 // topicId and userId are needed only for a new slideshow for a topic. Otherwise we prefer to trust the database.
-
 func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64, qsSrc []*form.SlideFormData) (ok bool, userIdRet int64) {
 
 	// serialisation
@@ -205,18 +204,27 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64
 		userId = show.User.Int64
 
 	} else if nSrc > 0 {
-		// no slideshow yet - these must be slides for a topic
-		// create a new slideshow from the topic details
-		topic, _ := s.app.SlideshowStore.Get(topicId)
+		// no slideshow specified - these must be slides for a topic
+		topic, err := s.app.SlideshowStore.Get(topicId)
+		if err != nil {
+			return
+		}
 
-		show := &models.Slideshow{
-			GalleryOrder: 5, // default
-			Visible:      models.SlideshowTopic,
-			User:         sql.NullInt64 { Int64: userId, Valid: true } ,
-			Topic:        topicId,
-			Created:      now,
-			Revised:      now,
-			Title:        topic.Title,
+		// It might already exist, if the user is attempting an edit on two devices at the same time,
+		// and we allow only one. (Yes, it has happened!)
+		show := s.app.SlideshowStore.ForTopicUserIf(topicId, userId)
+		if show == nil {
+
+			// create a new slideshow from the topic details
+			show = &models.Slideshow{
+				GalleryOrder: 5, // default
+				Visible:      models.SlideshowTopic,
+				User:         sql.NullInt64 { Int64: userId, Valid: true } ,
+				Topic:        topicId,
+				Created:      now,
+				Revised:      now,
+				Title:        topic.Title,
+			}
 		}
 		s.app.SlideshowStore.Update(show)
 		showId = show.Id
@@ -461,7 +469,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (f 
 	defer s.updatesNone()()
 
 	// user's show for topic
-	show := s.app.SlideshowStore.ForTopicUser(topicId, userId)
+	show := s.app.SlideshowStore.ForTopicUserIf(topicId, userId)
 	if show == nil {
 		topic, _ := s.app.SlideshowStore.Get(topicId)
 		title = topic.Title
@@ -680,8 +688,7 @@ func (s *GalleryState) onRemoveSlideshow(slideshow *models.Slideshow) {
 	}
 }
 
-// Processing when a topic is removed
-
+// onRemoveTopic releases the contributing slideshows back to the users, and deletes the topic.
 func (s *GalleryState) onRemoveTopic(t *models.Slideshow) {
 
 	// give the users back their own slideshows
@@ -689,6 +696,7 @@ func (s *GalleryState) onRemoveTopic(t *models.Slideshow) {
 	slideshows := store.ForTopic(t.Id)
 	for _, s := range slideshows {
 		s.Topic = 0
+		s.Title = t.Title // with current topic title
 		s.Visible = models.SlideshowPrivate
 		store.Update(s)
 	}

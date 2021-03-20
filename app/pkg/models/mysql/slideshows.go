@@ -234,9 +234,8 @@ func (st *SlideshowStore) ForTopicSeq(topicId int64, seq int) *models.Slideshow 
 	return &r
 }
 
-// Slideshow for topic and user
-
-func (st *SlideshowStore) ForTopicUser(topicId int64, userId int64) *models.Slideshow {
+// ForTopicUser returns a the slideshow for a topic and user, if it exists.
+func (st *SlideshowStore) ForTopicUserIf(topicId int64, userId int64) *models.Slideshow {
 
 	var r models.Slideshow
 
