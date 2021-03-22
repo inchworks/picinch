@@ -1,4 +1,4 @@
-FROM golang:1.13 AS builder
+FROM golang:1.16 AS builder
 LABEL maintainer="support@picinch.com>"
 WORKDIR /picinch
 COPY go.mod go.sum ./
@@ -18,6 +18,9 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy binary and templates from previous stage
 COPY --from=builder /picinch/picinch /app/
 COPY --from=builder /picinch/ui /app/ui/
-COPY --from=builder /picinch/imported /app/web/template/pages/
+
+# Also copy some resources from modules
+COPY --from=builder /go/pkg/mod/github.com/inchworks/webparts@v0.6.0/multiforms/web/static/ /app/ui/static/js/imported/
+COPY --from=builder /go/pkg/mod/github.com/inchworks/webparts@v0.6.0/users/web/template/ /app/ui/html/pages/
 
 CMD ["/app/picinch"]

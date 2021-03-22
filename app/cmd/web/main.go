@@ -36,6 +36,7 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/inchworks/usage"
 	"github.com/inchworks/webparts/limithandler"
+	"github.com/inchworks/webparts/multiforms"
 	"github.com/inchworks/webparts/server"
 	"github.com/inchworks/webparts/users"
 	"github.com/jmoiron/sqlx"
@@ -305,8 +306,7 @@ func (app *Application) Token(r *http.Request) string {
 	return nosurf.Token(r)
 }
 
-// Import customisation files
-
+// importFiles copies customisation files and resources from external packages.
 func importFiles(toDir, fromDir string) error {
 
 	files, err := filepath.Glob(fromDir)
@@ -314,6 +314,12 @@ func importFiles(toDir, fromDir string) error {
 		return err // no error if dir doesn't exist
 	}
 
+	// create directories
+	if err = os.MkdirAll(toDir, os.ModePerm); err != nil {
+		return err
+	}
+	
+	// copy files
 	for _, file := range files {
 
 		if err = copyFile(toDir, file); err != nil {
@@ -331,11 +337,11 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	var pts []string
 
 	// templates for user management
-	pt, err := users.TemplatesPath()
+	pw, err := users.WebPath()
 	if err != nil {
 		errorLog.Print(err)
-	} else if pt != "" {
-		pts = append(pts, pt)
+	} else if pw != "" {
+		pts = append(pts, filepath.Join(pw, "template"))
 	}
 
 	// initialise template cache
@@ -343,6 +349,18 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	if err != nil {
 		errorLog.Fatal(err)
 	}
+
+	// import package resources
+	pw, err = multiforms.WebPath()
+	if err != nil {
+		errorLog.Print(err)
+	} else if pw != "" {
+		err = importFiles(filepath.Join(UIPath, "static/js/imported"), filepath.Join(pw, "static/*.js"))
+		if err != nil {
+			errorLog.Print(err)
+		}
+	}
+
 
 	// import custom images
 	err = importFiles(filepath.Join(StaticPath, "images"), filepath.Join(SitePath, "images/*.*"))

@@ -8,7 +8,7 @@ require (
 	github.com/golangcollege/sessions v1.2.0
 	github.com/ilyakaznacheev/cleanenv v1.2.4
 	github.com/inchworks/usage v0.1.0
-	github.com/inchworks/webparts v0.5.0
+	github.com/inchworks/webparts v0.6.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/justinas/alice v1.2.0
@@ -17,4 +17,4 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 )
 
-// replace github.com/inchworks/webparts v0.5.0 => ../../webparts
+// replace github.com/inchworks/webparts v0.6.0 => ../../webparts
