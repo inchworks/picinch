@@ -77,9 +77,9 @@ func (app *Application) fileServer(root http.FileSystem) http.Handler {
 
 	fs := http.FileServer(root)
 
-	// allow 1 every 10 minutes, burst of 3, banned after 1 rejection,
-	// (probably probing to guess file names).
-	lim := app.lh.New("N", 10*time.Minute, 3, 1, "F,P", nil)
+	// allow 1 every 10 seconds, burst of 5, banned after 1 rejection,
+	// (probably probing to guess file names, but we must allow for a missing file that is our fault).
+	lim := app.lh.New("N", 10*time.Second, 5, 1, "F,P", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 

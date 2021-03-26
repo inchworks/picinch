@@ -46,7 +46,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.9.5"
+	version = "0.9.5B"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -405,8 +405,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// initialise rate limiter
-	// app.lh = limithandler.Start(8*time.Hour, 24*time.Hour)
-	app.lh = limithandler.Start(8*time.Minute, 24*time.Minute)
+	app.lh = limithandler.Start(8*time.Hour, 24*time.Hour)
 
 	// handlers for HTTP threats detected by application logic
 	app.wrongShare = app.shareNotFound()

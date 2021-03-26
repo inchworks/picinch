@@ -25,6 +25,7 @@ import (
 
 	"github.com/inchworks/webparts/users"
 	"github.com/jmoiron/sqlx"
+	"github.com/go-sql-driver/mysql"
 
 	"inchworks.com/picinch/pkg/models"
 )
@@ -114,8 +115,8 @@ var cmds = [...]string{
 		created datetime NOT NULL,
 		PRIMARY KEY (id),
 		UNIQUE KEY IDX_USERNAME (username),
-		KEY IDX_USER_GALLERY (gallery),
-		CONSTRAINT FK_USER_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id)
+		KEY IDX_USER_PARENT (parent),
+		CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 }
 
@@ -315,12 +316,31 @@ func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *Sl
 // before first table access. Needed for version 0.9.4.
 func MigrateWebparts1(tx *sqlx.Tx) error {
 
-	var cmdUser = `ALTER TABLE user CHANGE COLUMN gallery parent int(11), ADD COLUMN role smallint(6) NOT NULL;`
+	var cmdUser1 =
+		`ALTER TABLE user
+		DROP FOREIGN KEY FK_USER_GALLERY,
+		CHANGE COLUMN gallery parent int(11),
+		ADD COLUMN role smallint(6) NOT NULL;`
+
+	var cmdUser2 =
+		`ALTER TABLE user
+		ADD CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id);`
 
 	// new user table definition, if needed
-	tx.Exec(cmdUser)
+	_, err := tx.Exec(cmdUser1)
+	if driverErr, ok := err.(*mysql.MySQLError); ok {
+		if driverErr.Number == 1054 {	
+			return nil // ER_BAD_FIELD_ERROR is expected
+		}
+	}
+	if err != nil {
+		return err
+	}
 
-	return nil
+	// reinstate foreign key (cannot be done in same command - I hate SQL)
+	_, err = tx.Exec(cmdUser2)
+ 
+	return err
 }
 
 // MigrateWebparts2 upgrades the database with changes needed by inchworks/webparts,
