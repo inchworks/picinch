@@ -38,7 +38,7 @@ func (s *GalleryState) DisplayContributor(userId int64) (string, *DataHome) {
 	defer s.updatesNone()()
 
 	// user
-	user, err := s.app.UserStore.Get(userId)
+	user, err := s.app.userStore.Get(userId)
 	if err != nil {
 		s.app.log(err)
 		return "", nil
@@ -46,7 +46,7 @@ func (s *GalleryState) DisplayContributor(userId int64) (string, *DataHome) {
 
 	// highlights
 	var dHighlights []*DataSlide
-	show := s.app.SlideshowStore.ForTopicUser(s.app.SlideshowStore.HighlightsId, user.Id)
+	show := s.app.SlideshowStore.ForTopicUserIf(s.app.SlideshowStore.HighlightsId, user.Id)
 	if show != nil {
 		dHighlights = s.dataSlides(show.Id, s.app.cfg.MaxHighlightsTotal)
 	}
@@ -66,9 +66,9 @@ func (s *GalleryState) DisplayContributor(userId int64) (string, *DataHome) {
 
 	// template and its data
 	return "contributor.page.tmpl", &DataHome{
-		DisplayName:    user.Name,
-		Highlights:     dHighlights,
-		Slideshows: dShows,
+		DisplayName: user.Name,
+		Highlights:  dHighlights,
+		Slideshows:  dShows,
 	}
 }
 
@@ -78,7 +78,7 @@ func (s *GalleryState) DisplayContributors() (string, *DataUsers) {
 
 	defer s.updatesNone()()
 
-	users := s.app.UserStore.Contributors()
+	users := s.app.userStore.Contributors()
 	if users == nil {
 		return "no-contributors.page.tmpl", &DataUsers{}
 	}
@@ -122,7 +122,7 @@ func (s *GalleryState) DisplayHome(member bool) (string, *DataHome) {
 
 	// template and its data
 	return "home.page.tmpl", &DataHome{
-		Highlights:       dHighlights,
+		Highlights: dHighlights,
 		Slideshows: dShows,
 	}
 }
@@ -158,10 +158,10 @@ func (s *GalleryState) DisplayShared(code int64, seq int) (string, *DataSlidesho
 		// Annoyingly, the slideshow must have at least two slides,
 		// otherwise Bootstrap Carousel doesn't give any events to trigger loading of the first user's slideshow.
 		return "carousel-shared.page.tmpl", &DataSlideshow{
-			Topic:       topic.Title,
-			Title: s.app.galleryState.gallery.Organiser,
-			AfterHRef:   after,
-			BeforeHRef:  before,
+			Title:      topic.Title,
+			Info:       s.app.galleryState.gallery.Organiser,
+			AfterHRef:  after,
+			BeforeHRef: before,
 			DataCommon: DataCommon{
 				ParentHRef: from,
 			},
@@ -241,16 +241,13 @@ func (s *GalleryState) DisplayTopicContributors(id int64) (string, *DataSlidesho
 	}
 }
 
-// Topic for a user
-//
-// Returns slides
-
+// DisplayTopicUser returns the template and slides for a user's contribution to a topic.
 func (s *GalleryState) DisplayTopicUser(topicId int64, userId int64, from string) (string, *DataSlideshow) {
 
 	defer s.updatesNone()()
 
 	// get slideshow
-	show := s.app.SlideshowStore.ForTopicUser(topicId, userId)
+	show := s.app.SlideshowStore.ForTopicUserIf(topicId, userId)
 	if show == nil {
 		return "", nil
 	}
@@ -267,7 +264,7 @@ func (s *GalleryState) ForMyGallery(userId int64) *DataMyGallery {
 	defer s.updatesNone()()
 
 	// get user
-	user, _ := s.app.UserStore.Get(userId)
+	user, _ := s.app.userStore.Get(userId)
 
 	// get slideshows
 	slideshows := s.app.SlideshowStore.ForUser(userId, models.SlideshowPrivate)
@@ -321,7 +318,7 @@ func (s *GalleryState) ForTopics() *DataMyGallery {
 			NShow:   topic.Id,
 			Title:   topic.Title,
 			Visible: topic.VisibleStr(),
-			Shared: s.formatShared(topic.Shared),
+			Shared:  s.formatShared(topic.Shared),
 		})
 	}
 
@@ -339,7 +336,7 @@ func (s *GalleryState) ForUsers() *DataUsers {
 	defer s.updatesNone()()
 
 	// get all users
-	users := s.app.UserStore.ByName()
+	users := s.app.userStore.ByName()
 
 	return &DataUsers{
 		Users: users,
@@ -444,7 +441,7 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 			if count[userId] < maxUser {
 
 				// contributor of slideshow
-				user, err := a.UserStore.Get(userId)
+				user, err := a.userStore.Get(userId)
 				if err != nil {
 					a.log(err)
 					return nil
@@ -511,12 +508,14 @@ func (s *GalleryState) displayHighlights(topic *models.Slideshow, from string, p
 	}
 }
 
-// User's slides for own slideshow or a topic
-
+// displaySlides returns a template and slides for a slideshow or a user's own view of a topic contribution.
 func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max int) (string, *DataSlideshow) {
 
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, _ := s.app.UserStore.Get(show.User.Int64)
+	user, err := s.app.userStore.Get(show.User.Int64)
+	if err != nil {
+		return "", nil
+	}
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide
@@ -529,9 +528,22 @@ func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max in
 		})
 	}
 
+	// use topic title for a topic contribution
+	var title string
+	if show.Topic != 0 {
+		topic, err := s.app.SlideshowStore.Get(show.Topic)
+		if err != nil {
+			return "", nil
+		}
+		title = topic.Title
+
+	} else {
+		title = show.Title
+	}
+
 	// template and its data
 	return "carousel-default.page.tmpl", &DataSlideshow{
-		Title:       show.Title,
+		Title:       title,
 		DisplayName: user.Name,
 		AfterHRef:   from,
 		BeforeHRef:  from,
@@ -562,7 +574,7 @@ func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq in
 
 	// slides and user
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, _ := s.app.UserStore.Get(show.User.Int64)
+	user, _ := s.app.userStore.Get(show.User.Int64)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide
@@ -574,12 +586,6 @@ func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq in
 			Image:       slide.Image,
 			Format:      slide.Format,
 		})
-	}
-
-	// show user's title, if different from topic
-	var title string
-	if show.Title != topic.Title {
-		title = show.Title
 	}
 
 	// next and previous user's slides
@@ -598,11 +604,10 @@ func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq in
 
 	// template and its data
 	return template, &DataSlideshow{
-		Topic:       topic.Title,
+		Title:       topic.Title,
 		AfterHRef:   after,
 		BeforeHRef:  before,
 		DisplayName: user.Name,
-		Title:       title,
 		Slides:      dataSlides,
 		DataCommon: DataCommon{
 			ParentHRef: from,

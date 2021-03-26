@@ -20,17 +20,19 @@ package form
 import (
 	"net/url"
 
+	"github.com/inchworks/webparts/multiforms"
+
 	"inchworks.com/picinch/pkg/models"
 )
 
 type SlideshowsForm struct {
-	Form
+	*multiforms.Form
 	VisibleOpts []string
 	Children    []*SlideshowFormData
 }
 
 type SlideshowFormData struct {
-	Child
+	multiforms.Child
 	Visible     int
 	IsShared    bool
 	Title       string
@@ -41,9 +43,9 @@ type SlideshowFormData struct {
 
 // Slideshows form
 
-func NewSlideshows(data url.Values) *SlideshowsForm {
+func NewSlideshows(data url.Values, token string) *SlideshowsForm {
 	return &SlideshowsForm{
-		Form:        Form{data, make(map[string][]string), make(map[string]map[int][]string)},
+		Form:        multiforms.New(data, token),
 		VisibleOpts: models.VisibleOpts,
 		Children:    make([]*SlideshowFormData, 0, 16),
 	}
@@ -54,7 +56,7 @@ func NewSlideshows(data url.Values) *SlideshowsForm {
 func (f *SlideshowsForm) Add(index int, id int64, topicId int64, visible int, isShared bool, title string, user string) {
 
 	f.Children = append(f.Children, &SlideshowFormData{
-		Child:       Child{parent: &f.Form, ChildIndex: index},
+		Child:       multiforms.Child{Parent: f.Form, ChildIndex: index},
 		Visible:     visible,
 		IsShared:    isShared,
 		Title:       title,
@@ -69,7 +71,7 @@ func (f *SlideshowsForm) Add(index int, id int64, topicId int64, visible int, is
 func (f *SlideshowsForm) AddTemplate() {
 
 	f.Children = append(f.Children, &SlideshowFormData{
-		Child:   Child{parent: &f.Form, ChildIndex: -1},
+		Child:   multiforms.Child{Parent: f.Form, ChildIndex: -1},
 		Visible: models.SlideshowClub,
 	})
 }
@@ -87,7 +89,7 @@ func (f *SlideshowsForm) GetSlideshows(withTopics bool) (items []*SlideshowFormD
 			return nil, err
 		}
 
-		visible, err := f.ChildSelect("visible", i, len(models.VisibleOpts))
+		visible, err := f.ChildSelect("visible", i, ix, len(models.VisibleOpts))
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +104,7 @@ func (f *SlideshowsForm) GetSlideshows(withTopics bool) (items []*SlideshowFormD
 
 		items = append(items, &SlideshowFormData{
 
-			Child:    Child{parent: &f.Form, ChildIndex: ix},
+			Child:   multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			Visible:  visible,
 			IsShared: f.ChildBool("shared", ix),
 			NShow:    showId,

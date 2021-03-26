@@ -6,7 +6,13 @@
   This file is offered as-is, without any warranty.
 */}}
 
+{{define "website"}}PicInch Gallery{{end}}
+
 {{define "gallery"}}
+	{{template "base" .}}
+{{end}}
+
+{{define "layout"}}
 	{{template "base" .}}
 {{end}}
 
@@ -37,12 +43,11 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
+                    {{if .IsAdmin}}
+                        {{template "menu-admin" .}}
+                    {{end}}
                     {{if .IsCurator}}
-                        {{if .IsAdmin}}
-                            {{template "menu-admin" .}}
-                        {{else}}
-                            {{template "menu-curator" .}}
-                        {{end}}
+                       {{template "menu-curator" .}}
                     {{end}}
                     <li class="nav-item"><a class="nav-link" href="/">GALLERY</a></li>
                     {{if .IsAuthenticated}}

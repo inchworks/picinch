@@ -23,9 +23,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/inchworks/usage"
 	"github.com/julienschmidt/httprouter"
 
-	"inchworks.com/picinch/pkg/usage"
+	"inchworks.com/picinch/pkg/models"
 )
 
 // About page for website
@@ -100,7 +101,7 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) home(w http.ResponseWriter, r *http.Request) {
 
-	template, data := app.galleryState.DisplayHome(app.isAuthenticated(r))
+	template, data := app.galleryState.DisplayHome(app.isAuthenticated(r, models.UserFriend))
 	if data == nil {
 		app.clientError(w, http.StatusInternalServerError)
 		return
@@ -179,12 +180,6 @@ func (app *Application) slideshowsUser(w http.ResponseWriter, r *http.Request) {
 	ps := httprouter.ParamsFromContext(r.Context())
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
-	// allow access?
-	if !app.allowAccessUser(r, userId) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
 	data := app.galleryState.ForMyGallery(userId)
 
 	app.render(w, r, "my-gallery.page.tmpl", data)
@@ -196,9 +191,10 @@ func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) 
 	ps := httprouter.ParamsFromContext(r.Context())
 
 	// access is allowed to anyone with the sharing code
-	code, err := strconv.ParseInt(ps.ByName("code"), 36, 64)
+	sc := ps.ByName("code")
+	code, err := strconv.ParseInt(sc, 36, 64)
 	if err != nil {
-		app.clientError(w, http.StatusUnauthorized)
+		app.wrongShare.ServeHTTP(w, r)
 		return
 	}
 
@@ -207,7 +203,7 @@ func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) 
 	// template and data for slides
 	template, data := app.galleryState.DisplayShared(code, int(seq))
 	if template == "" {
-		app.clientError(w, http.StatusUnauthorized)
+		app.wrongShare.ServeHTTP(w, r)
 		return
 
 	} else if data == nil {
@@ -228,12 +224,6 @@ func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 
 	showId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
-
-	// allow access?
-	if !app.allowAccessUser(r, userId) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
 
 	// template and data for slides
 	template, data := app.galleryState.DisplayTopicUser(showId, userId, r.Referer())
@@ -266,12 +256,6 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 
 func (app *Application) topics(w http.ResponseWriter, r *http.Request) {
 
-	// allow access?
-	if !app.isCurator(r) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
 	data := app.galleryState.ForTopics()
 
 	app.render(w, r, "topics.page.tmpl", data)
@@ -281,24 +265,12 @@ func (app *Application) topics(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) usageDays(w http.ResponseWriter, r *http.Request) {
 
-	// allow access?
-	if !app.isAdmin(r) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
 	data := app.galleryState.ForUsage(usage.Day)
 
 	app.render(w, r, "usage.page.tmpl", data)
 }
 
 func (app *Application) usageMonths(w http.ResponseWriter, r *http.Request) {
-
-	// allow access?
-	if !app.isAdmin(r) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
 
 	data := app.galleryState.ForUsage(usage.Month)
 
@@ -308,12 +280,6 @@ func (app *Application) usageMonths(w http.ResponseWriter, r *http.Request) {
 // For curator
 
 func (app *Application) usersCurator(w http.ResponseWriter, r *http.Request) {
-
-	// allow access?
-	if !app.isCurator(r) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
 
 	data := app.galleryState.ForUsers()
 
