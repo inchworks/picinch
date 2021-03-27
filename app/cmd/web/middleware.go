@@ -249,11 +249,10 @@ func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http
 
 		} else if orUser > 0 && app.isAuthenticated(r, orUser) {
 			// owner of this path?
-			// #### must be a member too!
 			u := httprouter.ParamsFromContext(r.Context()).ByName("nUser")
 			userId, _ := strconv.ParseInt(u, 10, 64)
-			auth, ok := r.Context().Value(contextKeyUser).(AuthenticatedUser)
-			if ok && auth.id == userId {
+			auth, okCast := r.Context().Value(contextKeyUser).(AuthenticatedUser)
+			if okCast && auth.id == userId {
 				ok = true
 			}
 		}
