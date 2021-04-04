@@ -20,6 +20,7 @@ package main
 import (
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -237,10 +238,9 @@ func main() {
 	// preconfigured HTTP/HTTPS server
 	// ## name stutter!
 	srv := &server.Server{
-		ErrorLog:  errorLog,
+		ErrorLog:  app.newServerLog(os.Stdout, "BAD-HTTPS\t", log.Ldate|log.Ltime),
 		InfoLog:   infoLog,
-		ThreatLog: threatLog,
-
+	
 		CertEmail: cfg.CertEmail,
 		CertPath:  CertPath,
 		Domains:   cfg.Domains,
@@ -507,6 +507,16 @@ func newServer(addr string, handler http.Handler, log *log.Logger, main bool) *h
 	}
 
 	return s
+}
+
+// NewServerLogger returns a logger that filter common events cause by background noise from internet idiots.
+// (Typically probes using unsupported TLS versions or attempting HTTPS connection without a domain name.
+// Also continuing access attempts with the domain of a previous holder of the server's IP address.)
+func (app *Application) newServerLog(out io.Writer, prefix string, flag int) *log.Logger {
+
+	filter := []string{"TLS handshake error"}
+
+	return app.usage.NewLogger(out, prefix, flag, filter, "http")
 }
 
 // Open database
