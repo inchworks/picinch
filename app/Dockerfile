@@ -20,7 +20,7 @@ COPY --from=builder /picinch/picinch /app/
 COPY --from=builder /picinch/ui /app/ui/
 
 # Also copy some resources from modules
-COPY --from=builder /go/pkg/mod/github.com/inchworks/webparts@v0.6.0/multiforms/web/static/ /app/ui/static/js/imported/
-COPY --from=builder /go/pkg/mod/github.com/inchworks/webparts@v0.6.0/users/web/template/ /app/ui/html/pages/
+COPY --from=builder /go/pkg/mod/github.com/inchworks/webparts@v0.7.1/multiforms/web/static/ /app/ui/static/js/imported/
+COPY --from=builder /go/pkg/mod/github.com/inchworks/webparts@v0.7.1/users/web/template/ /app/ui/html/pages/
 
 CMD ["/app/picinch"]

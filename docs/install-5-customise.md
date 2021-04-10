@@ -31,6 +31,7 @@ Files in `images/` replace the default brand and favicon images for PicInch.
 - android-chrome-192.png
 - android-chrome-512.png
 - apple-touch-icon.png
+- apple-touch-icon-152x152-precomposed.png
 - favicon.ico
 - favicon-16.png
 - favicon-32.png

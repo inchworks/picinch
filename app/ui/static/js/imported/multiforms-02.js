@@ -69,6 +69,7 @@ function addChildForm($collectionHolder) {
     childAdded($prototype, $newForm);
 
     // display the form in the page, after the final one
+    var $prev = $collectionHolder.children().last();
     $collectionHolder.append($newForm);
 
     // set the index, needed so that form shows when redisplayed on error, and for checkbox values

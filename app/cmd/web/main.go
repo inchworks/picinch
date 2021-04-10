@@ -61,7 +61,6 @@ const (
 	CertPath   = "../certs"         // cached certificates
 	ImagePath  = "../photos"        // pictures
 	SitePath   = "../site"          // site-specific resources
-	StaticPath = "../app/ui/static" // static resources
 	UIPath     = "../app/ui"        // user inteface resources
 	MiscPath   = "../misc"          // misc
 )
@@ -162,7 +161,7 @@ type Application struct {
 	userStore      *mysql.UserStore
 
 	// common components
-	lh    *limithandler.Handlers
+	lhs    *limithandler.Handlers
 	usage *usage.Recorder
 	users users.Users
 
@@ -224,7 +223,7 @@ func main() {
 	// initialise application
 	app := initialise(cfg, errorLog, infoLog, threatLog, db)
 
-	defer app.lh.Stop()
+	defer app.lhs.Stop()
 	defer app.usage.Stop()
 
 	// start background worker
@@ -238,7 +237,7 @@ func main() {
 	// preconfigured HTTP/HTTPS server
 	// ## name stutter!
 	srv := &server.Server{
-		ErrorLog:  app.newServerLog(os.Stdout, "BAD-HTTPS\t", log.Ldate|log.Ltime),
+		ErrorLog:  app.newServerLog(os.Stdout, "SERVER\t", log.Ldate|log.Ltime),
 		InfoLog:   infoLog,
 	
 		CertEmail: cfg.CertEmail,
@@ -361,9 +360,8 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		}
 	}
 
-
 	// import custom images
-	err = importFiles(filepath.Join(StaticPath, "images"), filepath.Join(SitePath, "images/*.*"))
+	err = importFiles(filepath.Join(UIPath, "static/images"), filepath.Join(SitePath, "images/*.*"))
 	if err != nil {
 		errorLog.Print(err)
 	}
@@ -404,8 +402,8 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		ThumbH:    app.cfg.ThumbH,
 	}
 
-	// initialise rate limiter
-	app.lh = limithandler.Start(8*time.Hour, 24*time.Hour)
+	// initialise rate limiters
+	app.lhs = limithandler.Start(8*time.Hour, 24*time.Hour)
 
 	// handlers for HTTP threats detected by application logic
 	app.wrongShare = app.shareNotFound()
@@ -516,7 +514,7 @@ func (app *Application) newServerLog(out io.Writer, prefix string, flag int) *lo
 
 	filter := []string{"TLS handshake error"}
 
-	return app.usage.NewLogger(out, prefix, flag, filter, "http")
+	return app.usage.NewLogger(out, prefix, flag, filter, "bad-https")
 }
 
 // Open database

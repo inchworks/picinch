@@ -361,7 +361,7 @@ func (s *GalleryState) Highlighted(prefix string, nImage int) string {
 		return filepath.Join(ImagePath, image)
 
 	} else {
-		return filepath.Join(SitePath, "images/no-photos-white.jpg")
+		return filepath.Join(UIPath, "static/images/no-photos-white.jpg")
 	}
 }
 

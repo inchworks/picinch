@@ -164,7 +164,8 @@ func (st *UserStore) Get(id int64) (*users.User, error) {
 	var t users.User
 
 	if err := st.DBX.Get(&t, userWhereId, id); err != nil {
-		return nil, st.logError(err)
+		// unknown user ID is possible, not logged as an error
+		return nil, st.convertError(err)
 	}
 
 	return &t, nil

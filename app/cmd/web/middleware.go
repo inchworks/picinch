@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -77,9 +78,9 @@ func (app *Application) fileServer(root http.FileSystem) http.Handler {
 
 	fs := http.FileServer(root)
 
-	// allow 1 every 10 seconds, burst of 5, banned after 1 rejection,
-	// (probably probing to guess file names, but we must allow for a missing file that is our fault).
-	lim := app.lh.New("N", 10*time.Second, 5, 1, "F,P", nil)
+	// allow 1 every 20 seconds, burst of 20, banned after 1 rejection,
+	// (probably probing to guess file names, but we must allow for missing files that are our fault).
+	lim := app.lhs.New("N", 20*time.Second, 20, 1, "F,P", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -106,8 +107,8 @@ func (app *Application) fileServer(root http.FileSystem) http.Handler {
 // limitFile returns a handler to limit file requests, per user.
 func (app *Application) limitFile(next http.Handler) http.Handler {
 
-	// no limit - but can be set to block after bad requests
-	lh := app.lh.New("F", 0, 0, 20, "", next)
+	// no limit - but can be set to block all file requests after other bad requests
+	lh := app.lhs.New("F", 0, 0, 20, "", next)
 
 	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -121,7 +122,7 @@ func (app *Application) limitFile(next http.Handler) http.Handler {
 func (app *Application) limitLogin(next http.Handler) http.Handler {
 
 	// 1 minute per attempt, with an initial burst of 5, banned after 15 rejects (20 attempts, total)
-	lh := app.lh.New("L", time.Minute, 5, 15, "", next)
+	lh := app.lhs.New("L", time.Minute, 5, 15, "", next)
 
 	lh.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -147,7 +148,7 @@ func (app *Application) limitPage(next http.Handler) http.Handler {
 
 	// 1 per second with burst of 5, banned after 20 rejects,
 	// (This is too restrictive to be applied to file requests.)
-	lim := app.lh.New("P", time.Second, 5, 20, "", next)
+	lim := app.lhs.New("P", time.Second, 5, 20, "", next)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -308,7 +309,7 @@ func (app *Application) routeNotFound() http.Handler {
 
 	// allow 1 every 10 minutes, burst of 3, banned after 1 rejection,
 	// (typically probing for vulnerable PHP files).
-	lim := app.lh.New("R", 10*time.Minute, 3, 1, "F,P", nil)
+	lim := app.lhs.New("R", 10*time.Minute, 3, 1, "F,P", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -316,6 +317,20 @@ func (app *Application) routeNotFound() http.Handler {
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// ignore some common bad requests, so we don't ban unreasonably
+		d, f := path.Split(r.URL.Path)
+		if d =="/" && path.Ext(f) == ".png" { 
+			app.threat("no favicon", r)
+			http.NotFound(w, r)  // possibly a favicon for an ancient mobile device
+			return
+
+		} else if d == "/shared/" {
+			app.threat("old slideshow", r)
+			http.NotFound(w, r)  // ## temporary - had these on the home page, picked up by search engines
+			return
+		}
+
 		ok, status := lim.Allow(r)
 		if ok {
 			app.threat("bad URL", r)
@@ -342,7 +357,7 @@ func (app *Application) shareNotFound() http.Handler {
 
 	// allow 1 every 10 minutes, burst of 3, banned after 1 rejection,
 	// (typically probing for vulnerable PHP files).
-	lim := app.lh.New("S", 10*time.Minute, 3, 1, "P", nil)
+	lim := app.lhs.New("S", 10*time.Minute, 3, 1, "P", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 

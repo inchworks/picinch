@@ -293,7 +293,12 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64
 					qDest.Revised = now
 					qDest.Title = s.sanitize(qsSrc[iSrc].Title, qDest.Title)
 					qDest.Caption = s.sanitize(qsSrc[iSrc].Caption, qDest.Caption)
-					qDest.Image = images.FileFromName(showId, qsSrc[iSrc].ImageName, 0)
+
+					// If the image name hasn't changed, leave the old version in use for now,
+					// so that the slideshow still works. We'll detect a version change later.
+					if imageName != dstName {
+						qDest.Image = images.FileFromName(userId, qsSrc[iSrc].ImageName, 0)
+					}
 
 					s.app.SlideStore.Update(qDest)
 					updated = true

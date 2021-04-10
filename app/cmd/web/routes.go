@@ -108,8 +108,8 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("POST", "/user/signup", dynHs.Append(app.limitLogin).ThenFunc(app.users.PostFormSignup))
 
 	// files that must be in root
-	router.GET("/apple-touch-icon.png", appleTouchHandler)
-	router.GET("/favicon.ico", faviconHandler)
+	router.GET("/apple-touch-icon.png", rootImagesHandler)
+	router.GET("/favicon.ico", rootImagesHandler)
 	router.GET("/robots.txt", robotsHandler)
 
 	// these are just a courtesy, say no immediately instead of redirecting to "/path/" first
@@ -134,14 +134,11 @@ func (app *Application) Routes() http.Handler {
 
 // Special handling for files that must be in root
 
-func appleTouchHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	http.ServeFile(w, r, filepath.Join(SitePath, "images/apple-touch-icon.png"))
-}
-
-func faviconHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	http.ServeFile(w, r, filepath.Join(SitePath, "images/favicon.ico"))
-}
-
 func robotsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	http.ServeFile(w, r, filepath.Join(UIPath, "static/robots.txt"))
+}
+
+func rootImagesHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	file := path.Base(r.URL.Path)
+	http.ServeFile(w, r, filepath.Join(UIPath, "static/images", file))
 }
