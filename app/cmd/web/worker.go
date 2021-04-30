@@ -51,7 +51,7 @@ func (s *GalleryState) worker(
 		case req := <-chShow:
 
 			// a slideshow has been updated or removed
-			if err := s.onUpdateShow(req.showId, req.userId, req.revised); err != nil {
+			if err := s.onUpdateShow(req.showId, req.timestamp, req.revised); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
 
@@ -59,7 +59,7 @@ func (s *GalleryState) worker(
 
 			// a set of slideshows have been updated (e.g. user removed)
 			for _, req := range reqs {
-				if err := s.onUpdateShow(req.showId, req.userId, req.revised); err != nil {
+				if err := s.onUpdateShow(req.showId, req.timestamp, req.revised); err != nil {
 					s.app.errorLog.Print(err.Error())
 				}
 				runtime.Gosched()
@@ -103,15 +103,14 @@ func (s *GalleryState) onRefresh() error {
 	return nil
 }
 
-// A slideshow has been updated or removed
-
-func (s *GalleryState) onUpdateShow(showId int64, userId int64, revised bool) error {
+// onUpdate show processes an updated or deleted slideshow.
+func (s *GalleryState) onUpdateShow(showId int64, timestamp string, revised bool) error {
 
 	// images
 	im := s.app.imager
 
 	// setup
-	if err := im.ReadVersions(showId, userId); err != nil {
+	if err := im.ReadVersions(showId, timestamp); err != nil {
 		return err
 	}
 

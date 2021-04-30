@@ -17,6 +17,18 @@
   along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
 */}}
 
+{{define "menu-authenticated"}}
+    <li class="nav-item"><a class="nav-link" href="/">GALLERY</a></li>
+    <li class="nav-item"><a class="nav-link" href="/contributors">CONTRIBUTORS</a></li>
+    <li class="nav-item"><a class="nav-link" href="/my-slideshows">MY SLIDESHOWS</a></li>
+    <li class="nav-item">
+        <form class="form-inline" action='/user/logout' method='POST'>
+            <input class="form-control" type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
+            <button class="btn btn-outline-dark btn-sm">LOGOUT</button>
+        </form>
+    </li>
+{{end}}
+
 {{define "menu-admin"}}
     <li class="nav-item dropdown">
         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">ADMIN</a>
@@ -28,4 +40,20 @@
 	        <a class="dropdown-item" href="/usage-months">MONTHS</a>
         </div>
     </li>
+{{end}}
+
+{{define "menu-curator"}}
+    <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">CURATOR</a>
+        <div class="dropdown-menu" aria-labelledby="navbarDropdown" style="background-color: #ccc;">
+	        <a class="dropdown-item" href="/topics">TOPICS</a>
+	        <a class="dropdown-item" href="/users-curator">USERS</a>
+         </div>
+    </li>
+{{end}}
+
+{{define "menu-public"}}
+    <li class="nav-item"><a class="nav-link" href="/">GALLERY</a></li>
+    <li class="nav-item"><a class="nav-link" href="/user/login">LOGIN</a></li>
+    <li class="nav-item"><a class="nav-link" href="/user/signup">SIGN-UP</a></li>
 {{end}}

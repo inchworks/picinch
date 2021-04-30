@@ -63,6 +63,11 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request) {
 
 // template data for display pages
 
+type dataCompetition struct {
+	Categories []*DataPublished
+	DataCommon
+}
+
 type DataHome struct {
 	DisplayName string
 	Highlights  []*DataSlide
@@ -135,7 +140,20 @@ type DataUsers struct {
 	DataCommon
 }
 
-// template data for gallery editing
+type dataValidated struct {
+	Name     string
+	Category string
+	Title    string
+	DataCommon
+}
+
+// template data for forms
+
+type compFormData struct {
+	Form  *form.PublicCompForm
+	Category string
+	DataCommon
+}
 
 type simpleFormData struct {
 	Form *multiforms.Form
@@ -144,7 +162,6 @@ type simpleFormData struct {
 
 type slidesFormData struct {
 	Form  *form.SlidesForm
-	NShow int64
 	Title string
 	DataCommon
 }
@@ -184,7 +201,7 @@ func newTemplateCache(forPkgs []string, forApp string, forSite string) (map[stri
 		}
 	}
 
-	// add application templates from sub-directories
+	// add application page templates from sub-directories
 	err := filepath.Walk(forApp, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -194,6 +211,11 @@ func newTemplateCache(forPkgs []string, forApp string, forSite string) (map[stri
 		}
 		return nil // ignore page templates in root
 	})
+
+	// add site-specific page templates
+	if err := addTemplates(forSite, forApp, forSite, "", cache); err != nil {
+		return nil, err
+	}
 
 	// return the map
 	return cache, err
@@ -240,8 +262,10 @@ func addTemplates(dir string, root string, subs string, site string, cache map[s
 		}
 
 		// Add any site-specific template files (last, so they can redefine application templates)
-		if ts, err = parseGlobIf(ts, filepath.Join(site, "*.tmpl")); err != nil {
-			return err
+		if site != "" {
+			if ts, err = parseGlobIf(ts, filepath.Join(site, "*.partial.tmpl")); err != nil {
+				return err
+			}
 		}
 
 		// Add the page's template set for the page to the cache, keyed by the file name
@@ -251,8 +275,7 @@ func addTemplates(dir string, root string, subs string, site string, cache map[s
 	return nil
 }
 
-// add any optional templates to set
-
+// parseGlobIf adds any optional templates to set.
 func parseGlobIf(ts *template.Template, pattern string) (*template.Template, error) {
 
 	// ## ParseGlob fails if there are no matches. I can't find out how to test for that error :-(.

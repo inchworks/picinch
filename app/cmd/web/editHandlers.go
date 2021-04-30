@@ -136,26 +136,15 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// Upload image
-
+// postFormImage handles an uploaded image
 func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	userId, err := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
-	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
-	}
-
-	// allow uploads?
-	if !app.allowAccessUser(r, userId) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
+	timestamp := ps.ByName("timestamp")
 
 	// multipart form, maximum upload of 32 MB of files.
 	// ## Make configurable.
-	err = r.ParseMultipartForm(32 << 20)
+	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
 		app.log(err)
 		app.clientError(w, http.StatusBadRequest)
@@ -170,7 +159,7 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 	}
 	fh :=f[0]
 
-	err, byUser := images.Save(fh, userId, app.chImage)
+	err, byUser := images.Save(fh, timestamp, app.chImage)
 	var s string
 	if err != nil {
 		if byUser {
@@ -206,27 +195,13 @@ func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
 	// display form
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 		Form:  f,
-		NShow: showId,
 		Title: slideshow.Title, // ## could be in form, to allow editing
 	})
 }
 
 func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 
-	ps := httprouter.ParamsFromContext(r.Context())
-	showId, err := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
-	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
-	}
-
-	// allow access to slideshow?
-	if showId != 0 && !app.allowUpdateShow(r, showId) {
-		app.clientError(w, http.StatusUnauthorized)
-		return
-	}
-
-	err = r.ParseForm()
+	err := r.ParseForm()
 	if err != nil {
 		app.log(err)
 		app.clientError(w, http.StatusBadRequest)
@@ -242,11 +217,27 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nUser, _ := strconv.ParseInt(f.Get("nUser"), 10, 64)
+	nShow, err := strconv.ParseInt(f.Get("nShow"), 10, 64)
+	if err != nil {
+		app.log(err)
+		app.clientError(w, http.StatusBadRequest)
+	}
+	nUser, err := strconv.ParseInt(f.Get("nUser"), 10, 64)
+	if err != nil {
+		app.log(err)
+		app.clientError(w, http.StatusBadRequest)
+	}
+	timestamp := f.Get("timestamp") // request ID for uploaded images
+
+ 	// allow access to slideshow?
+	 if nShow != 0 && !app.allowUpdateShow(r, nShow) {
+		app.clientError(w, http.StatusUnauthorized)
+		return
+	}
 
 	// need topic if there is no slideshow (otherwise we prefer to trust the database)
 	var nTopic int64
-	if showId == 0 {
+	if nShow == 0 {
 		nTopic, _ = strconv.ParseInt(f.Get("nTopic"), 10, 64)
 	
 		if nTopic == 0 {
@@ -265,13 +256,13 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		app.errorLog.Print(f.Errors)
 		app.errorLog.Print(f.ChildErrors)
 
-		t := app.galleryState.SlideshowTitle(showId)
-		app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{Form: f, NShow: showId, Title: t})
+		t := app.galleryState.SlideshowTitle(nShow)
+		app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{Form: f, Title: t})
 		return
 	}
 
 	// save changes
-	ok, userId := app.galleryState.OnEditSlideshow(showId, nTopic, nUser, slides)
+	ok, userId := app.galleryState.OnEditSlideshow(nShow, nTopic, timestamp, nUser, slides)
 	if ok {
 		app.session.Put(r, "flash", "Slide changes saved.")
 		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
@@ -358,12 +349,11 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 	topicId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
-	f, showId, title := app.galleryState.ForEditTopic(topicId, userId, nosurf.Token(r))
+	f, title := app.galleryState.ForEditTopic(topicId, userId, nosurf.Token(r))
 
 	// display form
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 		Form:  f,
-		NShow: showId,
 		Title: title,
 	})
 }

@@ -26,6 +26,8 @@
     crossorigin="anonymous">
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.1/css/lightbox.min.css">
     <link rel='stylesheet' href='/static/css/gallery-03.css'>
+	{{block "siteStyle" .}}
+    {{end}}
 {{end}}
 
 {{define "headscripts"}}
@@ -47,26 +49,20 @@
                         {{template "menu-admin" .}}
                     {{end}}
                     {{if .IsCurator}}
-                       {{template "menu-curator" .}}
+                        {{template "menu-curator" .}}
                     {{end}}
-                    <li class="nav-item"><a class="nav-link" href="/">GALLERY</a></li>
                     {{if .IsAuthenticated}}
-                        <li class="nav-item"><a class="nav-link" href="/contributors">CONTRIBUTORS</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/my-slideshows">MY SLIDESHOWS</a></li>
-                        <li class="nav-item">
-                            <form class="form-inline" action='/user/logout' method='POST'>
-                                <input class="form-control" type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
-                                <button class="btn btn-outline-dark btn-sm">LOGOUT</button>
-                            </form>
-                        </li>
+                        {{template "menu-authenticated" .}}
                     {{else}}
-                        <li class="nav-item"><a class="nav-link" href="/user/login">LOGIN</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/user/signup">SIGN-UP</a></li>
-                    {{end}}
+                        {{template "menu-public" .}}
+                   {{end}}
                 </ul>
             </div>
         </nav>
     </div>
+
+    {{block "pageHeader" .}}
+    {{end}}
 
     {{with .Flash}}
         <div class="container">

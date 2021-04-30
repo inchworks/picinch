@@ -83,8 +83,8 @@ var cmds = [...]string{
 	PRIMARY KEY (id),
 	KEY IDX_SLIDESHOW_GALLERY (gallery),
 	KEY IDX_USER (user),
+	KEY IDX_SHARED (shared),
 	KEY IDX_TOPIC (topic),
-	KEY IDX_TITLE (title),
 	CONSTRAINT FK_SLIDESHOW_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id),
 	CONSTRAINT FK_SLIDESHOW_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
@@ -100,8 +100,35 @@ var cmds = [...]string{
 		detail smallint(6) NOT NULL,
 		start datetime NOT NULL,
 		PRIMARY KEY (id),
-		UNIQUE KEY IDX_STATISTIC (event, start, period),
-		KEY IDX_START_PERIOD (start, period)
+		UNIQUE KEY IDX_STATISTIC (event, start, detail),
+		KEY IDX_START_DETAIL (start, detail)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
+
+	`CREATE TABLE tag (
+		id int(11) NOT NULL AUTO_INCREMENT,
+		gallery int(11) NOT NULL,
+		parent int(11) NOT NULL,
+		name varchar(60) COLLATE utf8_unicode_ci NOT NULL,
+		action varchar(60) COLLATE utf8_unicode_ci NOT NULL,
+		PRIMARY KEY (id),
+		UNIQUE KEY IDX_TAG (parent, name),
+		CONSTRAINT FK_TAG_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
+
+	`CREATE TABLE tagref (
+		id int(11) NOT NULL AUTO_INCREMENT,
+		slideshow int(11) NOT NULL,
+		tag int(11) NOT NULL,
+		user int(11) NULL,
+		added datetime NOT NULL,
+		detail varchar(512) COLLATE utf8_unicode_ci NOT NULL,
+		PRIMARY KEY (id),
+		KEY IDX_TAG_SLIDESHOW (slideshow),
+		KEY IDX_TAG_TAG (tag),
+		KEY IDX_TAG_USER (user),
+		CONSTRAINT FK_TAG_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE,
+		CONSTRAINT FK_TAG_TAG FOREIGN KEY (tag) REFERENCES tag (id) ON DELETE CASCADE,
+		CONSTRAINT FK_TAG_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 
 	`CREATE TABLE user (
@@ -120,11 +147,8 @@ var cmds = [...]string{
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 }
 
-// Setup new database, if it has no tables.
-// Add gallery record and specified administrator if needed.
-//
-// Returns gallery record.
-
+// Setup initialises a new database, if it has no tables.
+// It adds a gallery record and the specified administrator if needed, and returns the gallery record.
 func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminName string, adminPW string) (*models.Gallery, error) {
 
 	// look for gallery record
@@ -329,7 +353,7 @@ func MigrateWebparts1(tx *sqlx.Tx) error {
 	// new user table definition, if needed
 	_, err := tx.Exec(cmdUser1)
 	if driverErr, ok := err.(*mysql.MySQLError); ok {
-		if driverErr.Number == 1054 {	
+		if driverErr.Number == 1054 || driverErr.Number == 1146 {	
 			return nil // ER_BAD_FIELD_ERROR is expected
 		}
 	}

@@ -47,7 +47,7 @@ type Imager struct {
 
 	// state
 	showId      int64
-	userId      int64
+	timestamp        string
 	versions    map[string]fileVersion
 	delVersions []fileVersion
 }
@@ -60,10 +60,10 @@ type fileVersion struct {
 }
 
 type ReqSave struct {
-	UserId   int64
-	Name     string
-	Fullsize bytes.Buffer
-	Img      image.Image
+	Name      string
+	Timestamp string // request timestamp, to match image with form
+	Fullsize  bytes.Buffer
+	Img       image.Image
 }
 
 // cleanName removes unwanted characters from a filename, to make it safe for display and storage.
@@ -72,37 +72,37 @@ type ReqSave struct {
 func CleanName(name string) string {
 
 	s := []byte(name)
-    j := 0
-    for _, b := range s {
-        if ('a' <= b && b <= 'z') ||
-            ('A' <= b && b <= 'Z') ||
-            ('0' <= b && b <= '9') ||
+	j := 0
+	for _, b := range s {
+		if ('a' <= b && b <= 'z') ||
+			('A' <= b && b <= 'Z') ||
+			('0' <= b && b <= '9') ||
 			b == '.' ||
 			b == '-' ||
 			b == '_' ||
 			b == ' ' ||
 			b == '(' ||
 			b == ')' {
-            s[j] = b
-            j++
-        }
-    }
-    return string(s[:j])
+			s[j] = b
+			j++
+		}
+	}
+	return string(s[:j])
 }
 
 // FileFromName returns a stored file name from a user's name for an image.
-// For a newly uploaded file, the owner is the user, because the slideshow may not exist yet.
-// It has no revision number., so it doesn't overwrite a previous copy yet.
+// For a newly uploaded file, the owner is a request timestamp, because the slideshow may not exist yet.
+// It has no revision number, so it doesn't overwrite a previous copy yet.
 // Once the slideshow updates have been saved, the owner is the slideshow ID and the name has a revision number.
-func FileFromName(ownerId int64, name string, rev int) string {
+func FileFromName(ownerId string, name string, rev int) string {
 	if name != "" {
 		if rev != 0 {
 			return fmt.Sprintf("P-%s$%s-%s",
-				strconv.FormatInt(ownerId, 36),
+				ownerId,
 				strconv.FormatInt(int64(rev), 36),
 				name)
 		} else {
-			return fmt.Sprintf("P-%s-%s", strconv.FormatInt(ownerId, 36), name)
+			return fmt.Sprintf("P-%s-%s", ownerId, name)
 		}
 	} else {
 		return ""
@@ -110,60 +110,60 @@ func FileFromName(ownerId int64, name string, rev int) string {
 }
 
 // NameFrommFile returns the owner ID, image name and revison from a file name.
-// If the revision is 0, the owner is the user, otherwise the owner is the slideshow.
-func NameFromFile(fileName string) (int64, string, int) {
+// If the revision is 0, the owner is the request, otherwise the owner is the slideshow.
+func NameFromFile(fileName string) (string, string, int) {
 	if len(fileName) > 0 {
-		// ss[0] is "P"
+		// sf[0] is "P"
 		sf := strings.SplitN(fileName, "-", 3)
 		ss := strings.Split(sf[1], "$")
-		ownerId, _ := strconv.ParseInt(ss[0], 36, 64)
 
 		var rev int64
 		if len(ss) > 1 {
 			rev, _ = strconv.ParseInt(ss[1], 36, 0)
 		}
-		return ownerId, sf[2], int(rev)
+		return ss[0], sf[2], int(rev)
 
 	} else {
-		return 0, "", 0
+		return "", "", 0
 	}
 }
 
-// Load updated versions
-
-func (im *Imager) ReadVersions(showId int64, userId int64) error {
+// ReadVersions loads updated image versions. timestamp is empty when we are deleting a slideshow.
+func (im *Imager) ReadVersions(showId int64, timestamp string) error {
 
 	// reset state
 	im.showId = showId
-	im.userId = userId
+	im.timestamp = timestamp
 	im.delVersions = nil
 
 	showName := strconv.FormatInt(showId, 36)
-	userName := strconv.FormatInt(userId, 36)
 
-	// find new files, and existing ones
-	// (newVersions could be just a slice)
-	newVersions := im.globVersions(filepath.Join(im.ImagePath, "P-"+userName+"-*"))
+	// find existing versions
 	im.versions = im.globVersions(filepath.Join(im.ImagePath, "P-"+showName+"$*"))
 
 	// generate new revision nunbers
-	// Note that fileNames for new files don't have revision numbers yet. We may need to delete some files.
-	for name, nv := range newVersions {
-		nv.replace = true
+	if timestamp != "" {
 
-		cv := im.versions[name]
-		if cv.revision != 0 {
+		// find new files
+		newVersions := im.globVersions(filepath.Join(im.ImagePath, "P-"+timestamp+"-*"))
 
-			// current version is to be replaced and deleted
-			nv.revision = cv.revision + 1
-			im.delVersions = append(im.delVersions, cv)
+		for name, nv := range newVersions {
+			nv.replace = true
 
-		} else {
+			cv := im.versions[name]
+			if cv.revision != 0 {
 
-			// this is a new name
-			nv.revision = 1
+				// current version is to be replaced and deleted
+				nv.revision = cv.revision + 1
+				im.delVersions = append(im.delVersions, cv)
+
+			} else {
+
+				// this is a new name
+				nv.revision = 1
+			}
+			im.versions[name] = nv
 		}
-		im.versions[name] = nv
 	}
 
 	return nil
@@ -195,9 +195,8 @@ func (im *Imager) RemoveVersions() error {
 	return nil
 }
 
-// Save image
-
-func Save(fh *multipart.FileHeader, userId int64, chImage chan<- ReqSave) (err error, byClient bool) {
+// Save decodes an uploaded image, and schedules it to be saved as a file.
+func Save(fh *multipart.FileHeader, timestamp string, chImage chan<- ReqSave) (err error, byClient bool) {
 
 	// get image from request header
 	file, err := fh.Open()
@@ -218,10 +217,10 @@ func Save(fh *multipart.FileHeader, userId int64, chImage chan<- ReqSave) (err e
 
 	// resizing is slow, so do the remaining processing in background worker
 	chImage <- ReqSave{
-		UserId:   userId,
-		Name:     CleanName(fh.Filename),
-		Fullsize: buffered,
-		Img:      img,
+		Timestamp: timestamp,
+		Name:      CleanName(fh.Filename),
+		Fullsize:  buffered,
+		Img:       img,
 	}
 
 	return nil, true
@@ -235,7 +234,7 @@ func (im *Imager) SaveResized(req ReqSave) error {
 	name, convert := changeType(req.Name)
 
 	// path for saved files
-	filename := FileFromName(req.UserId, name, 0)
+	filename := FileFromName(req.Timestamp, name, 0)
 	savePath := filepath.Join(im.ImagePath, filename)
 	thumbPath := filepath.Join(im.ImagePath, Thumbnail(filename))
 
@@ -278,7 +277,7 @@ func (im *Imager) SaveResized(req ReqSave) error {
 
 func Thumbnail(filename string) string { return "S" + filename[1:] }
 
-// Updated is called from a background worker to check if image file has changed.
+// Updated is called from a background worker to check if an image file has changed.
 // If so, it renames the image to a new version, removes the old version and returns the new filename.
 func (im *Imager) Updated(fileName string) (string, error) {
 
@@ -308,7 +307,7 @@ func (im *Imager) Updated(fileName string) (string, error) {
 		if cv.replace {
 
 			// the newly uploaded image is being used on a slide
-			cv.fileName, err = im.saveVersion(im.showId, im.userId, name, cv.revision)
+			cv.fileName, err = im.saveVersion(im.showId, im.timestamp, name, cv.revision)
 			if err != nil {
 				return "", err
 			}
@@ -378,13 +377,12 @@ func (im *Imager) globVersions(pattern string) map[string]fileVersion {
 	return versions
 }
 
-// Save new file with revision number.
-
-func (im *Imager) saveVersion(showId int64, userId int64, name string, rev int) (string, error) {
+// saveVersion saves new file with a revision number.
+func (im *Imager) saveVersion(showId int64, timestamp string, name string, rev int) (string, error) {
 
 	// the file should already be saved without a revision nuumber
-	uploaded := FileFromName(userId, name, 0)
-	revised := FileFromName(showId, name, rev)
+	uploaded := FileFromName(timestamp, name, 0)
+	revised := FileFromName(strconv.FormatInt(showId, 36), name, rev)
 
 	// main image ..
 	uploadedPath := filepath.Join(im.ImagePath, uploaded)

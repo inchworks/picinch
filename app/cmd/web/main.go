@@ -58,11 +58,11 @@ const (
 
 // file locations on server
 const (
-	CertPath   = "../certs"         // cached certificates
-	ImagePath  = "../photos"        // pictures
-	SitePath   = "../site"          // site-specific resources
-	UIPath     = "../app/ui"        // user inteface resources
-	MiscPath   = "../misc"          // misc
+	CertPath  = "../certs"  // cached certificates
+	ImagePath = "../photos" // pictures
+	SitePath  = "../site"   // site-specific resources
+	UIPath    = "../app/ui" // user inteface resources
+	MiscPath  = "../misc"   // misc
 )
 
 // database operational parameters
@@ -122,16 +122,20 @@ type Configuration struct {
 	MaxSlideshowsClub   int `yaml:"slideshows-club"  env-default:"2"`  // club slideshows on home page, per user
 	MaxSlideshowsPublic int `yaml:"slideshows-public" env-default:"1"` // public slideshows on home page, per user
 
-	MiscName        string          `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscelleneous files, as in "example.com/misc/file"
-	SiteRefresh     time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`          // refresh interval for topic thumbnails. Units m or h.
+	SiteRefresh     time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"` // refresh interval for topic thumbnails. Units m or h.
 	UsageAnonymised usage.Anonymise `yaml:"usage-anon" env-default:"1"`
+
+	// variants
+	HomeSwitch string `yaml:"home-switch" env:"home-switch" env-default:""` // switch home page to specified template, e.g when site disabled
+	MiscName   string `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscelleneous files, as in "example.com/misc/file"
+	Options    string `yaml:"options" env:"options" env-default:""`         // site features: main-comp, with-comp
 }
 
 // Request to update slideshow images.
 type reqUpdateShow struct {
-	showId  int64
-	userId  int64
-	revised bool
+	showId    int64
+	timestamp string // timestamp for any updated images
+	revised   bool
 }
 
 // Request to update topic images.
@@ -158,10 +162,12 @@ type Application struct {
 	GalleryStore   *mysql.GalleryStore
 	SlideshowStore *mysql.SlideshowStore
 	statisticStore *mysql.StatisticStore
+	tagStore       *mysql.TagStore
+	tagRefStore    *mysql.TagRefStore
 	userStore      *mysql.UserStore
 
 	// common components
-	lhs    *limithandler.Handlers
+	lhs   *limithandler.Handlers
 	usage *usage.Recorder
 	users users.Users
 
@@ -172,7 +178,7 @@ type Application struct {
 	imager *images.Imager
 
 	// HTML handlers for threats detected by application logic
-	wrongShare http.Handler
+	wrongCode http.Handler
 
 	// Channels to background worker
 	chImage chan images.ReqSave
@@ -237,9 +243,9 @@ func main() {
 	// preconfigured HTTP/HTTPS server
 	// ## name stutter!
 	srv := &server.Server{
-		ErrorLog:  app.newServerLog(os.Stdout, "SERVER\t", log.Ldate|log.Ltime),
-		InfoLog:   infoLog,
-	
+		ErrorLog: app.newServerLog(os.Stdout, "SERVER\t", log.Ldate|log.Ltime),
+		InfoLog:  infoLog,
+
 		CertEmail: cfg.CertEmail,
 		CertPath:  CertPath,
 		Domains:   cfg.Domains,
@@ -317,7 +323,7 @@ func importFiles(toDir, fromDir string) error {
 	if err = os.MkdirAll(toDir, os.ModePerm); err != nil {
 		return err
 	}
-	
+
 	// copy files
 	for _, file := range files {
 
@@ -358,6 +364,12 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		if err != nil {
 			errorLog.Print(err)
 		}
+	}
+
+	// import custom style sheets
+	err = importFiles(filepath.Join(UIPath, "static/css"), filepath.Join(SitePath, "css/*.*"))
+	if err != nil {
+		errorLog.Print(err)
 	}
 
 	// import custom images
@@ -406,7 +418,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.lhs = limithandler.Start(8*time.Hour, 24*time.Hour)
 
 	// handlers for HTTP threats detected by application logic
-	app.wrongShare = app.shareNotFound()
+	app.wrongCode = app.codeNotFound()
 
 	// setup usage, with defaults
 	if app.usage, err = usage.New(app.statisticStore, cfg.UsageAnonymised, 0, 0, 0, 0, 0); err != nil {
@@ -441,6 +453,8 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.GalleryStore = mysql.NewGalleryStore(app.db, &app.tx, app.errorLog)
 	app.SlideshowStore = mysql.NewSlideshowStore(app.db, &app.tx, app.errorLog)
 	app.statisticStore = mysql.NewStatisticStore(app.db, &app.statsTx, app.errorLog)
+	app.tagStore = mysql.NewTagStore(app.db, &app.tx, app.errorLog)
+	app.tagRefStore = mysql.NewTagRefStore(app.db, &app.tx, app.errorLog)
 	app.userStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
 
 	// database change to users table, to use webparts
@@ -458,6 +472,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 
 	// save gallery ID for stores that need it
 	app.SlideshowStore.GalleryId = g.Id
+	app.tagStore.GalleryId = g.Id
 	app.userStore.GalleryId = g.Id
 
 	// highlights topic ID

@@ -1,0 +1,44 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2021.
+
+  Copying and distribution of this file, with or without modification, are permitted in any
+  medium without royalty, provided the copyright notice and this notice are preserved.
+  This file is offered as-is, without any warranty.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}Classes{{end}}
+
+{{define "pagemeta"}}
+	{{block "competitionMeta" .}}
+		<meta name="description" content="Competition classes.">
+	{{end}}
+{{end}}
+
+{{define "page"}}
+ 	<div class="container">
+		<h2>Classes</h2>
+			<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 mb-4">
+			{{range .Categories}}
+				<div class="col mb-4">
+					<div class="card text-white bg-dark h-100">
+						<div class="card-body">
+							<a class="card-link text-light" href="/enter-comp/{{ .Id }}">
+								<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
+								<h5 class="card-title">{{ .Title }}</h5>
+							</a>
+							<div class="text-right mt-2">
+								<a href="/enter-comp/{{ .Id }}" class="btn btn-secondary">Enter</a>
+							</div>
+						</div>
+					</div>
+				</div>
+			{{end}}
+		</div>
+	</div>
+{{end}}
+
+{{ define "pagescripts" }}
+   <script type="text/javascript" src='/static/js/card-01.js'></script>
+{{end}}

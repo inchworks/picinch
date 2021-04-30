@@ -23,9 +23,6 @@ package main
 
 import (
 	"database/sql"
-	"math"
-	"math/big"
-	"crypto/rand"
 	"net/url"
 	"strconv"
 	"time"
@@ -168,8 +165,10 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (f *form.Slide
 	// form
 	var d = make(url.Values)
 	f = form.NewSlides(d, len(slides), tok)
-	f.NTopic = show.Topic
-	f.NUser = show.User.Int64
+	f.Set("nShow", strconv.FormatInt(showId, 36))
+	f.Set("nTopic", strconv.FormatInt(show.Topic, 36))
+	f.Set("nUser", strconv.FormatInt(show.User.Int64, 36))
+	f.Set("timestamp", strconv.FormatInt(time.Now().UnixNano(), 36))
 
 	// template for new slide form
 	f.AddTemplate(len(slides))
@@ -185,7 +184,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (f *form.Slide
 
 // OnEditSlideshow processes the modification of a slideshow. It returns a success indication and the user ID.
 // topicId and userId are needed only for a new slideshow for a topic. Otherwise we prefer to trust the database.
-func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64, qsSrc []*form.SlideFormData) (ok bool, userIdRet int64) {
+func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp string, userId int64, qsSrc []*form.SlideFormData) (ok bool, userIdRet int64) {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -258,7 +257,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64
 				Revised:   now,
 				Title:     s.sanitize(qsSrc[iSrc].Title, ""),
 				Caption:   s.sanitize(qsSrc[iSrc].Caption, ""),
-				Image:     images.FileFromName(userId, imageName, 0),
+				Image:     images.FileFromName(timestamp, imageName, 0),
 			}
 			// only a new image is counted as a revision to the slideshow
 			if imageName != "" {
@@ -297,7 +296,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64
 					// If the image name hasn't changed, leave the old version in use for now,
 					// so that the slideshow still works. We'll detect a version change later.
 					if imageName != dstName {
-						qDest.Image = images.FileFromName(userId, qsSrc[iSrc].ImageName, 0)
+						qDest.Image = images.FileFromName(timestamp, qsSrc[iSrc].ImageName, 0)
 					}
 
 					s.app.SlideStore.Update(qDest)
@@ -337,7 +336,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, userId int64
 	// request worker to generate image versions, and remove unused images
 	// (skipped if the user didn't add any slides for a new topic)
 	if showId != 0 {
-		s.app.chShow <- reqUpdateShow{showId: showId, userId: userId, revised: revised}
+		s.app.chShow <- reqUpdateShow{showId: showId, timestamp: timestamp, revised: revised}
 	}
 
 	// then worker should change the topic thumbnail, in case we just updated or removed the current one
@@ -466,7 +465,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 
 // Get data to edit a user's contribution to a topic
 
-func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (f *form.SlidesForm, showId int64, title string) {
+func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (f *form.SlidesForm, title string) {
 
 	var slides []*models.Slide
 
@@ -474,6 +473,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (f 
 	defer s.updatesNone()()
 
 	// user's show for topic
+	var showId int64
 	show := s.app.SlideshowStore.ForTopicUserIf(topicId, userId)
 	if show == nil {
 		topic, _ := s.app.SlideshowStore.Get(topicId)
@@ -483,14 +483,16 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (f 
 		// user's existing contribution to topic
 		showId = show.Id
 		title = show.Title
-		slides = s.app.SlideStore.ForSlideshow(show.Id, 100)
+		slides = s.app.SlideStore.ForSlideshow(showId, 100)
 	}
 
 	// form
 	var d = make(url.Values)
 	f = form.NewSlides(d, len(slides), tok)
-	f.NTopic = topicId
-	f.NUser = userId
+	f.Set("nShow", strconv.FormatInt(showId, 36))
+	f.Set("nTopic", strconv.FormatInt(topicId, 36))
+	f.Set("nUser", strconv.FormatInt(userId, 36))
+	f.Set("timestamp", strconv.FormatInt(time.Now().UnixNano(), 36))
 
 	// template for new slide form
 	f.AddTemplate(len(slides))
@@ -571,7 +573,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 				GalleryOrder: 5, // default order
 				Visible:      visible,
 				Created:      created,
-				Shared:       s.shareCode(rsSrc[iSrc].IsShared, 0),
+				Shared:       shareCode(rsSrc[iSrc].IsShared, 0),
 				Revised:      now,
 				Title:        s.sanitize(rsSrc[iSrc].Title, ""),
 			}
@@ -595,7 +597,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 					rSrc.IsShared != (rDest.Shared > 0) {
 
 					rDest.Visible = rSrc.Visible
-					rDest.Shared = s.shareCode(rSrc.IsShared, rDest.Shared)
+					rDest.Shared = shareCode(rSrc.IsShared, rDest.Shared)
 					rDest.Title = s.sanitize(rSrc.Title, rDest.Title)
 
 					// set creation date just once, when published
@@ -630,7 +632,7 @@ func (s *GalleryState) OnRemoveUser(user *users.User) {
 	reqShows := make([]reqUpdateShow, 0, 10)
 	topics := make(map[int64]bool)
 	for _, show := range shows {
-		reqShows = append(reqShows, reqUpdateShow{showId: show.Id, userId: user.Id, revised: false})
+		reqShows = append(reqShows, reqUpdateShow{showId: show.Id, timestamp: "", revised: false})
 		if show.Topic != 0 {
 			topics[show.Topic] = true
 		}
@@ -687,7 +689,7 @@ func (s *GalleryState) onRemoveSlideshow(slideshow *models.Slideshow) {
 	s.app.SlideshowStore.DeleteId(slideshow.Id)
 
 	// request worker to remove images, and change topic image
-	s.app.chShow <- reqUpdateShow{showId: slideshow.Id, userId: slideshow.User.Int64, revised: false}
+	s.app.chShow <- reqUpdateShow{showId: slideshow.Id, timestamp: "", revised: false}
 	if topicId != 0 {
 		s.app.chTopic <- reqUpdateTopic{ topicId: topicId, revised: false }
 	}
@@ -720,23 +722,16 @@ func (s *GalleryState) sanitize(new string, current string) string {
 }
 
 // shareCode returns an access code for a shared slideshow or topic.
-func (s *GalleryState) shareCode(isShared bool, hasCode int64) int64 {
+// ## This func seemed like a good idea, got out of hand, :-(
+func shareCode(isShared bool, hasCode int64) int64 {
 	if isShared {
 		if hasCode == 0 {
-
-			// generate exactly 6 characters, just for neatness
-			// (using big because crypto needs it, not because the mnumbers get large
-			// ## 8 characters would be better - needs a database change
-			min := new(big.Int).Exp(big.NewInt(36), big.NewInt(5), nil) 
-			max := big.NewInt(math.MaxInt32)
-			max.Sub(max, min)
-
-			// OK, cryptographically secure generation is overkill for this use.
-			code, err := rand.Int(rand.Reader, max)
+			c, err := secureCode(8)
 			if err != nil {
 				return 0
+			} else {
+				return c
 			}
-			return code.Add(code, min).Int64()
 		} else {
 			return hasCode
 		}
@@ -744,4 +739,3 @@ func (s *GalleryState) shareCode(isShared bool, hasCode int64) int64 {
 		return 0
 	}
 }
-

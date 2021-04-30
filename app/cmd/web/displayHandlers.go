@@ -29,11 +29,15 @@ import (
 	"inchworks.com/picinch/pkg/models"
 )
 
-// About page for website
-
+// about returns a configurable static page for the website
 func (app *Application) about(w http.ResponseWriter, r *http.Request) {
 
-	app.render(w, r, "about.page.tmpl", nil)
+	ps := httprouter.ParamsFromContext(r.Context())
+
+	// check if page exists
+	page := ps.ByName("page")
+
+	app.render(w, r, page + ".page.tmpl", nil)
 }
 
 // Contributor (for other users to see)
@@ -97,10 +101,16 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "highlights.page.tmpl", data)
 }
 
-// Home page for website
-
+// home serves the main page for the website.
 func (app *Application) home(w http.ResponseWriter, r *http.Request) {
 
+	hs := app.cfg.HomeSwitch
+	if  hs != "" {
+		app.render(w, r, hs + ".page.tmpl", nil)
+		return
+	}
+
+	// default home page
 	template, data := app.galleryState.DisplayHome(app.isAuthenticated(r, models.UserFriend))
 	if data == nil {
 		app.clientError(w, http.StatusInternalServerError)
@@ -194,7 +204,7 @@ func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) 
 	sc := ps.ByName("code")
 	code, err := strconv.ParseInt(sc, 36, 64)
 	if err != nil {
-		app.wrongShare.ServeHTTP(w, r)
+		app.wrongCode.ServeHTTP(w, r)
 		return
 	}
 
@@ -203,7 +213,7 @@ func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) 
 	// template and data for slides
 	template, data := app.galleryState.DisplayShared(code, int(seq))
 	if template == "" {
-		app.wrongShare.ServeHTTP(w, r)
+		app.wrongCode.ServeHTTP(w, r)
 		return
 
 	} else if data == nil {

@@ -53,7 +53,15 @@ func (app *Application) Routes() http.Handler {
 
 	// public pages
 	router.Handler("GET", "/", publicHs.ThenFunc(app.home))
-	router.Handler("GET", "/about", publicHs.ThenFunc(app.about))
+	router.Handler("GET", "/about/:page", publicHs.ThenFunc(app.about))
+
+	// public competition
+	if app.cfg.Options == "main-comp" {
+		router.Handler("GET", "/classes", publicHs.ThenFunc(app.classes))
+		router.Handler("GET", "/enter-comp/:nCategory", publicHs.ThenFunc(app.getFormEnterComp))
+		router.Handler("POST", "/enter-comp", publicHs.ThenFunc(app.postFormEnterComp))
+		router.Handler("GET", "/validate/:code", sharedHs.ThenFunc(app.validate))
+	}
 
 	// pages shared with an access code
 	router.Handler("GET", "/shared/:code/:seq", sharedHs.ThenFunc(app.slideshowShared))
@@ -71,7 +79,7 @@ func (app *Application) Routes() http.Handler {
 
 	// edit slideshows
 	router.Handler("GET", "/edit-slides/:nShow", authHs.ThenFunc(app.getFormSlides))
-	router.Handler("POST", "/edit-slides/:nShow", authHs.ThenFunc(app.postFormSlides))
+	router.Handler("POST", "/edit-slides", authHs.ThenFunc(app.postFormSlides))
 	router.Handler("GET", "/edit-slideshows/:nUser", ownerHs.ThenFunc(app.getFormSlideshows))
 	router.Handler("POST", "/edit-slideshows/:nUser", ownerHs.ThenFunc(app.postFormSlideshows))
 
@@ -81,7 +89,7 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/edit-topic/:nShow/:nUser", ownerHs.ThenFunc(app.getFormTopic))
 
 	// upload image
-	router.Handler("POST", "/upload/:nUser", ownerHs.ThenFunc(app.postFormImage))
+	router.Handler("POST", "/upload/:timestamp", publicHs.ThenFunc(app.postFormImage))
 
 	// displays
 	router.Handler("GET", "/slideshow/:nShow/:seq", dynHs.ThenFunc(app.slideshow))

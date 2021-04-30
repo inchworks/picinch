@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
+	"crypto/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -45,6 +47,31 @@ func (app *Application) allowAccessUser(r *http.Request, userId int64) bool {
 	// access allowed to own data, or by curator
 	return auth.id == userId || auth.role >= models.UserCurator
 }
+
+// allowEnterCategory checks that a slideshow is a genuine category, available to the user, and returns the slideshow.
+func (app *Application) allowEnterCategory(r *http.Request, showId int64) *models.Slideshow {
+
+	show, err := app.SlideshowStore.Get(showId)
+	if err != nil {
+		return nil
+	}
+
+	// check that slideshow really is a competition topic
+	if show.Topic != 0 || show.Format != "C" {
+		return nil
+	}
+
+	// check visibility for club or public
+	if app.isAuthenticated(r, models.UserFriend) && show.Visible < models.SlideshowClub {
+		return nil
+	}
+	if show.Visible != models.SlideshowPublic {
+		return nil
+	}
+
+	return show
+}
+
 
 // allow update to slideshow?
 
@@ -257,6 +284,25 @@ func (app *Application) reply(w http.ResponseWriter, v interface{}) {
 	// ## Need to send JSON response with error, not a normal HTTP error, instead of panic
 }
 
+// secureCode returns an access code for a shared slideshow, shared topic, or a validation email.
+// n specifies the number of characters to show the code in base-36.
+func secureCode(nChars int) (int64, error) {
+	n := int64(nChars)
+
+	// generate exact number of characters, just for neatness
+	// (using big because crypto needs it, not because the numbers get large
+	min := new(big.Int).Exp(big.NewInt(36), big.NewInt(n-1), nil) 
+	max := new(big.Int).Exp(big.NewInt(36), big.NewInt(n), nil)
+	max.Sub(max, min)
+
+	// OK, cryptographically secure generation is overkill for this use.
+	code, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return 0, err
+	}
+	return code.Add(code, min).Int64(), nil
+}
+
 // Write error message and stack trace to the errorLog. If possible, send 500 Internal Server Error response to the user
 
 func (app *Application) serverError(w http.ResponseWriter, err error) {
@@ -270,6 +316,36 @@ func (app *Application) serverError(w http.ResponseWriter, err error) {
 
 	if w != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+}
+
+// setTag adds a tag to a slideshow. Errors are logged and ignored.
+func (app *Application) setTag(parent int64, name string, slideshow int64, user int64, detail string) {
+
+	// lookup tag
+	t, err := app.tagStore.GetNamed(parent, name)
+	if err != nil {	
+		app.log(err)
+		return
+	}
+
+	// link tag to slideshow
+	r := &models.TagRef{
+		Slideshow: slideshow,
+		Tag:       t.Id,
+		Added:     time.Now(),
+		Detail:    detail,
+	}
+
+	// optional user
+	if user != 0 {
+		r.User.Int64 = user
+		r.User.Valid = true
+	}
+
+	err = app.tagRefStore.Update(r)
+	if err != nil {	
+		app.log(err)
 	}
 }
 

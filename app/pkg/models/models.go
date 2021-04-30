@@ -50,10 +50,10 @@ const (
 	// user roles
 	// These must match the database, so prefer specified values to iota.
 	UserUnknown = 0
-	UserFriend   = 1 // ## not implemented yet
-	UserMember    = 2
-	UserCurator   = 3
-	UserAdmin     = 4
+	UserFriend  = 1 // ## not implemented yet
+	UserMember  = 2
+	UserCurator = 3
+	UserAdmin   = 4
 )
 
 var (
@@ -95,14 +95,31 @@ type Slideshow struct {
 	GalleryOrder int `db:"gallery_order"`
 	Visible      int
 	User         sql.NullInt64 // null for a topic
-	Shared       int64 // link for external access
-	Topic        int64 // parent topic, 0 for a normal slideshow
+	Shared       int64         // link for external access
+	Topic        int64         // parent topic, 0 for a normal slideshow
 	Created      time.Time
 	Revised      time.Time
 	Title        string
 	Caption      string
 	Format       string
 	Image        string
+}
+
+type Tag struct {
+	Id      int64
+	Gallery int64
+	Parent  int64 // 0 for a top level tag
+	Name    string
+	Action  string
+}
+
+type TagRef struct {
+	Id        int64
+	Slideshow int64
+	Tag       int64
+	User      sql.NullInt64 // null for a system tag
+	Added     time.Time
+	Detail    string
 }
 
 type Topic struct {
@@ -188,4 +205,3 @@ func (t *Slideshow) ParseFormat() (fmt string, max int) {
 
 	return
 }
-

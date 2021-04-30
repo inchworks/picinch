@@ -38,6 +38,30 @@ import (
 
 // HANDLERS.
 
+// codeNotFound returns a handler that logs and rate limits HTTP requests to non-existent codes.
+// Typically these are intrusion attempts. Not called for non-existent files :-).
+func (app *Application) codeNotFound() http.Handler {
+
+	// allow 1 every 10 minutes, burst of 10, banned after 1 rejection,
+	// (typically probing for vulnerable PHP files).
+	lim := app.lhs.New("S", 10*time.Minute, 10, 1, "P", nil)
+
+	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+
+		app.threatLog.Printf("%s - %s for bad code requests, after %s", addr, status, r.RequestURI)
+	})
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ok, status := lim.Allow(r)
+		if ok {
+			app.threat("bad access code", r)
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Intrusion attempt suspected", status)
+		}
+	})
+}
+
 // authenticate returns a handler to check if this is an authenticated user or not.
 // It checks any ID against the database, to see if this is still a valid user since the last login.
 func (app *Application) authenticate(next http.Handler) http.Handler {
@@ -348,30 +372,6 @@ func secureHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "deny")
 
 		next.ServeHTTP(w, r)
-	})
-}
-
-// shareNotFound returns a handler that logs and rate limits HTTP requests to non-existent shared slideshows.
-// Typically these are intrusion attempts. Not called for non-existent files :-).
-func (app *Application) shareNotFound() http.Handler {
-
-	// allow 1 every 10 minutes, burst of 3, banned after 1 rejection,
-	// (typically probing for vulnerable PHP files).
-	lim := app.lhs.New("S", 10*time.Minute, 3, 1, "P", nil)
-
-	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
-
-		app.threatLog.Printf("%s - %s for bad share requests, after %s", addr, status, r.RequestURI)
-	})
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ok, status := lim.Allow(r)
-		if ok {
-			app.threat("bad share", r)
-			http.NotFound(w, r)
-		} else {
-			http.Error(w, "Intrusion attempt suspected", status)
-		}
 	})
 }
 

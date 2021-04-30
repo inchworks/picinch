@@ -25,11 +25,14 @@ import (
 	"inchworks.com/picinch/pkg/images"
 )
 
+type PublicCompForm struct {
+	*multiforms.Form
+	Children  []*SlideFormData
+}
+
 type SlidesForm struct {
 	*multiforms.Form
-	NTopic   int64 // 0 for a normal slideshow
-	NUser    int64 // set for a topic, 0 otherwise
-	Children []*SlideFormData
+	Children  []*SlideFormData
 }
 
 type SlideFormData struct {
@@ -40,8 +43,22 @@ type SlideFormData struct {
 	ImageName string
 }
 
-// Slides form with expected capacity.
+// NewPublicComp returns a form for a public competition, with a set number of slides.
+func NewPublicComp(data url.Values, nSlides int, token string) *PublicCompForm {
 
+	f := &PublicCompForm{
+		Form:     multiforms.New(data, token),
+		Children: make([]*SlideFormData, nSlides),
+	}
+	for i := 0; i < nSlides; i++ {
+		f.Children[i] = &SlideFormData{
+			Child: multiforms.Child{Parent: f.Form, ChildIndex: i},
+		}
+	}
+	return f
+}
+
+// NewSlides returns a form with the expected capacity.
 func NewSlides(data url.Values, nSlides int, token string) *SlidesForm {
 	return &SlidesForm{
 		Form:     multiforms.New(data, token),
@@ -74,8 +91,39 @@ func (f *SlidesForm) AddTemplate(nSlides int) {
 	})
 }
 
-// Get slides as structs. They are sent as arrays of values for each field name.
+// GetSlides returns slides as structs. They are sent as arrays of values for each field name.
+func (f *PublicCompForm) GetSlides() (items []*SlideFormData, err error) {
 
+	nItems := f.NChildItems()
+
+	for i := 0; i < nItems; i++ {
+
+		ix, err := f.ChildIndex("index", i)
+		if err != nil {
+			return nil, err
+		}
+
+		items = append(items, &SlideFormData{
+			Child:     multiforms.Child{Parent: f.Form, ChildIndex: ix},
+			Title:     f.ChildRequired("title", i, ix),
+			ImageName: f.ChildFile("imageName", i, ix, validType),
+			Caption:   f.ChildGet("caption", i),
+		})
+
+		// require an image for every name
+		if len(items[i].ImageName) == 0 {
+			f.ChildErrors.Add("imageName", ix, "No photo!")
+		}
+
+	}
+
+	// Add the child items back into the form, in case we need to redisplay it
+	f.Children = items
+
+	return items, nil
+}
+
+// GetSlides returns slides as structs. They are sent as arrays of values for each field name.
 func (f *SlidesForm) GetSlides() (items []*SlideFormData, err error) {
 
 	nItems := f.NChildItems()
