@@ -662,19 +662,18 @@ func (s *GalleryState) UserDisplayName(userId int64) string {
 	return r.Name
 }
 
-// Auto-format for slide
-
+// slideFormat returns an auto-format for a slide.
 func slideFormat(slide *form.SlideFormData) int {
 
 	var f int
 	if len(slide.Title) > 0 {
-		f = models.SlideT
+		f = models.SlideTitle
 	}
 	if len(slide.ImageName) > 0 {
-		f = f + models.SlideI
+		f = f + images.FileType(slide.ImageName)
 	}
 	if len(slide.Caption) > 0 {
-		f = f + models.SlideC
+		f = f + models.SlideCaption
 	}
 
 	return f

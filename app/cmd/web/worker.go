@@ -44,7 +44,7 @@ func (s *GalleryState) worker(
 		case req := <-chImage:
 
 			// resize and save image, with thumbnail
-			if err := s.app.imager.SaveResized(req); err != nil {
+			if err := s.app.imager.SaveRequested(req); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
 

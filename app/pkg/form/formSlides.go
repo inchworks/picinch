@@ -41,6 +41,7 @@ type SlideFormData struct {
 	Title     string
 	Caption   string
 	ImageName string
+	ImageType string
 }
 
 // NewPublicComp returns a form for a public competition, with a set number of slides.
@@ -150,7 +151,8 @@ func (f *SlidesForm) GetSlides() (items []*SlideFormData, err error) {
 	return items, nil
 }
 
+// validType returns true if the file type is acceptable
 func validType(name string) bool {
-	// ## use imaging.FormatFromFilename
-	return images.ValidType(name)
+
+	return images.FileType(name) != 0
 }

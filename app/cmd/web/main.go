@@ -31,6 +31,7 @@ import (
 	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
 	"inchworks.com/picinch/pkg/models/mysql"
+	"inchworks.com/picinch/pkg/picinch"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golangcollege/sessions"
@@ -47,7 +48,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.9.6"
+	version = "0.9.7"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -106,9 +107,9 @@ type Configuration struct {
 	// image sizes
 	MaxW int `yaml:"image-width" env-default:"1600"` // maximum stored image dimensions
 	MaxH int `yaml:"image-height" env-default:"1200"`
-
 	ThumbW int `yaml:"thumbnail-width" env-default:"278"` // thumbnail size
 	ThumbH int `yaml:"thumbnail-height" env-default:"208"`
+	MaxUpload int `yaml:"max-upload" env-default:"64"` // maximum file upload (megabytes)
 
 	// total limits
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
@@ -327,7 +328,7 @@ func importFiles(toDir, fromDir string) error {
 	// copy files
 	for _, file := range files {
 
-		if err = copyFile(toDir, file); err != nil {
+		if err = picinch.CopyFile(toDir, "", file); err != nil {
 			return err
 		}
 	}
@@ -407,11 +408,12 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// setup image processing
 	app.imager = &images.Imager{
-		ImagePath: ImagePath,
-		MaxW:      app.cfg.MaxW,
-		MaxH:      app.cfg.MaxH,
-		ThumbW:    app.cfg.ThumbW,
-		ThumbH:    app.cfg.ThumbH,
+		FilePath:       ImagePath,
+		MaxW:           app.cfg.MaxW,
+		MaxH:           app.cfg.MaxH,
+		ThumbW:         app.cfg.ThumbW,
+		ThumbH:         app.cfg.ThumbH,
+		VideoThumbnail: filepath.Join(UIPath, "static/images/video.jpg"),
 	}
 
 	// initialise rate limiters

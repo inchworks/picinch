@@ -21,15 +21,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
 	"crypto/rand"
 	"net/http"
-	"os"
-	"path/filepath"
+
 	"runtime/debug"
 	"strconv"
-	"strings"
 	"time"
 
 	"inchworks.com/picinch/pkg/models"
@@ -170,30 +167,7 @@ func humanDate(t time.Time) string {
 	return t.UTC().Format("02 Jan 2006 at 15:04")
 }
 
-// copy file
 
-func copyFile(toDir, from string) error {
-	var src *os.File
-	var dst *os.File
-	var err error
-
-	if src, err = os.Open(from); err != nil {
-		return err
-	}
-	defer src.Close()
-
-	name := filepath.Base(from)
-
-	if dst, err = os.Create(filepath.Join(toDir, name)); err != nil {
-		return err
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, src); err != nil {
-		return err
-	}
-	return nil
-}
 
 // Get integer value of form parameter
 // ## Not used - is it useful?
@@ -347,24 +321,4 @@ func (app *Application) setTag(parent int64, name string, slideshow int64, user 
 	if err != nil {	
 		app.log(err)
 	}
-}
-
-// Referring page
-// ## Not used - it is more complex than this. Must recognise own pages and handle "/userId" etc.
-
-func fromPage(path string) string {
-
-	// remove trailing forward slash.
-	if strings.HasSuffix(path, "/") {
-		nLastChar := len(path) - 1
-		path = path[:nLastChar]
-	}
-	// get final element
-	els := strings.Split(path, "/")
-	final := els[len(els)-1]
-
-	if final == "" {
-		return "/"
-	}
-	return final
 }

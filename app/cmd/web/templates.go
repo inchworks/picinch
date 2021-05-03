@@ -299,8 +299,7 @@ func checked(isChecked bool) string {
 	}
 }
 
-// get thumbnail image
-
+// thumbnail returns a path to a thumbnail image
 func thumbnail(image string) string {
 
 	if image == "" {

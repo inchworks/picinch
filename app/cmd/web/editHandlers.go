@@ -142,9 +142,8 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 	ps := httprouter.ParamsFromContext(r.Context())
 	timestamp := ps.ByName("timestamp")
 
-	// multipart form, maximum upload of 32 MB of files.
-	// ## Make configurable.
-	err := r.ParseMultipartForm(32 << 20)
+	// multipart form
+	err := r.ParseMultipartForm(int64(app.cfg.MaxUpload) << 20)
 	if err != nil {
 		app.log(err)
 		app.clientError(w, http.StatusBadRequest)

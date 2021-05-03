@@ -23,6 +23,7 @@ package images
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"io"
@@ -34,20 +35,24 @@ import (
 	"strings"
 
 	"github.com/disintegration/imaging"
+	"inchworks.com/picinch/pkg/models"
+
+	"inchworks.com/picinch/pkg/picinch"
 )
 
 type Imager struct {
 
 	// parameters
-	ImagePath string
+	FilePath string
 	MaxW      int
 	MaxH      int
 	ThumbW    int
 	ThumbH    int
+	VideoThumbnail string
 
 	// state
 	showId      int64
-	timestamp        string
+	timestamp   string
 	versions    map[string]fileVersion
 	delVersions []fileVersion
 }
@@ -62,6 +67,7 @@ type fileVersion struct {
 type ReqSave struct {
 	Name      string
 	Timestamp string // request timestamp, to match image with form
+	FileType  int
 	Fullsize  bytes.Buffer
 	Img       image.Image
 }
@@ -139,13 +145,13 @@ func (im *Imager) ReadVersions(showId int64, timestamp string) error {
 	showName := strconv.FormatInt(showId, 36)
 
 	// find existing versions
-	im.versions = im.globVersions(filepath.Join(im.ImagePath, "P-"+showName+"$*"))
+	im.versions = im.globVersions(filepath.Join(im.FilePath, "P-"+showName+"$*"))
 
 	// generate new revision nunbers
 	if timestamp != "" {
 
 		// find new files
-		newVersions := im.globVersions(filepath.Join(im.ImagePath, "P-"+timestamp+"-*"))
+		newVersions := im.globVersions(filepath.Join(im.FilePath, "P-"+timestamp+"-*"))
 
 		for name, nv := range newVersions {
 			nv.replace = true
@@ -184,10 +190,10 @@ func (im *Imager) RemoveVersions() error {
 
 	// delete unreferenced and old versions
 	for _, cv := range im.delVersions {
-		if err := os.Remove(filepath.Join(im.ImagePath, cv.fileName)); err != nil {
+		if err := os.Remove(filepath.Join(im.FilePath, cv.fileName)); err != nil {
 			return err
 		}
-		if err := os.Remove(filepath.Join(im.ImagePath, Thumbnail(cv.fileName))); err != nil {
+		if err := os.Remove(filepath.Join(im.FilePath, Thumbnail(cv.fileName))); err != nil {
 			return err
 		}
 	}
@@ -205,20 +211,41 @@ func Save(fh *multipart.FileHeader, timestamp string, chImage chan<- ReqSave) (e
 	}
 	defer file.Close()
 
-	// duplicate file in buffer, since we can only read it from the header once
+	// unmodified copy of file
 	var buffered bytes.Buffer
-	tee := io.TeeReader(file, &buffered)
 
-	// decode image
-	img, err := imaging.Decode(tee, imaging.AutoOrientation(true))
-	if err != nil {
-		return err, true // this is a bad image from client
+	// image or video?
+	var img image.Image
+	name := CleanName(fh.Filename)
+	ft := FileType(name)
+
+
+	switch ft {
+	case models.SlideImage:
+		// duplicate file in buffer, since we can only read it from the header once
+		tee := io.TeeReader(file, &buffered)
+
+		// decode image
+		img, err = imaging.Decode(tee, imaging.AutoOrientation(true))
+		if err != nil {
+			return err, true // this is a bad image from client
+		}
+
+	case models.SlideVideo:
+		// ## examine video
+		if _, err := io.Copy(&buffered, file); err != nil {
+			return err, false // don't know why this might fail
+		}
+
+	default:
+		return errors.New("File format not supported"), true
 	}
 
-	// resizing is slow, so do the remaining processing in background worker
+	// resizing or converting is slow, so do the remaining processing in background worker
 	chImage <- ReqSave{
 		Timestamp: timestamp,
-		Name:      CleanName(fh.Filename),
+		Name:      name,
+		FileType:  ft,
 		Fullsize:  buffered,
 		Img:       img,
 	}
@@ -226,56 +253,35 @@ func Save(fh *multipart.FileHeader, timestamp string, chImage chan<- ReqSave) (e
 	return nil, true
 }
 
-// Image processing, called from background worker
+// SaveRequested performs image or video processing, called from background worker.
+func (im *Imager) SaveRequested(req ReqSave) error {
 
-func (im *Imager) SaveResized(req ReqSave) error {
+	switch req.FileType {
+	case models.SlideImage:
+		return im.saveImage(req)
 
-	// convert non-displayable file types to JPG
-	name, convert := changeType(req.Name)
+	case models.SlideVideo:
+		return im.saveVideo(req)
 
-	// path for saved files
-	filename := FileFromName(req.Timestamp, name, 0)
-	savePath := filepath.Join(im.ImagePath, filename)
-	thumbPath := filepath.Join(im.ImagePath, Thumbnail(filename))
-
-	// check if uploaded image small enough to save
-	size := req.Img.Bounds().Size()
-	if size.X <= im.MaxW && size.Y <= im.MaxH && !convert {
-
-		// save uploaded file unchanged
-		saved, err := os.OpenFile(savePath, os.O_WRONLY|os.O_CREATE, 0666)
-		if err != nil {
-			return err // could be a bad name?
-		}
-		defer saved.Close()
-		if _, err = io.Copy(saved, &req.Fullsize); err != nil {
-			return err
-		}
-
-	} else {
-
-		// ## set compression option
-		// ## could sharpen, but how much?
-		// ## give someone else a chance - not sure if it helps
-		resized := imaging.Fit(req.Img, im.MaxW, im.MaxH, imaging.Lanczos)
-		runtime.Gosched()
-
-		if err := imaging.Save(resized, savePath); err != nil {
-			return err // ## could be a bad name?
-		}
+	default:
+		return nil
 	}
-
-	// save thumbnail
-	thumbnail := imaging.Fit(req.Img, im.ThumbW, im.ThumbH, imaging.Lanczos)
-	if err := imaging.Save(thumbnail, thumbPath); err != nil {
-		return err
-	}
-	return nil
 }
 
-// Prefixed name from filename
+// Thumbnail returns the prefixed name for a thumbnail
+func Thumbnail(filename string) string {
 
-func Thumbnail(filename string) string { return "S" + filename[1:] }
+	switch filepath.Ext(filename) {
+
+	case ".jpg", ".png":
+		return "S" + filename[1:]
+
+	default:
+		// replace file extension
+		tn := strings.TrimSuffix(filename, filepath.Ext(filename)) + ".jpg"
+		return "S" + tn[1:]
+	}
+ }
 
 // Updated is called from a background worker to check if an image file has changed.
 // If so, it renames the image to a new version, removes the old version and returns the new filename.
@@ -323,16 +329,19 @@ func (im *Imager) Updated(fileName string) (string, error) {
 	return newName, nil
 }
 
-// Valid type?
-
-func ValidType(name string) bool {
+// FileType returns the image type (0 if not accepted)
+func FileType(name string) int {
 
 	_, err := imaging.FormatFromFilename(name)
-	return err == nil
+	if err == nil {
+		return models.SlideImage
+	} else {
+		// ## check video types
+		return models.SlideVideo
+	}
 }
 
-// Change file extension to a displayable type
-
+// changeType normalises the file extension, and indicates if it should be converted to a displayable type.
 func changeType(name string) (nm string, changed bool) {
 
 	// convert other file types to JPG
@@ -341,20 +350,24 @@ func changeType(name string) (nm string, changed bool) {
 		return name, false
 	} // unikely error, never mind
 
+	var ext string
 	switch fmt {
 	case imaging.JPEG:
-		fallthrough
+		ext = ".jpg"
+		changed = false
 
 	case imaging.PNG:
-		nm = name
+		ext = ".png"
 		changed = false
 
 	default:
-		// change filename to JPG
-		nm = strings.TrimSuffix(name, filepath.Ext(name)) + ".jpg"
+		// convert to JPG
+		ext = "jpg"
 		changed = true
 	}
-	return
+
+	nm = strings.TrimSuffix(name, filepath.Ext(name)) + ext
+	return 
 }
 
 // Find versions of new or existing files
@@ -377,6 +390,52 @@ func (im *Imager) globVersions(pattern string) map[string]fileVersion {
 	return versions
 }
 
+// saveImage completes image saving, converting and resizing as needed.
+func (im *Imager) saveImage(req ReqSave) error {
+
+	// convert non-displayable file types to JPG
+	name, convert := changeType(req.Name)
+
+	// path for saved files
+	filename := FileFromName(req.Timestamp, name, 0)
+	savePath := filepath.Join(im.FilePath, filename)
+	thumbPath := filepath.Join(im.FilePath, Thumbnail(filename))
+
+	// check if uploaded image small enough to save
+	size := req.Img.Bounds().Size()
+	if size.X <= im.MaxW && size.Y <= im.MaxH && !convert {
+
+		// save uploaded file unchanged
+		saved, err := os.OpenFile(savePath, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			return err // could be a bad name?
+		}
+		defer saved.Close()
+		if _, err = io.Copy(saved, &req.Fullsize); err != nil {
+			return err
+		}
+
+	} else {
+
+		// ## set compression option
+		// ## could sharpen, but how much?
+		// ## give someone else a chance - not sure if it helps
+		resized := imaging.Fit(req.Img, im.MaxW, im.MaxH, imaging.Lanczos)
+		runtime.Gosched()
+
+		if err := imaging.Save(resized, savePath); err != nil {
+			return err // ## could be a bad name?
+		}
+	}
+
+	// save thumbnail
+	thumbnail := imaging.Fit(req.Img, im.ThumbW, im.ThumbH, imaging.Lanczos)
+	if err := imaging.Save(thumbnail, thumbPath); err != nil {
+		return err
+	}
+	return nil
+}
+
 // saveVersion saves new file with a revision number.
 func (im *Imager) saveVersion(showId int64, timestamp string, name string, rev int) (string, error) {
 
@@ -385,17 +444,42 @@ func (im *Imager) saveVersion(showId int64, timestamp string, name string, rev i
 	revised := FileFromName(strconv.FormatInt(showId, 36), name, rev)
 
 	// main image ..
-	uploadedPath := filepath.Join(im.ImagePath, uploaded)
-	revisedPath := filepath.Join(im.ImagePath, revised)
+	uploadedPath := filepath.Join(im.FilePath, uploaded)
+	revisedPath := filepath.Join(im.FilePath, revised)
 	if err := os.Rename(uploadedPath, revisedPath); err != nil {
 		return revised, err
 	}
 
 	// .. and thumbnail
-	uploadedPath = filepath.Join(im.ImagePath, Thumbnail(uploaded))
-	revisedPath = filepath.Join(im.ImagePath, Thumbnail(revised))
+	uploadedPath = filepath.Join(im.FilePath, Thumbnail(uploaded))
+	revisedPath = filepath.Join(im.FilePath, Thumbnail(revised))
 	err := os.Rename(uploadedPath, revisedPath)
 
 	// rename with a revision number
 	return revised, err
+}
+
+// saveVideo completes video saving, converting as needed.
+func (im *Imager) saveVideo(req ReqSave) error {
+
+	// path for saved file
+	fn := FileFromName(req.Timestamp, req.Name, 0)
+	savePath := filepath.Join(im.FilePath, fn)
+
+	// save uploaded file unchanged
+	saved, err := os.OpenFile(savePath, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err // could be a bad name?
+	}
+	defer saved.Close()
+	if _, err = io.Copy(saved, &req.Fullsize); err != nil {
+		return err
+	}
+
+	// set thumbnail, replacing video type by JPG
+	if err = picinch.CopyFile(im.FilePath, Thumbnail(fn), im.VideoThumbnail); err != nil {
+		return nil
+	}
+	
+	return nil
 }

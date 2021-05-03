@@ -32,14 +32,10 @@ import (
 
 const (
 	// slide formats
-	SlideBlank = iota
-	SlideT
-	SlideI
-	SlideTI
-	SlideC
-	SlideTC
-	SlideIC
-	SlideTIC
+	SlideTitle = 1
+	SlideImage = 2
+	SlideCaption = 4
+	SlideVideo = 8
 
 	// slideshow visibility
 	SlideshowTopic   = -1
