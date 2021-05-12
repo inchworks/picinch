@@ -31,11 +31,11 @@ const (
 	tagDelete = `DELETE FROM tag WHERE id = ?`
 
 	tagInsert = `
-		INSERT INTO tag (gallery, parent, name, action) VALUES (:gallery, :parent, :name, :action)`
+		INSERT INTO tag (gallery, parent, user, name, action, format) VALUES (:gallery, :parent, :user, :name, :action, :format)`
 
 	tagUpdate = `
 		UPDATE tag
-		SET parent=:parent, name=:name, action=:action
+		SET action=:action, format=:format
 		WHERE id=:id
 	`
 )
@@ -43,9 +43,13 @@ const (
 const (
 	tagSelect       = `SELECT * FROM tag`
 
+	tagOrderName = ` ORDER BY name`
+
 	tagWhereId         = tagSelect + ` WHERE id = ?`
-	tagRootWhereName  = tagSelect + ` WHERE gallery = ? AND parent = 0 AND name = ?`
-	tagChildWhereName  = tagSelect + ` WHERE parent = ? AND name = ?`
+	tagRootWhereName  = tagSelect + ` WHERE gallery = ? AND parent = 0 AND name = ? AND user = ?`
+	tagChildWhereName  = tagSelect + ` WHERE parent = ? AND name = ? AND user = ?`
+
+	tagsWhereUser = tagSelect + ` WHERE parent = ? AND user = ?` + tagOrderName
 )
 
 type TagStore struct {
@@ -67,19 +71,52 @@ func NewTagStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *TagStore {
 	}
 }
 
+// ForUser returns all tags specific to a user.
+func (st *TagStore) ForUser(parent int64, user int64) []*models.Tag {
+
+	var tags []*models.Tag
+
+	if err := st.DBX.Select(&tags, tagsWhereUser, parent, user); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return tags
+}
+
+// GetIf returns a tag by ID, if it exists.
+func (st *TagStore) GetIf(id int64) *models.Tag {
+
+	var r models.Tag
+
+	if err := st.DBX.Get(&r, tagWhereId, id); err != nil {
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+		}
+		return nil
+	}
+
+	return &r
+}
+
 // GetNamed returns a tag selected by parent tag and name.
-func (st *TagStore) GetNamed(parent int64, name string) (*models.Tag, error) {
+func (st *TagStore) GetNamed(parent int64, name string, user int64) (*models.Tag, error) {
 
 	var t models.Tag
 
 	var err error
 	if parent == 0 {
-		err = st.DBX.Get(&t, tagRootWhereName, st.GalleryId, name)
+		err = st.DBX.Get(&t, tagRootWhereName, st.GalleryId, name, user)
 	} else {
-		err = st.DBX.Get(&t, tagChildWhereName, parent, name)
+		err = st.DBX.Get(&t, tagChildWhereName, parent, name, user)
 	}
 	if err != nil {
-		return nil, err
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+			return nil, err
+		} else {
+			return nil, nil
+		}
 	}
 	return &t, nil
 }
@@ -87,5 +124,6 @@ func (st *TagStore) GetNamed(parent int64, name string) (*models.Tag, error) {
 
 // Update inserts or updates a tag.
 func (st *TagStore) Update(r *models.Tag) error {
+	r.Gallery = st.GalleryId
 	return st.updateData(&r.Id, r)
 }

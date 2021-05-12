@@ -104,6 +104,11 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/usage-months", adminHs.ThenFunc(app.usageMonths))
 	router.Handler("GET", "/users-curator", curatorHs.ThenFunc(app.usersCurator))
 
+	// tagged selection
+	router.Handler("GET", "/user-tags", authHs.ThenFunc(app.userTags))
+	router.Handler("GET", "/tagged/:nTopic/:nParent/:tag/:nMax", authHs.ThenFunc(app.tagged))
+	router.Handler("GET", "/to-do/:nTopic/:nParent/:tag/:nMax", authHs.ThenFunc(app.toDo))
+
 	// user management
 	router.Handler("GET", "/edit-users", adminHs.ThenFunc(app.users.GetFormEdit))
 	router.Handler("POST", "/edit-users", adminHs.ThenFunc(app.users.PostFormEdit))

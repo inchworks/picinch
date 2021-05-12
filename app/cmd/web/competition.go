@@ -75,7 +75,8 @@ func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicC
 }
 
 // OnEnterComp processes a competition entry and returns true for valid client request.
-func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name string, email string, location string, title string, image string, nAgreed int) bool {
+// ## Temporary - returns show Id for auto-validation.
+func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name string, email string, location string, title string, caption string, image string, nAgreed int) int64 {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -83,7 +84,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 	// create user for entry
 	u, err := s.app.userStore.GetNamed(email)
 	if err != nil && !s.app.userStore.IsNoRecord(err) {
-		return false
+		return 0
 	}
 	if u == nil {
 		u = &users.User{
@@ -93,17 +94,15 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 			Created:  time.Now(),
 		}
 		if err = s.app.userStore.Update(u); err != nil {
-			return false
+			return 0
 		}
 	}
-
-	// #### storage of location? Tag or add info field to user?
 
 	// generate validation code for public entry
 	vc, err := secureCode(8)
 	if err != nil {
 		s.app.errorLog.Print(err)
-		return false
+		return 0
 	}
 
 	// create slideshow for entry
@@ -113,10 +112,11 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 		Topic:   categoryId,
 		Revised: time.Now(),
 		Title:   title,
+		Caption: location,
 		Format:  "E",
 	}
 	if err = s.app.SlideshowStore.Update(show); err != nil {
-		return false
+		return 0
 	}
 
 	// create slide for image
@@ -124,30 +124,31 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 	slide := &models.Slide{
 		Slideshow: show.Id,
 		Revised:   time.Now(),
+		Caption:   caption,
 		Image:     images.FileFromName(timestamp, image, 0),
 	}
 	if err = s.app.SlideStore.Update(slide); err != nil {
-		return false
+		return 0
 	}
 
 	// tag entry as unvalidated
-	s.app.setTag(0, "unvalidated", show.Id, 0, "")
+	s.app.setTagRef(0, "new", 0, show.Id, 0, "")
 
 	// tag agreements (This is a legal requirement, so we make the logic as explicit as possible.)
 	if nAgreed > 0 {
-		s.app.setTag(0, "agreements", show.Id, 0, strconv.Itoa(nAgreed))
+		s.app.setTagRef(0, "agreements", 0, show.Id, 0, strconv.Itoa(nAgreed))
 	}
 
 	// request worker to generate image version, and remove unused images
 	s.app.chShow <- reqUpdateShow{showId: show.Id, timestamp: timestamp, revised: false}
 
-	return true
+	return vc
 }
 
 // Validate tags an entry as validated and returns a template and data to confirm a validated entry.
 func (s *GalleryState) validate(code int64) (string, *dataValidated) {
 
-	defer s.updatesNone()()
+	defer s.updatesGallery()()
 
 	// check if code is valid
 	show := s.app.SlideshowStore.GetIfShared(code)
@@ -155,11 +156,11 @@ func (s *GalleryState) validate(code int64) (string, *dataValidated) {
 		return "", nil
 	}
 
-	// tag entry as validated
-	if err := s.app.tagRefStore.Remove(0, "unvalidated", show.Id); err != nil {
+	// remove new tag, which triggers addition of successor tags
+	if !s.app.dropTagRef(0, "new", 0, show.Id) {
+		// ## warn the user
 		return "", nil
 	}
-	s.app.setTag(0, "validated", show.Id, 0, "")
 
 	// get confirmation details
 	u, err := s.app.userStore.Get(show.User.Int64)

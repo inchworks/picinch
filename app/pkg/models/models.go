@@ -105,8 +105,10 @@ type Tag struct {
 	Id      int64
 	Gallery int64
 	Parent  int64 // 0 for a top level tag
+	User    int64
 	Name    string
 	Action  string
+	Format  string
 }
 
 type TagRef struct {

@@ -64,6 +64,34 @@ const (
 
 	slideshowWhereShared = slideshowSelect + ` WHERE shared = ?`
 
+	// tagged slideshows
+	slideshowsWhereTag = `
+		SELECT slideshow.* FROM slideshow
+		JOIN tagref ON tagref.slideshow = slideshow.id
+		JOIN tag ON tag.id = tagref.tag
+		WHERE tag.parent = ? AND tag.name = ?
+		ORDER BY tagref.added ASC
+		LIMIT ?
+	`
+
+	slideshowsWhereTagTopic = `
+		SELECT slideshow.* FROM slideshow
+		JOIN tagref ON tagref.slideshow = slideshow.id
+		JOIN tag ON tag.id = tagref.tag
+		WHERE tag.parent = ? AND tag.name = ? AND slideshow.topic = ?
+		ORDER BY tagref.added ASC
+		LIMIT ?
+	`
+
+	slideshowsWhereTagUser = `
+		SELECT slideshow.* FROM slideshow
+		JOIN tagref ON tagref.slideshow = slideshow.id
+		JOIN tag ON tag.id = tagref.tag
+		WHERE tag.parent = ? AND tag.name = ? AND tag.user = ?
+		ORDER BY tagref.added ASC
+		LIMIT ?
+	`
+
 	// published slideshows for a user
 	slideshowsUserPublished = `
 		SELECT slideshow.* FROM slideshow
@@ -183,7 +211,43 @@ func (st *SlideshowStore) CountForTopic(topicId int64) int {
 	return n
 }
 
-// Slideshow for topic
+// ForTag returns all slideshows for a tag.
+func (st *SlideshowStore) ForTag(parent int64, tag string, nLimit int) []*models.Slideshow {
+
+	var slideshows []*models.Slideshow
+
+	if err := st.DBX.Select(&slideshows, slideshowsWhereTag, parent, tag, nLimit); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
+}
+
+// ForTagTopic returns tagged slideshows, optionally for a topic.
+func (st *SlideshowStore) ForTagTopic(parent int64, tag string, topicId int64, nLimit int) []*models.Slideshow {
+
+	var slideshows []*models.Slideshow
+
+	if err := st.DBX.Select(&slideshows, slideshowsWhereTagTopic, parent, tag, topicId, nLimit); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
+}
+
+// ForTagUser returns tagged slideshows, optionally for a topic.
+func (st *SlideshowStore) ForTagUser(parent int64, tag string, userId int64, nLimit int) []*models.Slideshow {
+
+	var slideshows []*models.Slideshow
+
+	if err := st.DBX.Select(&slideshows, slideshowsWhereTagUser, parent, tag, userId, nLimit); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
+}
+
+// Slideshows for topic
 
 func (st *SlideshowStore) ForTopic(topicId int64) []*models.Slideshow {
 

@@ -187,6 +187,90 @@ func (s *GalleryState) DisplaySlideshow(id int64, from string) (string, *DataSli
 	return s.displaySlides(show, from, 100)
 }
 
+// DisplayTagged returns a template and data for tagged slideshows.
+func (s *GalleryState) DisplayTagged(topicId int64, parentId int64, tag string, nMax int) (string, *DataTagged) {
+
+	defer s.updatesNone()()
+
+	// parent tag name
+	var parentTag string
+	if parentId != 0 {
+		p := s.app.tagStore.GetIf(parentId)
+		if p != nil {
+			parentTag = p.Name + " : "
+		}
+	}
+
+	// get tagged slideshows, optionally for a topic
+	var topicTitle string
+	var slideshows []*models.Slideshow
+	if topicId != 0 {
+		if topic, err := s.app.SlideshowStore.Get(topicId); err == nil {
+			topicTitle = topic.Title + " : "
+		}
+		slideshows = s.app.SlideshowStore.ForTagTopic(parentId, tag, topicId, nMax)
+
+	} else {
+		slideshows = s.app.SlideshowStore.ForTag(parentId, tag, nMax)
+	}
+
+	var dShows []*DataPublished
+
+	for _, sh := range slideshows {
+		dShows = append(dShows, &DataPublished{
+			Id:          sh.Id,
+			Title:       sh.Title,
+			Image:       sh.Image,
+			DisplayName: sh.Caption,
+		})
+	}
+
+	return "tagged.page.tmpl", &DataTagged{
+		Parent:     parentTag,
+		Tag:        tag,
+		Topic:      topicTitle,
+		Slideshows: dShows,
+	}
+}
+
+// DisplayToDo returns a template and data for slideshows with user-specific tags.
+func (s *GalleryState) DisplayToDo(topicId int64, parentId int64, tag string, userId int64, nMax int) (string, *DataTagged) {
+
+	defer s.updatesNone()()
+
+	// parent tag name
+	var parentTag string
+	if parentId != 0 {
+		p := s.app.tagStore.GetIf(parentId)
+		if p != nil {
+			parentTag = p.Name + " : "
+		}
+	}
+
+	// get slideshows, tagged for user
+	var slideshows []*models.Slideshow
+	slideshows = s.app.SlideshowStore.ForTagUser(parentId, tag, userId, nMax)
+
+	// ## no support for topic-specific
+
+	var dShows []*DataPublished
+
+	for _, sh := range slideshows {
+		dShows = append(dShows, &DataPublished{
+			Id:          sh.Id,
+			Title:       sh.Title,
+			Image:       sh.Image,
+			DisplayName: sh.Caption,
+		})
+	}
+
+	return "tagged.page.tmpl", &DataTagged{
+		Parent:     parentTag,
+		Tag:        tag,
+		Slideshows: dShows,
+	}
+}
+
 // DisplayTopicHome returns a template and data for a topic shown on a website page.
 func (s *GalleryState) DisplayTopicHome(id int64, seq int, from string) (string, *DataSlideshow) {
 
@@ -325,6 +409,16 @@ func (s *GalleryState) ForTopics() *DataMyGallery {
 	return &DataMyGallery{
 		DisplayName: "Topics",
 		Topics:      dataShows,
+	}
+}
+
+// ForUserTags returns data for user-specific tags.
+func (s *GalleryState) ForUserTags(userId int64) *DataTags {
+
+	defer s.updatesNone()()
+
+	return &DataTags{
+		Tags: s.dataUserTags(0, userId),
 	}
 }
 
@@ -475,6 +569,37 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 		}
 	}
 	return data
+}
+
+// dataUserTags returns user-specific tags, with child tags
+func (s *GalleryState) dataUserTags(parent int64, userId int64) []*DataTag {
+
+	var dTags []*DataTag
+
+	tags := s.app.tagStore.ForUser(parent, userId)
+	for _, t := range tags {
+
+		// references
+		n := s.app.tagRefStore.CountForTag(t.Id)
+		children := s.dataUserTags(t.Id, userId)
+
+		// skip unreferenced tags
+		if n+len(children) > 0 {
+
+			sCount := ""
+			if n > 0 {
+				sCount = strconv.Itoa(n)
+			}
+
+			dTags = append(dTags, &DataTag{
+				Parent: t.Parent,
+				Name:   t.Name,
+				Count:  sCount,
+				Tags:   children,
+			})
+		}
+	}
+	return dTags
 }
 
 // Display highlights : latest slides

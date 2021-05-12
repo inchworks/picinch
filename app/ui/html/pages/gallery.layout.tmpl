@@ -48,6 +48,9 @@
                     {{if .IsAdmin}}
                         {{template "menu-admin" .}}
                     {{end}}
+                    {{if .IsCompetition}}
+                        {{template "menu-competition" .}}
+                     {{end}}
                     {{if .IsCurator}}
                         {{template "menu-curator" .}}
                     {{end}}

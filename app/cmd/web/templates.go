@@ -49,6 +49,7 @@ type DataCommon struct {
 	// To configure menus, this is NOT to check authorisation
 	IsAdmin         bool // user is administrator
 	IsAuthenticated bool // user authenticated
+	IsCompetition   bool // competitions enabled
 	IsCurator       bool // user is curator
 }
 
@@ -58,6 +59,7 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request) {
 	d.Flash = app.session.PopString(r, "flash")
 	d.IsAdmin = app.isAuthenticated(r, models.UserAdmin)
 	d.IsAuthenticated = app.isAuthenticated(r, models.UserFriend)
+	d.IsCompetition = (app.cfg.Options == "main-comp")
 	d.IsCurator = app.isAuthenticated(r, models.UserCurator)
 }
 
@@ -124,6 +126,26 @@ type DataSlide struct {
 	Format      int
 }
 
+type DataTagged struct {
+	Parent     string
+	Tag        string
+	Topic      string
+	Slideshows []*DataPublished
+	DataCommon
+}
+
+type DataTags struct {
+	Tags []*DataTag
+	DataCommon
+}
+
+type DataTag struct {
+	Parent int64
+	Name   string
+	Count  string
+	Tags   []*DataTag
+}
+
 type DataUsagePeriods struct {
 	Title string
 	Usage []*DataUsage
@@ -150,7 +172,7 @@ type dataValidated struct {
 // template data for forms
 
 type compFormData struct {
-	Form  *form.PublicCompForm
+	Form     *form.PublicCompForm
 	Category string
 	DataCommon
 }

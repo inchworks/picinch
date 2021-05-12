@@ -142,7 +142,7 @@ func (app *Application) authenticatedUser(r *http.Request) int64 {
 	}
 
 	// active user?
-	if auth.role >= models.UserMember {
+	if auth.role >= models.UserFriend {
 		return auth.id
 	} else {
 		return 0
@@ -293,32 +293,3 @@ func (app *Application) serverError(w http.ResponseWriter, err error) {
 	}
 }
 
-// setTag adds a tag to a slideshow. Errors are logged and ignored.
-func (app *Application) setTag(parent int64, name string, slideshow int64, user int64, detail string) {
-
-	// lookup tag
-	t, err := app.tagStore.GetNamed(parent, name)
-	if err != nil {	
-		app.log(err)
-		return
-	}
-
-	// link tag to slideshow
-	r := &models.TagRef{
-		Slideshow: slideshow,
-		Tag:       t.Id,
-		Added:     time.Now(),
-		Detail:    detail,
-	}
-
-	// optional user
-	if user != 0 {
-		r.User.Int64 = user
-		r.User.Valid = true
-	}
-
-	err = app.tagRefStore.Update(r)
-	if err != nil {	
-		app.log(err)
-	}
-}

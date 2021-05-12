@@ -45,10 +45,17 @@ const (
 
 	tagrefWhereId = tagrefSelect + ` WHERE id = ?`
 
+	tagrefCountForTag = `SELECT COUNT(*) FROM tagref WHERE tag = ?`
+
+	tagrefDeleteAll = `
+		DELETE tagref FROM tagref
+		INNER JOIN tag ON tag.id = tagref.tag
+		WHERE tag.parent = ? AND tag.name = ? AND tagref.slideshow = ? AND tag.user <> 0
+	`
 	tagrefDeleteIf = `
 		DELETE tagref FROM tagref
 		INNER JOIN tag ON tag.id = tagref.tag
-		WHERE tag.parent = ? AND tag.name = ? AND tagref.slideshow = ?
+		WHERE tag.parent = ? AND tag.name = ? AND tag.user = ? AND tagref.slideshow = ?
 	`
 )
 
@@ -70,10 +77,33 @@ func NewTagRefStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *TagRefStore {
 	}
 }
 
-// Remove deletes a tag reference.
-func (st *TagRefStore) Remove(parent int64, name string, slideshow int64) error {
+// Count returns the number of references for a tag.
+func (st *TagRefStore) CountForTag(tagId int64) int {
+	var n int
 
-	if _, err := st.DBX.Exec(tagrefDeleteIf, parent, name, slideshow); err != nil {
+	if err := st.DBX.Get(&n, tagrefCountForTag, tagId); err != nil {
+		st.logError(err)
+		return 0
+	}
+
+	return n
+}
+
+
+// DeleteAll removes user-specific tag references for all users.
+func (st *TagRefStore) DeleteAll(parent int64, name string, slideshow int64) error {
+
+	if _, err := st.DBX.Exec(tagrefDeleteAll, parent, name, slideshow); err != nil {
+		return st.logError(err)
+	}
+
+	return nil
+}
+
+// DeleteIf deletes a tag reference if it exists.
+func (st *TagRefStore) DeleteIf(parent int64, name string, forUser int64, slideshow int64) error {
+
+	if _, err := st.DBX.Exec(tagrefDeleteIf, parent, name, forUser, slideshow); err != nil {
 		return st.logError(err)
 	}
 

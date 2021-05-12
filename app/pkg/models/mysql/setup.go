@@ -108,10 +108,12 @@ var cmds = [...]string{
 		id int(11) NOT NULL AUTO_INCREMENT,
 		gallery int(11) NOT NULL,
 		parent int(11) NOT NULL,
+		user int(11) NOT NULL,
 		name varchar(60) COLLATE utf8_unicode_ci NOT NULL,
 		action varchar(60) COLLATE utf8_unicode_ci NOT NULL,
+		format varchar(60) COLLATE utf8_unicode_ci NOT NULL,
 		PRIMARY KEY (id),
-		UNIQUE KEY IDX_TAG (parent, name),
+		UNIQUE KEY IDX_TAG (parent, name, user),
 		CONSTRAINT FK_TAG_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 
