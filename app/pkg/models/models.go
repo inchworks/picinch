@@ -136,6 +136,11 @@ type Topic struct {
 
 // Join results
 
+type SlideshowTag struct {
+	Slideshow
+	TagRefId int64
+}
+
 type SlideshowUser struct {
 	Id    int64
 	Title string

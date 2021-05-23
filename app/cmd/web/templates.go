@@ -99,6 +99,7 @@ type DataPublished struct {
 	NUser       int64
 	DisplayName string
 	Image       string
+	NTagRef     int64
 	DataCommon
 }
 
@@ -128,6 +129,7 @@ type DataSlide struct {
 
 type DataTagged struct {
 	Parent     string
+	NTagRef    int64
 	Tag        string
 	Topic      string
 	Slideshows []*DataPublished

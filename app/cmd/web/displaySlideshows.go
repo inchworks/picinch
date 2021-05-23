@@ -248,8 +248,7 @@ func (s *GalleryState) DisplayToDo(topicId int64, parentId int64, tag string, us
 	}
 
 	// get slideshows, tagged for user
-	var slideshows []*models.Slideshow
-	slideshows = s.app.SlideshowStore.ForTagUser(parentId, tag, userId, nMax)
+	slideshows := s.app.SlideshowStore.ForTagUser(parentId, tag, userId, nMax)
 
 	// ## no support for topic-specific
 
@@ -261,6 +260,7 @@ func (s *GalleryState) DisplayToDo(topicId int64, parentId int64, tag string, us
 			Title:       sh.Title,
 			Image:       sh.Image,
 			DisplayName: sh.Caption,
+			NTagRef:     sh.TagRefId,
 		})
 	}
 

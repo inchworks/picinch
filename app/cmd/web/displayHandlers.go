@@ -173,7 +173,7 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, template, data)
 }
 
-// slieshowsOwn handles a request by a member for their own slideshows.
+// slideshowsOwn handles a request by a member for their own slideshows.
 func (app *Application) slideshowsOwn(w http.ResponseWriter, r *http.Request) {
 
 	// user

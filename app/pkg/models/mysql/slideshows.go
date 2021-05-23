@@ -84,7 +84,8 @@ const (
 	`
 
 	slideshowsWhereTagUser = `
-		SELECT slideshow.* FROM slideshow
+		SELECT slideshow.*, tagref.id AS tagrefid
+		FROM slideshow
 		JOIN tagref ON tagref.slideshow = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
 		WHERE tag.parent = ? AND tag.name = ? AND tag.user = ?
@@ -236,9 +237,9 @@ func (st *SlideshowStore) ForTagTopic(parent int64, tag string, topicId int64, n
 }
 
 // ForTagUser returns tagged slideshows, optionally for a topic.
-func (st *SlideshowStore) ForTagUser(parent int64, tag string, userId int64, nLimit int) []*models.Slideshow {
+func (st *SlideshowStore) ForTagUser(parent int64, tag string, userId int64, nLimit int) []*models.SlideshowTag {
 
-	var slideshows []*models.Slideshow
+	var slideshows []*models.SlideshowTag
 
 	if err := st.DBX.Select(&slideshows, slideshowsWhereTagUser, parent, tag, userId, nLimit); err != nil {
 		st.logError(err)

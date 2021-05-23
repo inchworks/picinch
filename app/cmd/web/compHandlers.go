@@ -144,6 +144,12 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	}
 }
 
+func (app *Application) getFormTagSlideshow(w http.ResponseWriter, r *http.Request) {
+}
+
+func (app *Application) postFormTagSlideshow(w http.ResponseWriter, r *http.Request) {
+}
+
 // validate handles a request to validate a competition entry.
 func (app *Application) validate(w http.ResponseWriter, r *http.Request) {
 

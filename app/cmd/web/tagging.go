@@ -149,7 +149,8 @@ func (app *Application) getTag(parent int64, name string, forUser int64, create 
 		return nil
 	}
 
-	// auto-add missing tag, if permitted?
+	// ## auto-add missing tag, from system tag, if permitted?
+	// #### Must walk tree from root tag. Better to create all tags on first reference to root tag.
 	if t == nil && create {
 		t = &models.Tag{
 			Parent: parent,
@@ -166,6 +167,7 @@ func (app *Application) getTag(parent int64, name string, forUser int64, create 
 }
 
 // parseActions parses an action specification and returns a slide of actions.
+// #### Implement notify all except current user, and add for all with role tag.
 func parseActions(spec string, tag string, user int64) []action {
 
 	// items separated by whitespace
