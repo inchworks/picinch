@@ -32,25 +32,14 @@
 
     <div>
       {{range .Tags}}
-        <div class="row">
-          <div class="col-md-4">
-            <a class='btn btn-light' href='/to-do/0/{{.Parent}}/{{.Name}}/20'>{{.Name}}</a>
+        <div class="form-group row">
+          <div class="col-2 {{.Indent}}">
+            <a class='btn btn-light {{.Disable}}' href='/to-do/0/{{.UserTag}}/{{.Parent}}/{{.Name}}/20'>{{.Name}}</a>
           </div>
-          <div class="col-md-1">
+          <div class="col-1">
             <span class="badge badge-primary badge-pill">{{.Count}}</span>
           </div>
-        </div>
-
-        {{range .Tags}}
-          <div class="row">
-            <div class="col-4 offset-4">
-              <a class='btn btn-primary' href='/to-do/0/{{.Parent}}/{{.Name}}/20'>{{.Name}}</a>
-            </div>
-            <div class="col-4">
-              <span class="badge badge-primary badge-pill">{{.Count}}</span>
-            </div>
-          </div>
-        {{end}}
-      {{end}}
+		</div>
+	  {{end}}
     </div>
 {{end}}

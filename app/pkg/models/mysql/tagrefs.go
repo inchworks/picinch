@@ -52,11 +52,17 @@ const (
 		INNER JOIN tag ON tag.id = tagref.tag
 		WHERE tag.parent = ? AND tag.name = ? AND tagref.slideshow = ? AND tag.user <> 0
 	`
-	tagrefDeleteIf = `
+	tagrefDeleteWhere = `
+		DELETE FROM tagref
+		WHERE slideshow = ? AND tag = ?
+	`
+	tagrefDeleteWhereTag = `
 		DELETE tagref FROM tagref
 		INNER JOIN tag ON tag.id = tagref.tag
 		WHERE tag.parent = ? AND tag.name = ? AND tag.user = ? AND tagref.slideshow = ?
 	`
+
+	tagrefExists = `SELECT EXISTS(SELECT * FROM tagref WHERE slideshow = ? AND tag = ?)`
 )
 
 type TagRefStore struct {
@@ -89,7 +95,6 @@ func (st *TagRefStore) CountForTag(tagId int64) int {
 	return n
 }
 
-
 // DeleteAll removes user-specific tag references for all users.
 func (st *TagRefStore) DeleteAll(parent int64, name string, slideshow int64) error {
 
@@ -100,14 +105,51 @@ func (st *TagRefStore) DeleteAll(parent int64, name string, slideshow int64) err
 	return nil
 }
 
-// DeleteIf deletes a tag reference if it exists.
-func (st *TagRefStore) DeleteIf(parent int64, name string, forUser int64, slideshow int64) error {
+// DeleteIf deletes a tag reference with a specified tag ID.
+func (st *TagRefStore) DeleteIf(slideshow int64, tag int64) error {
 
-	if _, err := st.DBX.Exec(tagrefDeleteIf, parent, name, forUser, slideshow); err != nil {
+	if _, err := st.DBX.Exec(tagrefDeleteWhere, slideshow, tag); err != nil {
 		return st.logError(err)
 	}
 
 	return nil
+}
+
+// DeleteIfTag deletes a tag reference with a specified tag name.
+func (st *TagRefStore) DeleteIfTag0(parent int64, name string, forUser int64, slideshow int64) error {
+
+	if _, err := st.DBX.Exec(tagrefDeleteWhereTag, parent, name, forUser, slideshow); err != nil {
+		return st.logError(err)
+	}
+
+	return nil
+}
+
+// Exists returns true if a slideshow has the specfied tag.
+func (st *TagRefStore) Exists(slideshow int64, tag int64) bool {
+	var e bool
+
+	if err := st.DBX.Get(&e, tagrefExists, slideshow, tag); err != nil {
+		st.logError(err)
+		return false
+	}
+
+	return e
+}
+
+// GetIf returns a tag by ID, if it exists.
+func (st *TagRefStore) GetIf(id int64) *models.TagRef {
+
+	var r models.TagRef
+
+	if err := st.DBX.Get(&r, tagrefWhereId, id); err != nil {
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+		}
+		return nil
+	}
+
+	return &r
 }
 
 // Update inserts or updates a tag reference.

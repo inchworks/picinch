@@ -234,7 +234,7 @@ func (s *GalleryState) DisplayTagged(topicId int64, parentId int64, tag string, 
 }
 
 // DisplayToDo returns a template and data for slideshows with user-specific tags.
-func (s *GalleryState) DisplayToDo(topicId int64, parentId int64, tag string, userId int64, nMax int) (string, *DataTagged) {
+func (s *GalleryState) DisplayToDo(topicId int64, userTagId int64, parentId int64, tag string, userId int64, nMax int) (string, *DataTagged) {
 
 	defer s.updatesNone()()
 
@@ -245,6 +245,7 @@ func (s *GalleryState) DisplayToDo(topicId int64, parentId int64, tag string, us
 		if p != nil {
 			parentTag = p.Name + " : "
 		}
+		userId = 0 // only root tags need a user ID
 	}
 
 	// get slideshows, tagged for user
@@ -265,6 +266,7 @@ func (s *GalleryState) DisplayToDo(topicId int64, parentId int64, tag string, us
 	}
 
 	return "tagged.page.tmpl", &DataTagged{
+		NUserTag:   userTagId,
 		Parent:     parentTag,
 		Tag:        tag,
 		Slideshows: dShows,
@@ -409,16 +411,6 @@ func (s *GalleryState) ForTopics() *DataMyGallery {
 	return &DataMyGallery{
 		DisplayName: "Topics",
 		Topics:      dataShows,
-	}
-}
-
-// ForUserTags returns data for user-specific tags.
-func (s *GalleryState) ForUserTags(userId int64) *DataTags {
-
-	defer s.updatesNone()()
-
-	return &DataTags{
-		Tags: s.dataUserTags(0, userId),
 	}
 }
 
@@ -571,35 +563,50 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 	return data
 }
 
-// dataUserTags returns user-specific tags, with child tags
-func (s *GalleryState) dataUserTags(parent int64, userId int64) []*DataTag {
+// dataTags returns all referenced tags, with child tags
+func (s *GalleryState) dataTags(tags []*models.Tag, level int, userTagId int64) []*DataTag {
 
 	var dTags []*DataTag
 
-	tags := s.app.tagStore.ForUser(parent, userId)
 	for _, t := range tags {
+
+		// note the root tags (needed for selection of tags to be edited)
+		if level == 0 {
+			userTagId = t.Id
+		}
 
 		// references
 		n := s.app.tagRefStore.CountForTag(t.Id)
-		children := s.dataUserTags(t.Id, userId)
+		children := s.dataTags(s.app.tagStore.ForParent(t.Id), level+1, userTagId)
 
 		// skip unreferenced tags
 		if n+len(children) > 0 {
 
-			sCount := ""
+			var sCount, sDisable string
 			if n > 0 {
 				sCount = strconv.Itoa(n)
+			} else {
+				sDisable = "disabled"
 			}
 
 			dTags = append(dTags, &DataTag{
+				UserTag: userTagId,
 				Parent: t.Parent,
 				Name:   t.Name,
 				Count:  sCount,
-				Tags:   children,
+				Disable: sDisable,
+				Indent: "offset-" + strconv.Itoa(level*2),
 			})
+			dTags = append(dTags, children...)
 		}
 	}
 	return dTags
+}
+
+// dataUserTags returns user-specific tags, with child tags
+func (s *GalleryState) dataUserTags(userId int64) []*DataTag {
+
+	return s.dataTags(s.app.tagStore.ForUser(userId), 0, 0)
 }
 
 // Display highlights : latest slides

@@ -237,9 +237,9 @@ func (st *SlideshowStore) ForTagTopic(parent int64, tag string, topicId int64, n
 }
 
 // ForTagUser returns tagged slideshows, optionally for a topic.
-func (st *SlideshowStore) ForTagUser(parent int64, tag string, userId int64, nLimit int) []*models.SlideshowTag {
+func (st *SlideshowStore) ForTagUser(parent int64, tag string, userId int64, nLimit int) []*models.SlideshowTagRef {
 
-	var slideshows []*models.SlideshowTag
+	var slideshows []*models.SlideshowTagRef
 
 	if err := st.DBX.Select(&slideshows, slideshowsWhereTagUser, parent, tag, userId, nLimit); err != nil {
 		st.logError(err)

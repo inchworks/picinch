@@ -1,0 +1,63 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2021.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}Tag Slideshow{{end}}
+
+{{define "pagemeta"}}
+    <meta name="robots" content="noindex">
+{{end}}
+
+{{define "page"}}
+
+	<div class="container">
+		<h3>{{ .Title }}</h3>
+
+		<form action='/tag-slideshow' method='POST'>
+            <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
+ 			{{with .Form}}
+			    <input type='hidden' name='nTagRef' value='{{.Get "nTagRef"}}'>
+			{{end}}
+			{{range .Tags }}
+				{{.CheckHTML}}
+				{{range .Tags}}
+					{{.TagHTML}}
+					{{range .Tags}}
+						{{.TagHTML}}
+					{{end}}
+				{{end}}
+			{{end}}
+			<div class="form-group row">
+				<div class="col-md-3">
+					<button type='submit' class="btn btn-primary" id='submit'>Update</button>
+				</div>
+			</div>
+		</form>
+	</div>	
+{{end}}
+
+{{ define "pagescripts" }}
+   <script type="text/javascript" src='/static/js/setup-02.js'></script>
+   <script>
+		// page-specific processing
+		function childAdded($prototype, $newForm) {}
+		function pageReady() {}
+    </script>
+{{end}}

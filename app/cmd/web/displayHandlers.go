@@ -229,40 +229,6 @@ func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) 
 	app.render(w, r, template, data)
 }
 
-// tagged handles a request to view tagged slideshows for a topic.
-func (app *Application) tagged(w http.ResponseWriter, r *http.Request) {
-
-	ps := httprouter.ParamsFromContext(r.Context())
-
-	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
-	parentId, _ := strconv.ParseInt(ps.ByName("nParent"), 10, 64)
-	nMax, _ := strconv.ParseInt(ps.ByName("nMax"), 10, 32)
-
-	// template and data for slides
-	template, data := app.galleryState.DisplayTagged(topicId, parentId, ps.ByName("tag"), int(nMax))
-
-	// display page
-	app.render(w, r, template, data)
-}
-
-// tagged handles a request to view tagged slideshows for a topic.
-func (app *Application) toDo(w http.ResponseWriter, r *http.Request) {
-
-	ps := httprouter.ParamsFromContext(r.Context())
-
-	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
-	parentId, _ := strconv.ParseInt(ps.ByName("nParent"), 10, 64)
-	nMax, _ := strconv.ParseInt(ps.ByName("nMax"), 10, 32)
-	userId := app.authenticatedUser(r)
-
-
-	// template and data for slides
-	template, data := app.galleryState.DisplayToDo(topicId, parentId, ps.ByName("tag"), userId, int(nMax))
-
-	// display page
-	app.render(w, r, template, data)
-}
-
 // Topic slides for user
 
 func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
@@ -322,17 +288,6 @@ func (app *Application) usageMonths(w http.ResponseWriter, r *http.Request) {
 	data := app.galleryState.ForUsage(usage.Month)
 
 	app.render(w, r, "usage.page.tmpl", data)
-}
-
-// userTags handles a request to view tags assigned to the user.
-func (app *Application) userTags(w http.ResponseWriter, r *http.Request) {
-
-	userId := app.authenticatedUser(r)
-
-	data := app.galleryState.ForUserTags(userId)
-
-	// display page
-	app.render(w, r, "user-tags.page.tmpl", data) // #### implement
 }
 
 // For curator

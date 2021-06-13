@@ -49,7 +49,17 @@ const (
 	tagRootWhereName  = tagSelect + ` WHERE gallery = ? AND parent = 0 AND name = ? AND user = ?`
 	tagChildWhereName  = tagSelect + ` WHERE parent = ? AND name = ? AND user = ?`
 
-	tagsWhereUser = tagSelect + ` WHERE parent = ? AND user = ?` + tagOrderName
+	tagWhereRef = `
+	 	SELECT tag.*, tagref.slideshow AS slideshowid
+		FROM tagref
+		JOIN tag ON tag.id = tagref.tag
+		WHERE tagref.id = ?
+	`
+
+	tagsWhereName = tagSelect + ` WHERE parent = ? AND name = ?`
+	tagsWhereParent = tagSelect + ` WHERE parent = ?` + tagOrderName
+	tagsWhereUser = tagSelect + ` WHERE user = ?` + tagOrderName
+
 )
 
 type TagStore struct {
@@ -71,12 +81,51 @@ func NewTagStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *TagStore {
 	}
 }
 
-// ForUser returns all tags specific to a user.
-func (st *TagStore) ForUser(parent int64, user int64) []*models.Tag {
+// ForName returns all tags for a parent (usually 0) and name.
+func (st *TagStore) ForName(parent int64, name string) []*models.Tag {
 
 	var tags []*models.Tag
 
-	if err := st.DBX.Select(&tags, tagsWhereUser, parent, user); err != nil {
+	if err := st.DBX.Select(&tags, tagsWhereName, parent, name); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return tags
+}
+
+// ForParent returns all tags specific to a user.
+func (st *TagStore) ForParent(parent int64) []*models.Tag {
+
+	var tags []*models.Tag
+
+	if err := st.DBX.Select(&tags, tagsWhereParent, parent); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return tags
+}
+
+// ForUser returns all tags specific to a user.
+func (st *TagStore) ForUser(user int64) []*models.Tag {
+
+	var tags []*models.Tag
+
+	if err := st.DBX.Select(&tags, tagsWhereUser, user); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return tags
+}
+
+// ForTag returns all users with the specified root tag.
+func (st *TagStore) ForTag(name string) []*models.Tag {
+
+	var tags []*models.Tag
+
+	if err := st.DBX.Select(&tags, tagsWhereUser, name); err != nil {
 		st.logError(err)
 		return nil
 	}
@@ -121,6 +170,20 @@ func (st *TagStore) GetNamed(parent int64, name string, user int64) (*models.Tag
 	return &t, nil
 }
 
+// ForReference returns a tag and slideshow ID for a reference.
+func (st *TagStore) ForReference(tagRef int64) *models.TagSlideshow {
+
+	var r models.TagSlideshow
+
+	if err := st.DBX.Get(&r, tagWhereRef, tagRef); err != nil {
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+		}
+		return nil
+	}
+
+	return &r
+}
 
 // Update inserts or updates a tag.
 func (st *TagStore) Update(r *models.Tag) error {

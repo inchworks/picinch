@@ -61,11 +61,21 @@ const (
 			ORDER BY user.name ASC
 	`
 
+	usersHavingTags = `
+		SELECT * FROM user
+		WHERE EXISTS ( SELECT * FROM tag WHERE tag.gallery = ? AND tag.user = user.id )
+	`
+
 	// Users ordered by most recent published slideshow.
 	// This is tricky. First get all slideshows, partition them by user and sort within users by date.
 	// Then take the first ranked ones, and join the users.
 	// https://dev.mysql.com/doc/refman/8.0/en/example-maximum-column-group-row.html
 
+	usersWhereTag = `
+		SELECT user.*, tag.id AS tagid FROM USER
+		JOIN tag ON tag.user = user.id
+		WHERE tag.gallery = ? AND tag.parent = 0 AND tag.name = ?
+	`
 	usersByLatestSlideshow = `
 		WITH s1 AS (
 			SELECT contrib.user AS userId, contrib.created,
@@ -157,6 +167,19 @@ func (st *UserStore) Count() int {
 	return n
 }
 
+// ForTag returns all users with the specified root tag.
+func (st *UserStore) ForTag(name string) []*models.UserTag {
+
+	var users []*models.UserTag
+
+	if err := st.DBX.Select(&users, usersWhereTag, st.GalleryId, name); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return users
+}
+
 // Get user
 
 func (st *UserStore) Get(id int64) (*users.User, error) {
@@ -207,6 +230,18 @@ func (st *UserStore) Name(id int64) string {
 
 func (st *UserStore) Rollback() {
 	// #### implement!
+}
+
+// Users that can set tags.
+func (st *UserStore) Taggers() []*users.User {
+
+	var users []*users.User
+
+	if err := st.DBX.Select(&users, usersHavingTags, st.GalleryId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return users
 }
 
 // Insert or update user

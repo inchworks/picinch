@@ -73,6 +73,8 @@ func (app *Application) Routes() http.Handler {
 	// setup
 	router.Handler("GET", "/setup", adminHs.ThenFunc(app.getFormGallery))
 	router.Handler("POST", "/setup", adminHs.ThenFunc(app.postFormGallery))
+	router.Handler("GET", "/edit-tags", adminHs.ThenFunc(app.getFormTags))
+	router.Handler("POST", "/edit-tags", adminHs.ThenFunc(app.postFormTags))
 
 	router.Handler("GET", "/edit-topics", curatorHs.ThenFunc(app.getFormTopics))
 	router.Handler("POST", "/edit-topics", curatorHs.ThenFunc(app.postFormTopics))
@@ -107,11 +109,11 @@ func (app *Application) Routes() http.Handler {
 	// tagged selection
 	router.Handler("GET", "/user-tags", authHs.ThenFunc(app.userTags))
 	router.Handler("GET", "/tagged/:nTopic/:nParent/:tag/:nMax", authHs.ThenFunc(app.tagged))
-	router.Handler("GET", "/to-do/:nTopic/:nParent/:tag/:nMax", authHs.ThenFunc(app.toDo))
+	router.Handler("GET", "/to-do/:nTopic/:nUserTag/:nParent/:tag/:nMax", authHs.ThenFunc(app.toDo))
 
 	// set tags
-	router.Handler("GET", "/tag-slideshow/:nShow/:nTagRef", authHs.ThenFunc(app.getFormTagSlideshow))
-	router.Handler("GET", "/tag-slideshow", authHs.ThenFunc(app.postFormTagSlideshow))
+	router.Handler("GET", "/tag-slideshow/:nShow/:nUserTag", authHs.ThenFunc(app.getFormTagSlideshow))
+	router.Handler("POST", "/tag-slideshow", authHs.ThenFunc(app.postFormTagSlideshow))
 
 	// user management
 	router.Handler("GET", "/edit-users", adminHs.ThenFunc(app.users.GetFormEdit))

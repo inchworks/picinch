@@ -128,8 +128,8 @@ type DataSlide struct {
 }
 
 type DataTagged struct {
+	NUserTag   int64
 	Parent     string
-	NTagRef    int64
 	Tag        string
 	Topic      string
 	Slideshows []*DataPublished
@@ -142,10 +142,12 @@ type DataTags struct {
 }
 
 type DataTag struct {
-	Parent int64
-	Name   string
-	Count  string
-	Tags   []*DataTag
+	UserTag int64
+	Parent  int64
+	Name    string
+	Count   string
+	Disable string
+	Indent  string
 }
 
 type DataUsagePeriods struct {
@@ -195,6 +197,31 @@ type slideshowsFormData struct {
 	User  string
 	NUser int64
 	DataCommon
+}
+
+type tagsFormData struct {
+	Form  *multiforms.Form
+	Title string
+	Users []*tagUser
+	DataCommon
+}
+
+type tagFormData struct {
+	Form  *multiforms.Form
+	Title string
+	Tags  []*tagData
+	DataCommon
+}
+
+type tagData struct {
+	tagId   int64
+	TagHTML template.HTML
+	Tags    []*tagData
+}
+
+type tagUser struct {
+	Name string
+	Tags []*tagData
 }
 
 type usersFormData struct {
