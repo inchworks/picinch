@@ -53,14 +53,7 @@ const (
 		SELECT tag.*
 		FROM tagref
 		JOIN tag ON tag.id = tagref.tag
-		WHERE tagref.user = ? AND tagref.slideshow IS NULL AND tag.parent = 0
-	`
-
-	tagWhereRef = `
-	 	SELECT tag.*, tagref.slideshow AS slideshowid
-		FROM tagref
-		JOIN tag ON tag.id = tagref.tag
-		WHERE tagref.id = ?
+		WHERE tagref.user = ? AND tagref.item IS NULL AND tag.parent = 0
 	`
 
 	tagsWhereParent = tagSelect + ` WHERE parent = ?` + tagOrderName
@@ -146,21 +139,6 @@ func (st *TagStore) GetNamed(parent int64, name string) *models.Tag {
 	}
 	
 	return &t
-}
-
-// ForReference returns a tag and slideshow ID for a reference.
-func (st *TagStore) ForReference(tagRef int64) *models.TagSlideshow {
-
-	var r models.TagSlideshow
-
-	if err := st.DBX.Get(&r, tagWhereRef, tagRef); err != nil {
-		if st.convertError(err) != models.ErrNoRecord {
-			st.logError(err)
-		}
-		return nil
-	}
-
-	return &r
 }
 
 // Update inserts or updates a tag.

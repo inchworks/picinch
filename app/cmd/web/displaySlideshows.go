@@ -27,6 +27,7 @@ import (
 	"strconv"
 
 	"inchworks.com/picinch/pkg/models"
+
 )
 
 // Copyright © Rob Burke inchworks.com, 2020.
@@ -210,26 +211,13 @@ func (s *GalleryState) DisplayToDo(topicId int64, rootId int64, tagId int64, use
 	defer s.updatesNone()()
 
 	// validate that user has permission for this tag
-	if !s.app.tagRefStore.HasPermission(userId, rootId) {
+	if !s.app.tagger.HasPermission(rootId, userId) {
 		return nil
 	}
 
 	// ## should validate that tag is a child of the root
 
-	// tag
-	t := s.app.tagStore.GetIf(tagId)
-	if t == nil {
-		return nil
-	}
-
-	// parent tag name
-	var parentTag string
-	if t.Parent != 0 {
-		p := s.app.tagStore.GetIf(t.Parent)
-		if p != nil {
-			parentTag = p.Name + " : "
-		}
-	}
+	parentName, tagName := s.app.tagger.Names(tagId)
 
 	// get slideshows, tagged for user
 	slideshows := s.app.SlideshowStore.ForTagUser(tagId, userId, nMax)
@@ -250,8 +238,8 @@ func (s *GalleryState) DisplayToDo(topicId int64, rootId int64, tagId int64, use
 
 	return &DataTagged{
 		NRoot:      rootId,
-		Parent:     parentTag,
-		Tag:        t.Name,
+		Parent:     parentName,
+		Tag:        tagName,
 		Slideshows: dShows,
 	}
 }
@@ -331,7 +319,7 @@ func (s *GalleryState) displayUserTags(userId int64) *DataTags {
 	defer s.updatesNone()()
 
 	return &DataTags{
-		Tags: s.app.dataTags(s.app.tagStore.ForUser(userId), 0, 0, userId),
+		Tags: s.app.dataTags(s.app.tagger.TagStore.ForUser(userId), 0, 0, userId),
 	}
 }
 

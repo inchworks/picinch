@@ -67,7 +67,7 @@ const (
 	// tagged slideshows
 	slideshowsWhereTag = `
 		SELECT slideshow.* FROM slideshow
-		JOIN tagref ON tagref.slideshow = slideshow.id
+		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
 		WHERE tag.parent = ? AND tag.name = ?
 		ORDER BY tagref.added ASC
@@ -76,7 +76,7 @@ const (
 
 	slideshowsWhereTagTopic = `
 		SELECT slideshow.* FROM slideshow
-		JOIN tagref ON tagref.slideshow = slideshow.id
+		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
 		WHERE tag.parent = ? AND tag.name = ? AND slideshow.topic = ?
 		ORDER BY tagref.added ASC
@@ -86,7 +86,7 @@ const (
 	slideshowsWhereTagUser = `
 		SELECT slideshow.*, tagref.id AS tagrefid
 		FROM slideshow
-		JOIN tagref ON tagref.slideshow = slideshow.id
+		JOIN tagref ON tagref.item = slideshow.id
 		WHERE tagref.tag = ? AND tagref.user = ?
 		ORDER BY tagref.added ASC
 		LIMIT ?

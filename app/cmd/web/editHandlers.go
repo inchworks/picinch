@@ -32,6 +32,7 @@ import (
 
 	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/images"
+	"inchworks.com/picinch/pkg/tags"
 )
 
 type RepUpload struct {
@@ -479,13 +480,13 @@ func (app *Application) getFormTagSlideshow(w http.ResponseWriter, r *http.Reque
 }
 
 // tagChecks returns the template data for a set of tag checkboxes.
-func tagHTML(tags []*slideshowTag) []*tagData {
+func tagHTML(tags []*tags.ItemTag) []*tagData {
 
 	var tcs []*tagData
-	for _, tag := range tags {
+	for _, t := range tags {
 		var html string
 
-		if tag.edit {
+		if t.Edit {
 
 			const inputHtml = `
 				<div class="form-check">
@@ -495,32 +496,32 @@ func tagHTML(tags []*slideshowTag) []*tagData {
 			`
 
 			// names for form input and element ID
-			radio := strconv.FormatInt(tag.parent, 36)
-			nm := strconv.FormatInt(tag.id, 36)
+			radio := strconv.FormatInt(t.Parent, 36)
+			nm := strconv.FormatInt(t.Id, 36)
 
 			var checked string
-			if tag.set {
+			if t.Set {
 				checked = "checked"
 			}
 
-			switch tag.format {
+			switch t.Format {
 			case "C":
-				html = fmt.Sprintf(inputHtml, "checkbox", nm, "on", nm, checked, nm, tag.name)
+				html = fmt.Sprintf(inputHtml, "checkbox", nm, "on", nm, checked, nm, t.Name)
 
 			case "R":
-				html = fmt.Sprintf(inputHtml, "radio", radio, nm, nm, checked, nm, tag.name)
+				html = fmt.Sprintf(inputHtml, "radio", radio, nm, nm, checked, nm, t.Name)
 
 			default:
-				html = fmt.Sprintf("<label>%s</label>", tag.name)
+				html = fmt.Sprintf("<label>%s</label>", t.Name)
 			}
 		} else {
-			html = fmt.Sprintf("<label>%s</label>", tag.name)
+			html = fmt.Sprintf("<label>%s</label>", t.Name)
 		}
 
 		tc := &tagData{
-			tagId: tag.id,
+			tagId: t.Id,
 			TagHTML: template.HTML(html),
-			Tags: tagHTML(tag.children),
+			Tags: tagHTML(t.Children),
 		}
 
 		tcs = append(tcs, tc)

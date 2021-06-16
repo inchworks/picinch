@@ -112,7 +112,7 @@ type Tag struct {
 
 type TagRef struct {
 	Id        int64
-	Slideshow sql.NullInt64 // null for a user permission tag
+	Item      sql.NullInt64 // null for a user permission tag
 	Tag       int64
 	User      sql.NullInt64 // null for a system tag
 	Added     time.Time
@@ -147,9 +147,9 @@ type SlideshowUser struct {
 	Name  string // user's display name
 }
 
-type TagSlideshow struct {
+type TagItem struct {
 	Tag
-	SlideshowId int64
+	ItemId int64
 }
 
 type TopicSlide struct {

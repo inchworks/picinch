@@ -28,11 +28,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"inchworks.com/picinch/pkg/images"
-	"inchworks.com/picinch/pkg/models"
-	"inchworks.com/picinch/pkg/models/mysql"
-	"inchworks.com/picinch/pkg/picinch"
-
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golangcollege/sessions"
 	"github.com/ilyakaznacheev/cleanenv"
@@ -44,6 +39,12 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/justinas/nosurf"
 	"github.com/microcosm-cc/bluemonday"
+
+	"inchworks.com/picinch/pkg/images"
+	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/pkg/models/mysql"
+	"inchworks.com/picinch/pkg/tags"
+	"inchworks.com/picinch/pkg/picinch"
 )
 
 // version and copyright
@@ -163,8 +164,6 @@ type Application struct {
 	GalleryStore   *mysql.GalleryStore
 	SlideshowStore *mysql.SlideshowStore
 	statisticStore *mysql.StatisticStore
-	tagStore       *mysql.TagStore
-	tagRefStore    *mysql.TagRefStore
 	userStore      *mysql.UserStore
 
 	// common components
@@ -177,6 +176,9 @@ type Application struct {
 
 	// Image processing
 	imager *images.Imager
+
+	// Tagging
+	tagger tags.Tagger
 
 	// HTML handlers for threats detected by application logic
 	wrongCode http.Handler
@@ -416,6 +418,11 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		VideoThumbnail: filepath.Join(UIPath, "static/images/video.jpg"),
 	}
 
+	// setup tagging
+	// #### make stores exclusive to tagger
+	app.tagger.ErrorLog = app.errorLog
+	app.tagger.UserStore = app.userStore
+
 	// initialise rate limiters
 	app.lhs = limithandler.Start(8*time.Hour, 24*time.Hour)
 
@@ -455,8 +462,8 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.GalleryStore = mysql.NewGalleryStore(app.db, &app.tx, app.errorLog)
 	app.SlideshowStore = mysql.NewSlideshowStore(app.db, &app.tx, app.errorLog)
 	app.statisticStore = mysql.NewStatisticStore(app.db, &app.statsTx, app.errorLog)
-	app.tagStore = mysql.NewTagStore(app.db, &app.tx, app.errorLog)
-	app.tagRefStore = mysql.NewTagRefStore(app.db, &app.tx, app.errorLog)
+	app.tagger.TagStore = mysql.NewTagStore(app.db, &app.tx, app.errorLog)
+	app.tagger.TagRefStore = mysql.NewTagRefStore(app.db, &app.tx, app.errorLog)
 	app.userStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
 
 	// database change to users table, to use webparts
@@ -474,7 +481,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 
 	// save gallery ID for stores that need it
 	app.SlideshowStore.GalleryId = g.Id
-	app.tagStore.GalleryId = g.Id
+	app.tagger.TagStore.GalleryId = g.Id
 	app.userStore.GalleryId = g.Id
 
 	// highlights topic ID

@@ -33,12 +33,13 @@ import (
 
 	"github.com/inchworks/webparts/multiforms"
 	"github.com/inchworks/webparts/users"
+	"inchworks.com/picinch/pkg/tags"
 )
 
 type userTags struct {
 	id   int64
 	name string
-	tags []*slideshowTag
+	tags []*tags.ItemTag
 }
 
 // Get data to assign slideshows to topics
@@ -355,30 +356,6 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 	return
 }
 
-// forEditSlideshowTags returns a form, with tags for just the current user.
-// ## Not useful?
-func (s *GalleryState) forEditSlideshowTags1(tagRefId int64, userId int64, tok string) (f *multiforms.Form, title string, tags []*slideshowTag) {
-
-	// serialisation
-	defer s.updatesNone()()
-
-	// selected tag
-	tagShow := s.app.tagStore.ForReference(tagRefId)
-	if tagShow == nil {
-		return
-	}
-	title = tagShow.Name
-
-	// tags to be edited, as specified by the selected tag
-	tags = s.app.formTags(tagShow.SlideshowId, &tagShow.Tag, userId)
-
-	// current data
-	var d = make(url.Values)
-	f = multiforms.New(d, tok)
-	f.Set("nTagRef", strconv.FormatInt(tagRefId, 36))
-	return
-}
-
 // forEditSlideshowTags returns a form, showing and editing relevant tags.
 func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, userId int64, tok string) (f *multiforms.Form, title string, usersTags []*userTags) {
 
@@ -386,7 +363,7 @@ func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, use
 	defer s.updatesNone()()
 
 	// validate that user has permission for this tag
-	if !s.app.tagRefStore.HasPermission(userId, rootId) {
+	if !s.app.tagger.HasPermission(rootId, userId) {
 		return
 	}
 
@@ -403,7 +380,7 @@ func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, use
 		if u.Id != userId {
 
 			// include only users with referenced tags
-			cts := s.app.childSlideshowTags(slideshowId, rootId, u.Id, false)
+			cts := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, u.Id, false)
 			if len(cts) > 0 {
 				ut := &userTags{
 					id:   u.Id,
@@ -416,7 +393,7 @@ func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, use
 	}
 
 	// this user's tags, to edit
-	ets := s.app.childSlideshowTags(slideshowId, rootId, userId, true)
+	ets := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, userId, true)
 	if len(ets) > 0 {
 		et := &userTags{
 			id:   userId,
@@ -441,12 +418,12 @@ func (s *GalleryState) onEditSlideshowTags(slideshowId int64, rootId int64, user
 	defer s.updatesGallery()()
 
 	// validate that user has permission for this tag
-	if !s.app.tagRefStore.HasPermission(userId, rootId) {
+	if !s.app.tagger.HasPermission(rootId, userId) {
 		return false
 	}
 
 	// tags to be edited, as specified by the selected tag, same as form request
-	tags := s.app.childSlideshowTags(slideshowId, rootId, userId, true)
+	tags := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, userId, true)
 	return s.app.editTags(f, userId, slideshowId, tags)
 }
 
@@ -812,11 +789,11 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 	}
 
 	// tag entry as unvalidated
-	s.app.setTagRef(show.Id, 0, "new", 0, "")
+	s.app.tagger.SetTagRef(show.Id, 0, "new", 0, "")
 
 	// tag agreements (This is a legal requirement, so we make the logic as explicit as possible.)
 	if nAgreed > 0 {
-		s.app.setTagRef(show.Id, 0, "agreements", 0, strconv.Itoa(nAgreed))
+		s.app.tagger.SetTagRef(show.Id, 0, "agreements", 0, strconv.Itoa(nAgreed))
 	}
 
 	// request worker to generate image version, and remove unused images
@@ -924,7 +901,7 @@ func (s *GalleryState) validate(code int64) (string, *dataValidated) {
 	}
 
 	// remove new tag, which triggers addition of successor tags
-	if !s.app.dropTagRef(show.Id, 0, "new", 0) {
+	if !s.app.tagger.DropTagRef(show.Id, 0, "new", 0) {
 		// ## warn the user
 		return "", nil
 	}
@@ -963,8 +940,8 @@ func (app *Application) dataTags(tags []*models.Tag, level int, rootId int64, us
 		}
 
 		// references
-		n := app.tagRefStore.CountSlideshows(t.Id, userId)
-		children := app.dataTags(app.tagStore.ForParent(t.Id), level+1, rootId, userId)
+		n := app.tagger.TagRefStore.CountItems(t.Id, userId)
+		children := app.dataTags(app.tagger.TagStore.ForParent(t.Id), level+1, rootId, userId)
 
 		// skip unreferenced tags
 		if n+len(children) > 0 {
@@ -991,48 +968,48 @@ func (app *Application) dataTags(tags []*models.Tag, level int, rootId int64, us
 }
 
 // editTags recursively processes tag changes.
-func (app *Application) editTags(f *multiforms.Form, userId int64, slideshowId int64, tags []*slideshowTag) bool {
+func (app *Application) editTags(f *multiforms.Form, userId int64, slideshowId int64, tags []*tags.ItemTag) bool {
 	for _, tag := range tags {
 
 		// name for form input and element ID
 		// (We just use it to identify the field, and don't trust it as a database ID)
-		nm := strconv.FormatInt(tag.id, 36)
+		nm := strconv.FormatInt(tag.Id, 36)
 
 		// One of the rubbish parts of HTML. For a checkbox, the name is the tag and any value indicates set.
 		// For a radio button, the name is the parent tag and the value is the set tag.
 		src := false
-		switch tag.format {
+		switch tag.Format {
 		case "C":
 			if f.Get(nm) != "" {
 				src = true // any value indicates set, "on" is default value
 			}
 
 		case "R":
-			radio := strconv.FormatInt(tag.parent, 36)
+			radio := strconv.FormatInt(tag.Parent, 36)
 			if f.Get(radio) == nm {
 				src = true
 			}
 
 		default:
-			src = tag.set // not editable
+			src = tag.Set // not editable
 		}
 
-		if src && !tag.set {
+		if src && !tag.Set {
 
 			// set tag reference, and do any corresponding actions
-			if !app.setTagRef(slideshowId, tag.parent, tag.name, userId, "") {
+			if !app.tagger.SetTagRef(slideshowId, tag.Parent, tag.Name, userId, "") {
 				return false
 			}
 
-		} else if !src && tag.set {
+		} else if !src && tag.Set {
 
 			// drop tag reference, and do any corresponding actions
-			if !app.dropTagRef(slideshowId, tag.parent, tag.name, userId) {
+			if !app.tagger.DropTagRef(slideshowId, tag.Parent, tag.Name, userId) {
 				return false
 			}
 		}
 
-		if !app.editTags(f, userId, slideshowId, tag.children) {
+		if !app.editTags(f, userId, slideshowId, tag.Children) {
 			return false
 		}
 	}

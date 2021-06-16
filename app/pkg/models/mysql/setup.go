@@ -118,17 +118,17 @@ var cmds = [...]string{
 
 	`CREATE TABLE tagref (
 		id int(11) NOT NULL AUTO_INCREMENT,
-		slideshow int(11) NULL,
+		item int(11) NULL,
 		tag int(11) NOT NULL,
 		user int(11) NULL,
 		added datetime NOT NULL,
 		detail varchar(512) COLLATE utf8_unicode_ci NOT NULL,
 		PRIMARY KEY (id),
-		KEY IDX_TAG_SLIDESHOW (slideshow),
+		KEY IDX_TAG_ITEM (item),
 		KEY IDX_TAG_TAG (tag),
 		KEY IDX_TAG_USER (user),
-		UNIQUE KEY IDX_TAGREF (slideshow, tag, user),
-		CONSTRAINT FK_TAG_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE,
+		UNIQUE KEY IDX_TAGREF (item, tag, user),
+		CONSTRAINT FK_TAG_SLIDESHOW FOREIGN KEY (item) REFERENCES slideshow (id) ON DELETE CASCADE,
 		CONSTRAINT FK_TAG_TAG FOREIGN KEY (tag) REFERENCES tag (id) ON DELETE CASCADE,
 		CONSTRAINT FK_TAG_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
