@@ -34,7 +34,7 @@
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
 			    <input type='hidden' name='nShow' value='{{.Get "nShow"}}'>
-			    <input type='hidden' name='nUserTag' value='{{.Get "nUserTag"}}'>
+			    <input type='hidden' name='nRoot' value='{{.Get "nRoot"}}'>
 			{{end}}	
 			{{range .Users}}
 				<h4>{{.Name}}</h4>

@@ -104,8 +104,9 @@ type DataPublished struct {
 }
 
 type DataSlideshow struct {
+	Topic       string
 	Title       string
-	Info        string
+	Caption     string
 	DisplayName string
 	AfterHRef   string
 	BeforeHRef  string
@@ -128,7 +129,7 @@ type DataSlide struct {
 }
 
 type DataTagged struct {
-	NUserTag   int64
+	NRoot      int64
 	Parent     string
 	Tag        string
 	Topic      string
@@ -142,8 +143,8 @@ type DataTags struct {
 }
 
 type DataTag struct {
-	UserTag int64
-	Parent  int64
+	NRoot   int64
+	NTag    int64
 	Name    string
 	Count   string
 	Disable string

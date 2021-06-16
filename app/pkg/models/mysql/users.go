@@ -66,16 +66,12 @@ const (
 		WHERE EXISTS ( SELECT * FROM tag WHERE tag.gallery = ? AND tag.user = user.id )
 	`
 
+
 	// Users ordered by most recent published slideshow.
 	// This is tricky. First get all slideshows, partition them by user and sort within users by date.
 	// Then take the first ranked ones, and join the users.
 	// https://dev.mysql.com/doc/refman/8.0/en/example-maximum-column-group-row.html
 
-	usersWhereTag = `
-		SELECT user.*, tag.id AS tagid FROM USER
-		JOIN tag ON tag.user = user.id
-		WHERE tag.gallery = ? AND tag.parent = 0 AND tag.name = ?
-	`
 	usersByLatestSlideshow = `
 		WITH s1 AS (
 			SELECT contrib.user AS userId, contrib.created,
@@ -91,6 +87,19 @@ const (
 		JOIN user ON userId = user.id
 		WHERE rnk = 1
 		ORDER BY s1.created DESC
+	`
+
+	usersWhereTag = `
+		SELECT user.* FROM TAGREF
+		JOIN user ON user.id = tagref.user
+		WHERE tagref.tag = ? AND tagref.slideshow IS NULL
+	`
+
+	usersWhereTagName = `
+	    SELECT user.* FROM TAG
+		JOIN tagref ON tagref.tag = tag.id 
+		JOIN user ON user.id = tagref.user
+		WHERE tag.gallery = ? AND tag.name = ? AND tag.parent = 0 AND tagref.slideshow IS NULL
 	`
 )
 
@@ -168,11 +177,24 @@ func (st *UserStore) Count() int {
 }
 
 // ForTag returns all users with the specified root tag.
-func (st *UserStore) ForTag(name string) []*models.UserTag {
+func (st *UserStore) ForTag(tagId int64) []*users.User {
 
-	var users []*models.UserTag
+	var users []*users.User
 
-	if err := st.DBX.Select(&users, usersWhereTag, st.GalleryId, name); err != nil {
+	if err := st.DBX.Select(&users, usersWhereTag, tagId); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return users
+}
+
+// ForTagName returns all users with the root tag specified by name.
+func (st *UserStore) ForTagName(name string) []*users.User {
+
+	var users []*users.User
+
+	if err := st.DBX.Select(&users, usersWhereTagName, st.GalleryId, name); err != nil {
 		st.logError(err)
 		return nil
 	}

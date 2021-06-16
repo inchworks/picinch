@@ -31,7 +31,7 @@ const (
 	tagrefDelete = `DELETE FROM tagref WHERE id = ?`
 
 	tagrefInsert = `
-		INSERT INTO tagref (slideshow, tag, added, user, detail) VALUES (:slideshow, :tag, :added, :user, :detail)`
+		INSERT INTO tagref (slideshow, tag, user, added, detail) VALUES (:slideshow, :tag, :user, :added, :detail)`
 
 	tagrefUpdate = `
 		UPDATE tagref
@@ -45,16 +45,11 @@ const (
 
 	tagrefWhereId = tagrefSelect + ` WHERE id = ?`
 
-	tagrefCountForTag = `SELECT COUNT(*) FROM tagref WHERE tag = ?`
+	tagrefCountSlideshows = `SELECT COUNT(*) FROM tagref WHERE tag = ? AND user = ? AND slideshow IS NOT NULL`
 
-	tagrefDeleteAll = `
-		DELETE tagref FROM tagref
-		INNER JOIN tag ON tag.id = tagref.tag
-		WHERE tag.parent = ? AND tag.name = ? AND tagref.slideshow = ? AND tag.user <> 0
-	`
 	tagrefDeleteWhere = `
 		DELETE FROM tagref
-		WHERE slideshow = ? AND tag = ?
+		WHERE slideshow = ? AND tag = ? AND user = ?
 	`
 	tagrefDeleteWhereTag = `
 		DELETE tagref FROM tagref
@@ -62,7 +57,9 @@ const (
 		WHERE tag.parent = ? AND tag.name = ? AND tag.user = ? AND tagref.slideshow = ?
 	`
 
-	tagrefExists = `SELECT EXISTS(SELECT * FROM tagref WHERE slideshow = ? AND tag = ?)`
+	tagrefExists = `SELECT EXISTS(SELECT * FROM tagref WHERE slideshow = ? AND tag = ? AND user = ?)`
+
+	tagrefPermission = `SELECT EXISTS(SELECT * FROM tagref WHERE user = ? AND tag = ? AND slideshow IS NULL)`
 )
 
 type TagRefStore struct {
@@ -84,10 +81,10 @@ func NewTagRefStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *TagRefStore {
 }
 
 // Count returns the number of references for a tag.
-func (st *TagRefStore) CountForTag(tagId int64) int {
+func (st *TagRefStore) CountSlideshows(tag int64, user int64) int {
 	var n int
 
-	if err := st.DBX.Get(&n, tagrefCountForTag, tagId); err != nil {
+	if err := st.DBX.Get(&n, tagrefCountSlideshows, tag, user); err != nil {
 		st.logError(err)
 		return 0
 	}
@@ -95,28 +92,18 @@ func (st *TagRefStore) CountForTag(tagId int64) int {
 	return n
 }
 
-// DeleteAll removes user-specific tag references for all users.
-func (st *TagRefStore) DeleteAll(parent int64, name string, slideshow int64) error {
-
-	if _, err := st.DBX.Exec(tagrefDeleteAll, parent, name, slideshow); err != nil {
-		return st.logError(err)
-	}
-
-	return nil
-}
-
 // DeleteIf deletes a tag reference with a specified tag ID.
-func (st *TagRefStore) DeleteIf(slideshow int64, tag int64) error {
+func (st *TagRefStore) DeleteIf(slideshow int64, tag int64, user int64) error {
 
-	if _, err := st.DBX.Exec(tagrefDeleteWhere, slideshow, tag); err != nil {
+	if _, err := st.DBX.Exec(tagrefDeleteWhere, slideshow, tag, user); err != nil {
 		return st.logError(err)
 	}
 
 	return nil
 }
 
-// DeleteIfTag deletes a tag reference with a specified tag name.
-func (st *TagRefStore) DeleteIfTag0(parent int64, name string, forUser int64, slideshow int64) error {
+// DeleteIfName deletes a tag reference with a specified tag name.
+func (st *TagRefStore) DeleteIfName0(parent int64, name string, forUser int64, slideshow int64) error {
 
 	if _, err := st.DBX.Exec(tagrefDeleteWhereTag, parent, name, forUser, slideshow); err != nil {
 		return st.logError(err)
@@ -125,11 +112,11 @@ func (st *TagRefStore) DeleteIfTag0(parent int64, name string, forUser int64, sl
 	return nil
 }
 
-// Exists returns true if a slideshow has the specfied tag.
-func (st *TagRefStore) Exists(slideshow int64, tag int64) bool {
+// Exists returns true if a slideshow has the specfied tag and user.
+func (st *TagRefStore) Exists(slideshow int64, tag int64, user int64) bool {
 	var e bool
 
-	if err := st.DBX.Get(&e, tagrefExists, slideshow, tag); err != nil {
+	if err := st.DBX.Get(&e, tagrefExists, slideshow, tag, user); err != nil {
 		st.logError(err)
 		return false
 	}
@@ -151,6 +138,19 @@ func (st *TagRefStore) GetIf(id int64) *models.TagRef {
 
 	return &r
 }
+
+// HasPermission returns true if a user has a permission reference for the specified tag.
+func (st *TagRefStore) HasPermission(user int64, tag int64) bool {
+	var e bool
+
+	if err := st.DBX.Get(&e, tagrefPermission, user, tag); err != nil {
+		st.logError(err)
+		return false
+	}
+
+	return e
+}
+
 
 // Update inserts or updates a tag reference.
 func (st *TagRefStore) Update(r *models.TagRef) error {

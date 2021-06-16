@@ -31,7 +31,7 @@ const (
 	tagDelete = `DELETE FROM tag WHERE id = ?`
 
 	tagInsert = `
-		INSERT INTO tag (gallery, parent, user, name, action, format) VALUES (:gallery, :parent, :user, :name, :action, :format)`
+		INSERT INTO tag (gallery, parent, name, action, format) VALUES (:gallery, :parent, :name, :action, :format)`
 
 	tagUpdate = `
 		UPDATE tag
@@ -46,8 +46,15 @@ const (
 	tagOrderName = ` ORDER BY name`
 
 	tagWhereId         = tagSelect + ` WHERE id = ?`
-	tagRootWhereName  = tagSelect + ` WHERE gallery = ? AND parent = 0 AND name = ? AND user = ?`
-	tagChildWhereName  = tagSelect + ` WHERE parent = ? AND name = ? AND user = ?`
+	tagRootWhereName  = tagSelect + ` WHERE gallery = ? AND parent = 0 AND name = ?`
+	tagChildWhereName  = tagSelect + ` WHERE parent = ? AND name = ?`
+
+	tagsWherePermission = `
+		SELECT tag.*
+		FROM tagref
+		JOIN tag ON tag.id = tagref.tag
+		WHERE tagref.user = ? AND tagref.slideshow IS NULL AND tag.parent = 0
+	`
 
 	tagWhereRef = `
 	 	SELECT tag.*, tagref.slideshow AS slideshowid
@@ -56,10 +63,7 @@ const (
 		WHERE tagref.id = ?
 	`
 
-	tagsWhereName = tagSelect + ` WHERE parent = ? AND name = ?`
 	tagsWhereParent = tagSelect + ` WHERE parent = ?` + tagOrderName
-	tagsWhereUser = tagSelect + ` WHERE user = ?` + tagOrderName
-
 )
 
 type TagStore struct {
@@ -81,19 +85,6 @@ func NewTagStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *TagStore {
 	}
 }
 
-// ForName returns all tags for a parent (usually 0) and name.
-func (st *TagStore) ForName(parent int64, name string) []*models.Tag {
-
-	var tags []*models.Tag
-
-	if err := st.DBX.Select(&tags, tagsWhereName, parent, name); err != nil {
-		st.logError(err)
-		return nil
-	}
-
-	return tags
-}
-
 // ForParent returns all tags specific to a user.
 func (st *TagStore) ForParent(parent int64) []*models.Tag {
 
@@ -107,25 +98,12 @@ func (st *TagStore) ForParent(parent int64) []*models.Tag {
 	return tags
 }
 
-// ForUser returns all tags specific to a user.
+// ForUser returns all root tags for which a user has permission.
 func (st *TagStore) ForUser(user int64) []*models.Tag {
 
 	var tags []*models.Tag
 
-	if err := st.DBX.Select(&tags, tagsWhereUser, user); err != nil {
-		st.logError(err)
-		return nil
-	}
-
-	return tags
-}
-
-// ForTag returns all users with the specified root tag.
-func (st *TagStore) ForTag(name string) []*models.Tag {
-
-	var tags []*models.Tag
-
-	if err := st.DBX.Select(&tags, tagsWhereUser, name); err != nil {
+	if err := st.DBX.Select(&tags, tagsWherePermission, user); err != nil {
 		st.logError(err)
 		return nil
 	}
@@ -149,25 +127,25 @@ func (st *TagStore) GetIf(id int64) *models.Tag {
 }
 
 // GetNamed returns a tag selected by parent tag and name.
-func (st *TagStore) GetNamed(parent int64, name string, user int64) (*models.Tag, error) {
+func (st *TagStore) GetNamed(parent int64, name string) *models.Tag {
 
 	var t models.Tag
 
 	var err error
 	if parent == 0 {
-		err = st.DBX.Get(&t, tagRootWhereName, st.GalleryId, name, user)
+		err = st.DBX.Get(&t, tagRootWhereName, st.GalleryId, name)
 	} else {
-		err = st.DBX.Get(&t, tagChildWhereName, parent, name, user)
+		err = st.DBX.Get(&t, tagChildWhereName, parent, name)
 	}
+
 	if err != nil {
 		if st.convertError(err) != models.ErrNoRecord {
 			st.logError(err)
-			return nil, err
-		} else {
-			return nil, nil
 		}
+		return nil
 	}
-	return &t, nil
+	
+	return &t
 }
 
 // ForReference returns a tag and slideshow ID for a reference.

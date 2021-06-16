@@ -31,9 +31,26 @@ import (
 
 // Copyright © Rob Burke inchworks.com, 2020.
 
+// displayClasses returns data for competition classes.
+func (s *GalleryState) displayClasses(member bool) *dataCompetition {
+
+	defer s.updatesNone()()
+
+	a := s.app
+
+	// ## restrict to published categories
+	dShows := s.dataShowsPublished(
+		a.SlideshowStore.AllEditableTopics(), a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
+
+	// template and its data
+	return &dataCompetition{
+		Categories: dShows,
+	}
+}
+
 // List of published slideshows for a user
 
-func (s *GalleryState) DisplayContributor(userId int64) (string, *DataHome) {
+func (s *GalleryState) DisplayContributor(userId int64) *DataHome {
 
 	defer s.updatesNone()()
 
@@ -41,7 +58,7 @@ func (s *GalleryState) DisplayContributor(userId int64) (string, *DataHome) {
 	user, err := s.app.userStore.Get(userId)
 	if err != nil {
 		s.app.log(err)
-		return "", nil
+		return nil
 	}
 
 	// highlights
@@ -65,7 +82,7 @@ func (s *GalleryState) DisplayContributor(userId int64) (string, *DataHome) {
 	}
 
 	// template and its data
-	return "contributor.page.tmpl", &DataHome{
+	return &DataHome{
 		DisplayName: user.Name,
 		Highlights:  dHighlights,
 		Slideshows:  dShows,
@@ -102,7 +119,7 @@ func (s *GalleryState) DisplayEmbedded(nImages int) *DataSlideshow {
 
 // Home page with slideshows
 
-func (s *GalleryState) DisplayHome(member bool) (string, *DataHome) {
+func (s *GalleryState) DisplayHome(member bool) *DataHome {
 
 	defer s.updatesNone()()
 
@@ -121,7 +138,7 @@ func (s *GalleryState) DisplayHome(member bool) (string, *DataHome) {
 	}
 
 	// template and its data
-	return "home.page.tmpl", &DataHome{
+	return &DataHome{
 		Highlights: dHighlights,
 		Slideshows: dShows,
 	}
@@ -144,7 +161,7 @@ func (s *GalleryState) DisplayShared(code int64, seq int) (string, *DataSlidesho
 	if slideshow.User.Valid {
 
 		// this is a single slideshow
-		return s.displaySlides(slideshow, from, 100)
+		return "carousel-default.page.tmpl", s.displaySlides(slideshow, from, 100)
 	}
 
 	// this is a topic
@@ -159,7 +176,7 @@ func (s *GalleryState) DisplayShared(code int64, seq int) (string, *DataSlidesho
 		// otherwise Bootstrap Carousel doesn't give any events to trigger loading of the first user's slideshow.
 		return "carousel-shared.page.tmpl", &DataSlideshow{
 			Title:      topic.Title,
-			Info:       s.app.galleryState.gallery.Organiser,
+			Caption:    s.app.galleryState.gallery.Organiser,
 			AfterHRef:  after,
 			BeforeHRef: before,
 			DataCommon: DataCommon{
@@ -172,84 +189,50 @@ func (s *GalleryState) DisplayShared(code int64, seq int) (string, *DataSlidesho
 	}
 }
 
-// DisplaySlideshow returns a template and data for a slideshow.
-func (s *GalleryState) DisplaySlideshow(id int64, from string) (string, *DataSlideshow) {
+// DisplaySlideshow returns data for a slideshow.
+func (s *GalleryState) DisplaySlideshow(id int64, from string) *DataSlideshow {
 
 	defer s.updatesNone()()
 
 	// get slideshow ..
 	show, err := s.app.SlideshowStore.Get(id)
 	if err != nil {
-		return "", nil
+		return nil
 	}
 
 	// .. and slides
 	return s.displaySlides(show, from, 100)
 }
 
-// DisplayTagged returns a template and data for tagged slideshows.
-func (s *GalleryState) DisplayTagged(topicId int64, parentId int64, tag string, nMax int) (string, *DataTagged) {
+// DisplayToDo returns data for slideshows with user-specific tags.
+func (s *GalleryState) DisplayToDo(topicId int64, rootId int64, tagId int64, userId int64, nMax int) *DataTagged {
 
 	defer s.updatesNone()()
 
-	// parent tag name
-	var parentTag string
-	if parentId != 0 {
-		p := s.app.tagStore.GetIf(parentId)
-		if p != nil {
-			parentTag = p.Name + " : "
-		}
+	// validate that user has permission for this tag
+	if !s.app.tagRefStore.HasPermission(userId, rootId) {
+		return nil
 	}
 
-	// get tagged slideshows, optionally for a topic
-	var topicTitle string
-	var slideshows []*models.Slideshow
-	if topicId != 0 {
-		if topic, err := s.app.SlideshowStore.Get(topicId); err == nil {
-			topicTitle = topic.Title + " : "
-		}
-		slideshows = s.app.SlideshowStore.ForTagTopic(parentId, tag, topicId, nMax)
+	// ## should validate that tag is a child of the root
 
-	} else {
-		slideshows = s.app.SlideshowStore.ForTag(parentId, tag, nMax)
+	// tag
+	t := s.app.tagStore.GetIf(tagId)
+	if t == nil {
+		return nil
 	}
-
-	var dShows []*DataPublished
-
-	for _, sh := range slideshows {
-		dShows = append(dShows, &DataPublished{
-			Id:          sh.Id,
-			Title:       sh.Title,
-			Image:       sh.Image,
-			DisplayName: sh.Caption,
-		})
-	}
-
-	return "tagged.page.tmpl", &DataTagged{
-		Parent:     parentTag,
-		Tag:        tag,
-		Topic:      topicTitle,
-		Slideshows: dShows,
-	}
-}
-
-// DisplayToDo returns a template and data for slideshows with user-specific tags.
-func (s *GalleryState) DisplayToDo(topicId int64, userTagId int64, parentId int64, tag string, userId int64, nMax int) (string, *DataTagged) {
-
-	defer s.updatesNone()()
 
 	// parent tag name
 	var parentTag string
-	if parentId != 0 {
-		p := s.app.tagStore.GetIf(parentId)
+	if t.Parent != 0 {
+		p := s.app.tagStore.GetIf(t.Parent)
 		if p != nil {
 			parentTag = p.Name + " : "
 		}
-		userId = 0 // only root tags need a user ID
 	}
 
 	// get slideshows, tagged for user
-	slideshows := s.app.SlideshowStore.ForTagUser(parentId, tag, userId, nMax)
+	slideshows := s.app.SlideshowStore.ForTagUser(tagId, userId, nMax)
 
 	// ## no support for topic-specific
 
@@ -265,10 +248,10 @@ func (s *GalleryState) DisplayToDo(topicId int64, userTagId int64, parentId int6
 		})
 	}
 
-	return "tagged.page.tmpl", &DataTagged{
-		NUserTag:   userTagId,
+	return &DataTagged{
+		NRoot:      rootId,
 		Parent:     parentTag,
-		Tag:        tag,
+		Tag:        t.Name,
 		Slideshows: dShows,
 	}
 }
@@ -295,7 +278,7 @@ func (s *GalleryState) DisplayTopicHome(id int64, seq int, from string) (string,
 
 // Slideshows for a topic
 
-func (s *GalleryState) DisplayTopicContributors(id int64) (string, *DataSlideshows) {
+func (s *GalleryState) DisplayTopicContributors(id int64) *DataSlideshows {
 
 	defer s.updatesNone()()
 
@@ -321,25 +304,35 @@ func (s *GalleryState) DisplayTopicContributors(id int64) (string, *DataSlidesho
 		})
 	}
 
-	return "topic-contributors.page.tmpl", &DataSlideshows{
+	return &DataSlideshows{
 		Title:      topic.Title,
 		Slideshows: dShows,
 	}
 }
 
-// DisplayTopicUser returns the template and slides for a user's contribution to a topic.
-func (s *GalleryState) DisplayTopicUser(topicId int64, userId int64, from string) (string, *DataSlideshow) {
+// DisplayTopicUser returns slides for a user's contribution to a topic.
+func (s *GalleryState) DisplayTopicUser(topicId int64, userId int64, from string) *DataSlideshow {
 
 	defer s.updatesNone()()
 
 	// get slideshow
 	show := s.app.SlideshowStore.ForTopicUserIf(topicId, userId)
 	if show == nil {
-		return "", nil
+		return nil
 	}
 
 	// .. and slides
 	return s.displaySlides(show, from, 30)
+}
+
+// displayUserTags returns a tree of all tags assigned to the user, with reference counts.
+func (s *GalleryState) displayUserTags(userId int64) *DataTags {
+
+	defer s.updatesNone()()
+
+	return &DataTags{
+		Tags: s.app.dataTags(s.app.tagStore.ForUser(userId), 0, 0, userId),
+	}
 }
 
 // User's view of gallery - just their name, topics and own slideshows at present
@@ -563,52 +556,6 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 	return data
 }
 
-// dataTags returns all referenced tags, with child tags
-func (s *GalleryState) dataTags(tags []*models.Tag, level int, userTagId int64) []*DataTag {
-
-	var dTags []*DataTag
-
-	for _, t := range tags {
-
-		// note the root tags (needed for selection of tags to be edited)
-		if level == 0 {
-			userTagId = t.Id
-		}
-
-		// references
-		n := s.app.tagRefStore.CountForTag(t.Id)
-		children := s.dataTags(s.app.tagStore.ForParent(t.Id), level+1, userTagId)
-
-		// skip unreferenced tags
-		if n+len(children) > 0 {
-
-			var sCount, sDisable string
-			if n > 0 {
-				sCount = strconv.Itoa(n)
-			} else {
-				sDisable = "disabled"
-			}
-
-			dTags = append(dTags, &DataTag{
-				UserTag: userTagId,
-				Parent: t.Parent,
-				Name:   t.Name,
-				Count:  sCount,
-				Disable: sDisable,
-				Indent: "offset-" + strconv.Itoa(level*2),
-			})
-			dTags = append(dTags, children...)
-		}
-	}
-	return dTags
-}
-
-// dataUserTags returns user-specific tags, with child tags
-func (s *GalleryState) dataUserTags(userId int64) []*DataTag {
-
-	return s.dataTags(s.app.tagStore.ForUser(userId), 0, 0)
-}
-
 // Display highlights : latest slides
 
 func (s *GalleryState) displayHighlights(topic *models.Slideshow, from string, perUser int) (string, *DataSlideshow) {
@@ -640,13 +587,13 @@ func (s *GalleryState) displayHighlights(topic *models.Slideshow, from string, p
 	}
 }
 
-// displaySlides returns a template and slides for a slideshow or a user's own view of a topic contribution.
-func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max int) (string, *DataSlideshow) {
+// displaySlides returns slides for a slideshow or a user's own view of a topic contribution.
+func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max int) *DataSlideshow {
 
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
 	user, err := s.app.userStore.Get(show.User.Int64)
 	if err != nil {
-		return "", nil
+		return nil
 	}
 
 	// replace slide data with HTML formatted fields
@@ -660,22 +607,9 @@ func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max in
 		})
 	}
 
-	// use topic title for a topic contribution
-	var title string
-	if show.Topic != 0 {
-		topic, err := s.app.SlideshowStore.Get(show.Topic)
-		if err != nil {
-			return "", nil
-		}
-		title = topic.Title
-
-	} else {
-		title = show.Title
-	}
-
-	// template and its data
-	return "carousel-default.page.tmpl", &DataSlideshow{
-		Title:       title,
+	data := &DataSlideshow{
+		Title:       show.Title,
+		Caption:     show.Caption,
 		DisplayName: user.Name,
 		AfterHRef:   from,
 		BeforeHRef:  from,
@@ -684,6 +618,18 @@ func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max in
 			ParentHRef: from,
 		},
 	}
+
+	// use topic title for a topic contribution
+	if show.Topic != 0 {
+		topic, err := s.app.SlideshowStore.Get(show.Topic)
+		if err != nil {
+			return nil
+		}
+		data.Topic = topic.Title
+	}
+
+	// template and its data
+	return data
 }
 
 // displayTopic returns a template and data for a section of a topic.

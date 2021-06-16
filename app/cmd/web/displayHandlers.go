@@ -40,6 +40,18 @@ func (app *Application) about(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, page + ".page.tmpl", nil)
 }
 
+// classes serves the home page for a competition.
+func (app *Application) classes(w http.ResponseWriter, r *http.Request) {
+
+	data := app.galleryState.displayClasses(app.isAuthenticated(r, models.UserFriend))
+	if data == nil {
+		app.clientError(w, http.StatusInternalServerError)
+		return
+	}
+
+	app.render(w, r, "classes.page.tmpl", data)
+}
+
 // Contributor (for other users to see)
 
 func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +60,7 @@ func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
 	// template and data for contributor
-	template, data := app.galleryState.DisplayContributor(userId)
+	data := app.galleryState.DisplayContributor(userId)
 	if data == nil {
 		// ## better to show "unknown contributor" nicely
 		app.clientError(w, http.StatusBadRequest)
@@ -56,7 +68,7 @@ func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// display page
-	app.render(w, r, template, data)
+	app.render(w, r, "contributor.page.tmpl", data)
 }
 
 // Contributors (for other users to see)
@@ -68,6 +80,33 @@ func (app *Application) contributors(w http.ResponseWriter, r *http.Request) {
 
 	// display page
 	app.render(w, r, template, data)
+}
+
+// entry handles a request to view a competition entry
+func (app *Application) entry(w http.ResponseWriter, r *http.Request) {
+
+	ps := httprouter.ParamsFromContext(r.Context())
+
+	id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+
+	// allow access to show?
+	// ## reads show, and DisplaySlideshow will read it again
+	isVisible, _ := app.allowViewShow(r, id)
+
+	if !isVisible {
+		app.clientError(w, http.StatusUnauthorized)
+		return
+	}
+
+	// template and data for slides
+	data := app.galleryState.DisplaySlideshow(id, r.Referer())
+	if data == nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	// display page
+	app.render(w, r, "carousel-competition.page.tmpl", data)
 }
 
 // Highlighted image, to be embedded in parent website
@@ -111,13 +150,13 @@ func (app *Application) home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// default home page
-	template, data := app.galleryState.DisplayHome(app.isAuthenticated(r, models.UserFriend))
+	data := app.galleryState.DisplayHome(app.isAuthenticated(r, models.UserFriend))
 	if data == nil {
 		app.clientError(w, http.StatusInternalServerError)
 		return
 	}
 
-	app.render(w, r, template, data)
+	app.render(w, r, "home.page.tmpl", data)
 }
 
 // Logout user
@@ -162,10 +201,16 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// template and data for slides
-		template, data = app.galleryState.DisplaySlideshow(id, r.Referer())
+		template = "carousel-default.page.tmpl"
+		data = app.galleryState.DisplaySlideshow(id, r.Referer())
 		if data == nil {
 			app.clientError(w, http.StatusBadRequest)
 			return
+		}
+
+		// topic title overrides user's own
+		if data.Topic != "" {
+			data.Title = data.Topic
 		}
 	}
 
@@ -229,6 +274,29 @@ func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) 
 	app.render(w, r, template, data)
 }
 
+// toDo handles a request to view tagged slideshows for a topic.
+func (app *Application) toDo(w http.ResponseWriter, r *http.Request) {
+
+	ps := httprouter.ParamsFromContext(r.Context())
+
+	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	rootId, _ := strconv.ParseInt(ps.ByName("nRoot"), 10, 64)
+	tagId, _ := strconv.ParseInt(ps.ByName("nTag"), 10, 64)
+	nMax, _ := strconv.ParseInt(ps.ByName("nMax"), 10, 32)
+	userId := app.authenticatedUser(r)
+
+
+	// template and data for slides
+	data := app.galleryState.DisplayToDo(topicId, rootId, tagId, userId, int(nMax))
+	if data == nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	// display page
+	app.render(w, r, "tagged.page.tmpl", data)
+}
+
 // Topic slides for user
 
 func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
@@ -239,7 +307,7 @@ func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
 	// template and data for slides
-	template, data := app.galleryState.DisplayTopicUser(showId, userId, r.Referer())
+	data := app.galleryState.DisplayTopicUser(showId, userId, r.Referer())
 	if data == nil {
 		app.session.Put(r, "flash", "No slides to this topic yet.")
 		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
@@ -247,7 +315,7 @@ func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// display page
-	app.render(w, r, template, data)
+	app.render(w, r, "carousel-default.page.tmpl", data)
 }
 
 // Users slideshows for topic
@@ -259,10 +327,10 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
 
 	// template and data for slides
-	template, data := app.galleryState.DisplayTopicContributors(topicId)
+	data := app.galleryState.DisplayTopicContributors(topicId)
 
 	// display page
-	app.render(w, r, template, data)
+	app.render(w, r, "topic-contributors.page.tmpl", data)
 }
 
 // Topics
@@ -288,6 +356,17 @@ func (app *Application) usageMonths(w http.ResponseWriter, r *http.Request) {
 	data := app.galleryState.ForUsage(usage.Month)
 
 	app.render(w, r, "usage.page.tmpl", data)
+}
+
+// userTags handles a request to view tags assigned to the user.
+func (app *Application) userTags(w http.ResponseWriter, r *http.Request) {
+
+	userId := app.authenticatedUser(r)
+			
+	data := app.galleryState.displayUserTags(userId)
+
+	// display page
+	app.render(w, r, "user-tags.page.tmpl", data)
 }
 
 // For curator

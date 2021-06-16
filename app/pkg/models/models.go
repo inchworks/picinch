@@ -26,8 +26,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/inchworks/webparts/users"
 )
 
 // Database field names are the same as structure names, with lower case first letter.
@@ -107,7 +105,6 @@ type Tag struct {
 	Id      int64
 	Gallery int64
 	Parent  int64 // 0 for a top level tag
-	User    int64 // 0 for a child tag
 	Name    string
 	Action  string
 	Format  string
@@ -115,7 +112,7 @@ type Tag struct {
 
 type TagRef struct {
 	Id        int64
-	Slideshow int64
+	Slideshow sql.NullInt64 // null for a user permission tag
 	Tag       int64
 	User      sql.NullInt64 // null for a system tag
 	Added     time.Time
@@ -161,11 +158,6 @@ type TopicSlide struct {
 	Caption string
 	Image   string
 	Name    string
-}
-
-type UserTag struct {
-	users.User
-	TagId int64
 }
 
 // Fields with newlines replaced by breaks, and HTML formatting allowed.

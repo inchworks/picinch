@@ -17,7 +17,7 @@
 
 package main
 
-// Processing for gallery editing / setup.
+// Processing for gallery setup and editing.
 //
 // These functions may modify application state.
 
@@ -34,6 +34,12 @@ import (
 	"github.com/inchworks/webparts/multiforms"
 	"github.com/inchworks/webparts/users"
 )
+
+type userTags struct {
+	id   int64
+	name string
+	tags []*slideshowTag
+}
 
 // Get data to assign slideshows to topics
 
@@ -349,6 +355,101 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 	return
 }
 
+// forEditSlideshowTags returns a form, with tags for just the current user.
+// ## Not useful?
+func (s *GalleryState) forEditSlideshowTags1(tagRefId int64, userId int64, tok string) (f *multiforms.Form, title string, tags []*slideshowTag) {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// selected tag
+	tagShow := s.app.tagStore.ForReference(tagRefId)
+	if tagShow == nil {
+		return
+	}
+	title = tagShow.Name
+
+	// tags to be edited, as specified by the selected tag
+	tags = s.app.formTags(tagShow.SlideshowId, &tagShow.Tag, userId)
+
+	// current data
+	var d = make(url.Values)
+	f = multiforms.New(d, tok)
+	f.Set("nTagRef", strconv.FormatInt(tagRefId, 36))
+	return
+}
+
+// forEditSlideshowTags returns a form, showing and editing relevant tags.
+func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, userId int64, tok string) (f *multiforms.Form, title string, usersTags []*userTags) {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// validate that user has permission for this tag
+	if !s.app.tagRefStore.HasPermission(userId, rootId) {
+		return
+	}
+
+	// slideshow title
+	show := s.app.SlideshowStore.GetIf(slideshowId)
+	if show == nil {
+		return
+	}
+	title = show.Title
+
+	// all users holding the same tags as this user
+	users := s.app.userStore.ForTag(rootId)
+	for _, u := range users {
+		if u.Id != userId {
+
+			// include only users with referenced tags
+			cts := s.app.childSlideshowTags(slideshowId, rootId, u.Id, false)
+			if len(cts) > 0 {
+				ut := &userTags{
+					id:   u.Id,
+					name: u.Name,
+					tags: cts,
+				}
+				usersTags = append(usersTags, ut)
+			}
+		}
+	}
+
+	// this user's tags, to edit
+	ets := s.app.childSlideshowTags(slideshowId, rootId, userId, true)
+	if len(ets) > 0 {
+		et := &userTags{
+			id:   userId,
+			name: "Me",
+			tags: ets,
+		}
+		usersTags = append(usersTags, et)
+	}
+
+	// current data
+	var d = make(url.Values)
+	f = multiforms.New(d, tok)
+	f.Set("nShow", strconv.FormatInt(slideshowId, 36))
+	f.Set("nRoot", strconv.FormatInt(rootId, 36))
+	return
+}
+
+// onEditSlideshowTags processes a form of tag changes, and returns true for a valid request.
+func (s *GalleryState) onEditSlideshowTags(slideshowId int64, rootId int64, userId int64, f *multiforms.Form) bool {
+
+	// serialisation
+	defer s.updatesGallery()()
+
+	// validate that user has permission for this tag
+	if !s.app.tagRefStore.HasPermission(userId, rootId) {
+		return false
+	}
+
+	// tags to be edited, as specified by the selected tag, same as form request
+	tags := s.app.childSlideshowTags(slideshowId, rootId, userId, true)
+	return s.app.editTags(f, userId, slideshowId, tags)
+}
+
 // Get data to edit slideshows for a user
 
 func (s *GalleryState) ForEditSlideshows(userId int64, tok string) (f *form.SlideshowsForm, user *users.User) {
@@ -624,6 +725,107 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 	return true
 }
 
+// ForEditGallery returns a competition entry form.
+func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicCompForm, string, error) {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// get the category topic
+	show, err := s.app.SlideshowStore.Get(categoryId)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// initial data
+	var d = make(url.Values)
+	f := form.NewPublicComp(d, 1, tok)
+	f.Set("category", strconv.FormatInt(show.Id, 36))
+
+	// generate request timestamp for uploaded images (we don't have a user ID yet)
+	f.Set("timestamp", strconv.FormatInt(time.Now().UnixNano(), 36))
+
+	return f, show.Title, nil
+}
+
+// onEnterComp processes a competition entry and returns true for valid client request.
+// ## Temporary - returns show Id for auto-validation.
+func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name string, email string, location string, title string, caption string, image string, nAgreed int) int64 {
+
+	// serialisation
+	defer s.updatesGallery()()
+
+	// create user for entry
+	u, err := s.app.userStore.GetNamed(email)
+	if err != nil && !s.app.userStore.IsNoRecord(err) {
+		return 0
+	}
+	if u == nil {
+		u = &users.User{
+			Username: email,
+			Name:     name,
+			Password: []byte(""),
+			Created:  time.Now(),
+		}
+		if err = s.app.userStore.Update(u); err != nil {
+			return 0
+		}
+	}
+
+	// generate validation code for public entry
+	vc, err := secureCode(8)
+	if err != nil {
+		s.app.errorLog.Print(err)
+		return 0
+	}
+
+	// create slideshow for entry
+	show := &models.Slideshow{
+		User:    sql.NullInt64{Int64: u.Id, Valid: true},
+		Visible: models.SlideshowClub, // ## Private would be better, but needs something else for judges to view.
+		Shared:  vc,
+		Topic:   categoryId,
+		Revised: time.Now(),
+		Title:   title,
+		Caption: location,
+		Format:  "E",
+	}
+	if err = s.app.SlideshowStore.Update(show); err != nil {
+		return 0
+	}
+
+	// create slide for image
+	// ## a future version will allow multiple slides
+	slide := &models.Slide{
+		Slideshow: show.Id,
+		Format:    models.SlideImage,
+		Revised:   time.Now(),
+		Image:     images.FileFromName(timestamp, image, 0),
+	}
+	if caption != "" {
+		slide.Caption = caption
+		slide.Format = slide.Format + models.SlideCaption
+	}
+
+	if err = s.app.SlideStore.Update(slide); err != nil {
+		return 0
+	}
+
+	// tag entry as unvalidated
+	s.app.setTagRef(show.Id, 0, "new", 0, "")
+
+	// tag agreements (This is a legal requirement, so we make the logic as explicit as possible.)
+	if nAgreed > 0 {
+		s.app.setTagRef(show.Id, 0, "agreements", 0, strconv.Itoa(nAgreed))
+	}
+
+	// request worker to generate image version, and remove unused images
+	s.app.chShow <- reqUpdateShow{showId: show.Id, timestamp: timestamp, revised: false}
+
+	return vc
+}
+
+
 // OnRemoveUser removes a user's contributions from the database
 func (s *GalleryState) OnRemoveUser(user *users.User) {
 
@@ -710,6 +912,133 @@ func (s *GalleryState) onRemoveTopic(t *models.Slideshow) {
 	s.app.SlideshowStore.DeleteId(t.Id)
 }
 
+// Validate tags an entry as validated and returns a template and data to confirm a validated entry.
+func (s *GalleryState) validate(code int64) (string, *dataValidated) {
+
+	defer s.updatesGallery()()
+
+	// check if code is valid
+	show := s.app.SlideshowStore.GetIfShared(code)
+	if show == nil {
+		return "", nil
+	}
+
+	// remove new tag, which triggers addition of successor tags
+	if !s.app.dropTagRef(show.Id, 0, "new", 0) {
+		// ## warn the user
+		return "", nil
+	}
+
+	// get confirmation details
+	u, err := s.app.userStore.Get(show.User.Int64)
+	if err != nil {
+		return "", nil
+	}
+	t, err := s.app.SlideshowStore.Get(show.Topic)
+	if err != nil {
+		return "", nil
+	}
+
+	// validated
+	return "validated.page.tmpl", &dataValidated{
+
+		Name:     u.Name,
+		Category: t.Title,
+		Title:    show.Title,
+	}
+}
+
+// INTERNAL FUNCTIONS
+
+// dataTags returns all referenced tags, with child tags
+func (app *Application) dataTags(tags []*models.Tag, level int, rootId int64, userId int64) []*DataTag {
+
+	var dTags []*DataTag
+
+	for _, t := range tags {
+
+		// note the root tags (needed for selection of tags to be edited)
+		if level == 0 {
+			rootId = t.Id
+		}
+
+		// references
+		n := app.tagRefStore.CountSlideshows(t.Id, userId)
+		children := app.dataTags(app.tagStore.ForParent(t.Id), level+1, rootId, userId)
+
+		// skip unreferenced tags
+		if n+len(children) > 0 {
+
+			var sCount, sDisable string
+			if n > 0 {
+				sCount = strconv.Itoa(n)
+			} else {
+				sDisable = "disabled"
+			}
+
+			dTags = append(dTags, &DataTag{
+				NRoot:   rootId,
+				NTag:    t.Id,
+				Name:    t.Name,
+				Count:   sCount,
+				Disable: sDisable,
+				Indent:  "offset-" + strconv.Itoa(level*2),
+			})
+			dTags = append(dTags, children...)
+		}
+	}
+	return dTags
+}
+
+// editTags recursively processes tag changes.
+func (app *Application) editTags(f *multiforms.Form, userId int64, slideshowId int64, tags []*slideshowTag) bool {
+	for _, tag := range tags {
+
+		// name for form input and element ID
+		// (We just use it to identify the field, and don't trust it as a database ID)
+		nm := strconv.FormatInt(tag.id, 36)
+
+		// One of the rubbish parts of HTML. For a checkbox, the name is the tag and any value indicates set.
+		// For a radio button, the name is the parent tag and the value is the set tag.
+		src := false
+		switch tag.format {
+		case "C":
+			if f.Get(nm) != "" {
+				src = true // any value indicates set, "on" is default value
+			}
+
+		case "R":
+			radio := strconv.FormatInt(tag.parent, 36)
+			if f.Get(radio) == nm {
+				src = true
+			}
+
+		default:
+			src = tag.set // not editable
+		}
+
+		if src && !tag.set {
+
+			// set tag reference, and do any corresponding actions
+			if !app.setTagRef(slideshowId, tag.parent, tag.name, userId, "") {
+				return false
+			}
+
+		} else if !src && tag.set {
+
+			// drop tag reference, and do any corresponding actions
+			if !app.dropTagRef(slideshowId, tag.parent, tag.name, userId) {
+				return false
+			}
+		}
+
+		if !app.editTags(f, userId, slideshowId, tag.children) {
+			return false
+		}
+	}
+	return true
+}
+
 // Sanitize HTML for reuse
 
 func (s *GalleryState) sanitize(new string, current string) string {
@@ -738,3 +1067,4 @@ func shareCode(isShared bool, hasCode int64) int64 {
 		return 0
 	}
 }
+

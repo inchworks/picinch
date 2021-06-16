@@ -97,6 +97,7 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/slideshow/:nShow/:seq", dynHs.ThenFunc(app.slideshow))
 	router.Handler("GET", "/contributors", authHs.ThenFunc(app.contributors))
 	router.Handler("GET", "/contributor/:nUser", authHs.ThenFunc(app.contributor))
+	router.Handler("GET", "/entry/:nShow", dynHs.ThenFunc(app.entry))
 	router.Handler("GET", "/my-slideshows", authHs.ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/slideshows-user/:nUser", authHs.ThenFunc(app.slideshowsUser))
 	router.Handler("GET", "/topic-user/:nShow/:nUser", dynHs.ThenFunc(app.topicUser))
@@ -108,11 +109,10 @@ func (app *Application) Routes() http.Handler {
 
 	// tagged selection
 	router.Handler("GET", "/user-tags", authHs.ThenFunc(app.userTags))
-	router.Handler("GET", "/tagged/:nTopic/:nParent/:tag/:nMax", authHs.ThenFunc(app.tagged))
-	router.Handler("GET", "/to-do/:nTopic/:nUserTag/:nParent/:tag/:nMax", authHs.ThenFunc(app.toDo))
+	router.Handler("GET", "/to-do/:nTopic/:nRoot/:nTag/:nMax", authHs.ThenFunc(app.toDo))
 
 	// set tags
-	router.Handler("GET", "/tag-slideshow/:nShow/:nUserTag", authHs.ThenFunc(app.getFormTagSlideshow))
+	router.Handler("GET", "/tag-slideshow/:nShow/:nRoot", authHs.ThenFunc(app.getFormTagSlideshow))
 	router.Handler("POST", "/tag-slideshow", authHs.ThenFunc(app.postFormTagSlideshow))
 
 	// user management
