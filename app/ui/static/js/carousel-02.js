@@ -47,9 +47,31 @@ jQuery(document).ready(function() {
 
     });
 
+	// pause videos
+	$("#slideshow1").find('.carousel-item').each(function(index, el) {
+  		if (index !== 0) {
+    		$(this).find('video')[0].pause();
+  		}
+	});
+
     // carousel events
     // also gets e.relatedTarget
     $('#slideshow1').on('slide.bs.carousel', function (e) {
+
+        // play current video and pause previous
+        let slides = $(this).find('.carousel-item');
+        let pvid = slides[e.from].querySelectorAll('video')[0];
+        let vid = slides[e.to].querySelectorAll('video')[0];
+
+        if (pvid != null) {
+            if (pvid.currentTime > 0 && pvid.readyState > 2)
+                pvid.pause();
+        }
+
+        if (vid != null) {
+            vid.play();
+        }
+
         if (e.from === 0 && e.direction === 'right') {
             window.location.href = gblBefore;
         }
@@ -75,7 +97,7 @@ jQuery(document).ready(function() {
     $('.shrink-image').each(function() {
         objectFit(this);    
     });
-    
+
  });
 
  // IE hack - move image to background (that supports object-fit) and overlay with transparent SVG image of the same size

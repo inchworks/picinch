@@ -155,14 +155,23 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 
 	// look for gallery record
 	g, err := stGallery.Get(galleryId)
-	if err != nil && err != models.ErrNoRecord {
+	if err != nil {
+		if driverErr, ok := err.(*mysql.MySQLError); ok {
+			if driverErr.Number == 1146  {
 
-		// no gallery table - make the database
-		if err = setupTables(stGallery.DBX, *stGallery.ptx); err != nil {
-			return nil, err
+				// no gallery table - make the database
+				err = setupTables(stGallery.DBX, *stGallery.ptx)
+			}
+		} else if stGallery.convertError(err) != models.ErrNoRecord {
+			// ok if no gallery record yet
+			err = nil
 		}
 	}
 
+	if err != nil {
+		return nil, stGallery.logError(err)
+	}
+	
 	if g == nil {
 		// create first gallery
 		g = &models.Gallery{Id: 1}

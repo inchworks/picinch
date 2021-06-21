@@ -775,7 +775,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 	// ## a future version will allow multiple slides
 	slide := &models.Slide{
 		Slideshow: show.Id,
-		Format:    models.SlideImage,
+		Format:    images.FileType(image),
 		Revised:   time.Now(),
 		Image:     images.FileFromName(timestamp, image, 0),
 	}

@@ -47,8 +47,13 @@
 					<h2 class="mt-2 ml-5 font-weight-bold">{{ .Title }}</h3>
 					{{template "image" .Image}}
 					<div class="h4 mb-4 mx-auto px-5">{{ .Caption }}</div>
+				{{ else if eq .Format 8 }}
+					{{template "video" .Image}}
+				{{ else if eq .Format 12 }}
+					{{template "video" .Image}}
+					<div class="h4 mb-4 mx-auto px-5">{{ .Caption }}</div>
 				{{ end }}
-
+				
 			</div>
 		</div>
 	{{end}}

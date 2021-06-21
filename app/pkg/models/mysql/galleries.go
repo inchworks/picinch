@@ -55,14 +55,14 @@ func NewGalleryStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *GalleryStore {
 	}
 }
 
-// Get gallery, for specified ID
-
+// Get returns the gallery with specified ID.
+// Unlike most store functions, it does not log an error.
 func (st *GalleryStore) Get(id int64) (*models.Gallery, error) {
 
 	q := &models.Gallery{}
 
 	if err := st.DBX.Get(q, "SELECT * FROM gallery WHERE id = ?", id); err != nil {
-		return nil, st.logError(err)
+		return nil, err
 	}
 	return q, nil
 }
