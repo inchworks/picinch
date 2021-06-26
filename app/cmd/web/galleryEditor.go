@@ -30,6 +30,7 @@ import (
 	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/pkg/picinch"
 
 	"github.com/inchworks/webparts/multiforms"
 	"github.com/inchworks/webparts/users"
@@ -721,12 +722,12 @@ func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicC
 
 	// generate request timestamp for uploaded images (we don't have a user ID yet)
 	f.Set("timestamp", strconv.FormatInt(time.Now().UnixNano(), 36))
-
+ 
 	return f, show.Title, nil
 }
 
 // onEnterComp processes a competition entry and returns true for valid client request.
-// ## Temporary - returns show Id for auto-validation.
+// If auto validation is needed, it returns the validation code; 0 for email validation; -1 for failure.
 func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name string, email string, location string, title string, caption string, image string, nAgreed int) int64 {
 
 	// serialisation
@@ -735,7 +736,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 	// create user for entry
 	u, err := s.app.userStore.GetNamed(email)
 	if err != nil && !s.app.userStore.IsNoRecord(err) {
-		return 0
+		return -1
 	}
 	if u == nil {
 		u = &users.User{
@@ -745,15 +746,15 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 			Created:  time.Now(),
 		}
 		if err = s.app.userStore.Update(u); err != nil {
-			return 0
+			return -1
 		}
 	}
 
 	// generate validation code for public entry
-	vc, err := secureCode(8)
+	vc, err := picinch.SecureCode(8)
 	if err != nil {
 		s.app.errorLog.Print(err)
-		return 0
+		return -1
 	}
 
 	// create slideshow for entry
@@ -768,7 +769,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 		Format:  "E",
 	}
 	if err = s.app.SlideshowStore.Update(show); err != nil {
-		return 0
+		return -1
 	}
 
 	// create slide for image
@@ -785,7 +786,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 	}
 
 	if err = s.app.SlideStore.Update(slide); err != nil {
-		return 0
+		return -1
 	}
 
 	// tag entry as unvalidated
@@ -796,9 +797,13 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 		s.app.tagger.SetTagRef(show.Id, 0, "agreements", 0, strconv.Itoa(nAgreed))
 	}
 
-	// request worker to generate image version, and remove unused images
-	s.app.chShow <- reqUpdateShow{showId: show.Id, timestamp: timestamp, revised: false}
+	// request worker to generate image version, remove unused images, and send validation email
+	s.app.chComp <- reqUpdateShow{showId: show.Id, timestamp: timestamp, revised: false}
 
+	// auto validation is not needed if we can send emails.
+	if s.app.cfg.EmailHost != "" {
+		vc = 0
+	}
 	return vc
 }
 
@@ -920,6 +925,7 @@ func (s *GalleryState) validate(code int64) (string, *dataValidated) {
 	return "validated.page.tmpl", &dataValidated{
 
 		Name:     u.Name,
+		Email:    u.Username,
 		Category: t.Title,
 		Title:    show.Title,
 	}
@@ -1031,7 +1037,7 @@ func (s *GalleryState) sanitize(new string, current string) string {
 func shareCode(isShared bool, hasCode int64) int64 {
 	if isShared {
 		if hasCode == 0 {
-			c, err := secureCode(8)
+			c, err := picinch.SecureCode(8)
 			if err != nil {
 				return 0
 			} else {

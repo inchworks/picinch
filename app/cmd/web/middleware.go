@@ -242,7 +242,7 @@ func (app *Application) public(next http.Handler) http.Handler {
 		// set canical URL for search engines, if we accept more than one domain
 		if len(app.cfg.Domains) > 1 {
 			u := *r.URL
-			u.Host = app.cfg.Domains[1] // first listed domain
+			u.Host = app.cfg.Domains[0] // first listed domain
 			u.Scheme = "https"
 			w.Header().Set("Link", `<`+u.String()+`>; rel="canonical"`)
 		}

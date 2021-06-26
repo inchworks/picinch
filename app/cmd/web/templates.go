@@ -169,6 +169,7 @@ type DataUsers struct {
 
 type dataValidated struct {
 	Name     string
+	Email    string
 	Category string
 	Title    string
 	DataCommon

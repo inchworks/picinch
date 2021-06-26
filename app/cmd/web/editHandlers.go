@@ -183,12 +183,17 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	// save changes
 	code := app.galleryState.onEnterComp(id, timestamp, f.Get("name"), f.Get("email"), f.Get("location"),
 			slides[0].Title, slides[0].Caption, slides[0].ImageName, nAgreed)
-	if code != 0 {
-
-		// #### temporary - auto validation
-		app.galleryState.validate(code)
+	
+	if code == 0 {
 
 		app.session.Put(r, "flash", "Competition entry saved - check your email.")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+
+	} else if code > 0 {
+		// auto validation
+		app.galleryState.validate(code)
+
+		app.session.Put(r, "flash", "Competition entry accepted.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	} else {

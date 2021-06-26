@@ -1,0 +1,44 @@
+{{define "subject"}}Confirm your competition email address{{end}}
+
+{{define "plainBody"}}
+Dear {{.Name}},
+
+Thank you for your competition entry - {{.Entry}}.
+
+Please confirm your email address by copying this link and pasting it into your browser:
+
+{{.Link}}
+
+Didn't enter the competition? Perhaps someone else has typed your address by mistake.
+It can happen, and that is why we confirm addresses.
+You can ignore this email and we will delete the competition entry after 48 hours.
+
+We will not send you any further emails unless there is a problem with your entry, or you are a winner!
+
+Kind regards,
+The PicInch team
+{{end}}
+
+{{define "htmlBody"}}
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  </head>
+  <body>
+    <p>Dear {{.Name}},</p>
+    <p>Thank you for your competition entry -  {{.Entry}}.</p>
+    <p>Please confirm your email address.</p>
+    <a href="{{.Link}}">Confirm now</a>
+    <p>Can't click the button? Copy and paste this link into your browser:</p>
+    <a href="{{.Link}}">{{.Link}}</a>
+    <p>Didn't enter the competition? Perhaps someone else has typed your address by mistake.
+    It can happen, and that is why we confirm addresses.
+    You can ignore this email and we will delete the competition entry after 48 hours.</p>
+    <p>We will not send you any further emails, unless there is a problem with your entry or you are a winner!</p>
+    <p>Kind regards,</p>
+    <p>The PicInch team</p>
+  </body>
+</html>
+{{end}}

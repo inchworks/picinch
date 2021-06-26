@@ -1,0 +1,25 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2021.
+
+  Copying and distribution of this file, with or without modification, are permitted in any
+  medium without royalty, provided the copyright notice and this notice are preserved.
+  This file is offered as-is, without any warranty.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}Entry Accepted{{end}}
+
+{{define "pagemeta"}}
+	<meta name="description" content="Confirmation of competition entry with valid email address.">
+{{end}}
+
+{{define "page"}}
+    <div class="container">
+        {{block "emailValidation" .}}
+            <h2>Entry Accepted</h2>
+            <p>{{.Name}}, thank you for confirming your email address as {{.Email}}.</p>
+            <p>Your competition entry, {{.Title}}, has been accepted for {{.Category}}.</p>
+        {{end}}
+    </div>
+{{end}}

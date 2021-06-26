@@ -20,15 +20,27 @@ package main
 // Worker goroutine for all background processing
 
 import (
+	"errors"
+	"fmt"
 	"math/rand"
 	"runtime"
+	"strconv"
 	"time"
 
 	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
 )
 
+// data for for request to validate competition entry
+type validationData struct {
+	Name  string
+	Entry string
+	Link  string
+}
+
+// worker does all background processing for PicInch.
 func (s *GalleryState) worker(
+	chComp <-chan reqUpdateShow,
 	chImage <-chan images.ReqSave,
 	chShow <-chan reqUpdateShow,
 	chShows <-chan []reqUpdateShow,
@@ -41,6 +53,13 @@ func (s *GalleryState) worker(
 		runtime.Gosched()
 
 		select {
+		case req := <-chComp:
+
+			// a competition entry has been added
+			if err := s.onCompEntry(req.showId, req.timestamp, req.revised); err != nil {
+				s.app.errorLog.Print(err.Error())
+			}
+
 		case req := <-chImage:
 
 			// resize and save image, with thumbnail
@@ -65,7 +84,7 @@ func (s *GalleryState) worker(
 				runtime.Gosched()
 			}
 
-		case req:= <-chTopic:
+		case req := <-chTopic:
 
 			// a topic slideshow has been updated or removed
 			if err := s.onUpdateTopic(req.topicId, req.revised); err != nil {
@@ -86,6 +105,46 @@ func (s *GalleryState) worker(
 	}
 }
 
+// onCompEntry processes a competition entry.
+func (s *GalleryState) onCompEntry(showId int64, timestamp string, revised bool) error {
+
+	app := s.app
+
+	// slideshow for competition
+	if err := s.onUpdateShow(showId, timestamp, revised); err != nil {
+		return err
+	}
+
+	// entry and user
+	defer s.updatesNone()
+	show, err := app.SlideshowStore.Get(showId)
+	if err != nil {
+		return err
+	}
+	user, err := app.userStore.Get(show.User.Int64)
+	if err != nil {
+		return err
+	} else if user == nil {
+		return errors.New("Unknown user for validation")
+	}
+
+	// validation link
+	var link string
+	if len(app.cfg.Domains) > 0 {
+		link = fmt.Sprintf("https://%s/validate/%s", app.cfg.Domains[0], strconv.FormatInt(show.Shared, 36))
+	} else {
+		link = fmt.Sprintf("http://localhost:8000/validate/%s", strconv.FormatInt(show.Shared, 36)) // for testing
+	}
+
+	// send validation request
+	// ## page.tmpl name is confusing. Actually it means top-level template file.
+	return s.app.emailer.Send(user.Username, "validation-request.page.tmpl", &validationData{
+		Name:  user.Name,
+		Entry: show.Title,
+		Link:  link,
+	})
+}
+
 // Change topic(s) thumbnails
 
 func (s *GalleryState) onRefresh() error {
@@ -103,7 +162,7 @@ func (s *GalleryState) onRefresh() error {
 	return nil
 }
 
-// onUpdate show processes an updated or deleted slideshow.
+// onUpdateShow processes an updated or deleted slideshow.
 func (s *GalleryState) onUpdateShow(showId int64, timestamp string, revised bool) error {
 
 	// images
@@ -224,9 +283,9 @@ func (s *GalleryState) updateSlides(showId int64, revised bool) error {
 		if revised {
 			show.Revised = time.Now()
 			if show.Topic == s.app.SlideshowStore.HighlightsId {
-				// highlights show moved up display order when images added 
+				// highlights show moved up display order when images added
 				show.Created = show.Revised
-			}	
+			}
 		}
 		s.app.SlideshowStore.Update(show)
 	}
@@ -252,10 +311,10 @@ func (s *GalleryState) updateTopic(t *models.Slideshow, revised bool) error {
 		}
 	}
 	if revised {
-		// change revision date	
+		// change revision date
 		t.Revised = time.Now()
 		if t.Id == s.app.SlideshowStore.HighlightsId {
-			// highlights topic moved up display order when images added 
+			// highlights topic moved up display order when images added
 			t.Created = t.Revised
 		}
 		update = true

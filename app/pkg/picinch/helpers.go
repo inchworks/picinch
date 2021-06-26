@@ -18,7 +18,9 @@
 package picinch
 
 import (
+	"crypto/rand"
 	"io"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,3 +71,21 @@ func FromPage(path string) string {
 	return final
 }
 
+// SecureCode returns an access code for a shared slideshow, shared topic, or a validation email.
+// n pecifies the number of characters to show the code in base-36.
+func SecureCode(nChars int) (int64, error) {
+	n := int64(nChars)
+
+	// generate exact number of characters, just for neatness
+	// (using big because crypto needs it, not because the numbers get large
+	min := new(big.Int).Exp(big.NewInt(36), big.NewInt(n-1), nil) 
+	max := new(big.Int).Exp(big.NewInt(36), big.NewInt(n), nil)
+	max.Sub(max, min)
+
+	// OK, cryptographically secure generation is overkill for this use.
+	code, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return 0, err
+	}
+	return code.Add(code, min).Int64(), nil
+}

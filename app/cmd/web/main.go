@@ -40,11 +40,12 @@ import (
 	"github.com/justinas/nosurf"
 	"github.com/microcosm-cc/bluemonday"
 
+	"inchworks.com/picinch/pkg/emailer"
 	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
 	"inchworks.com/picinch/pkg/models/mysql"
-	"inchworks.com/picinch/pkg/tags"
 	"inchworks.com/picinch/pkg/picinch"
+	"inchworks.com/picinch/pkg/tags"
 )
 
 // version and copyright
@@ -106,10 +107,10 @@ type Configuration struct {
 	AdminPassword string `yaml:"admin-password" env:"admin-password" env-default:"<your-password>"`
 
 	// image sizes
-	MaxW int `yaml:"image-width" env-default:"1600"` // maximum stored image dimensions
-	MaxH int `yaml:"image-height" env-default:"1200"`
-	ThumbW int `yaml:"thumbnail-width" env-default:"278"` // thumbnail size
-	ThumbH int `yaml:"thumbnail-height" env-default:"208"`
+	MaxW      int `yaml:"image-width" env-default:"1600"` // maximum stored image dimensions
+	MaxH      int `yaml:"image-height" env-default:"1200"`
+	ThumbW    int `yaml:"thumbnail-width" env-default:"278"` // thumbnail size
+	ThumbH    int `yaml:"thumbnail-height" env-default:"208"`
 	MaxUpload int `yaml:"max-upload" env-default:"64"` // maximum file upload (megabytes)
 
 	// total limits
@@ -131,6 +132,13 @@ type Configuration struct {
 	HomeSwitch string `yaml:"home-switch" env:"home-switch" env-default:""` // switch home page to specified template, e.g when site disabled
 	MiscName   string `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscelleneous files, as in "example.com/misc/file"
 	Options    string `yaml:"options" env:"options" env-default:""`         // site features: main-comp, with-comp
+
+	// email
+	EmailHost     string `yaml:"email-host" env:"email-host" env-default:""`
+	EmailPort     int    `yaml:"email-port" env:"email-port" env-default:"587"`
+	EmailUser     string `yaml:"email-user" env:"email-user" env:"email-user" env-default:""`
+	EmailPassword string `yaml:"email-password" env:"email-password" env-default:""`
+	Sender        string `yaml:"sender" env:"sender" env-default:""`
 }
 
 // Request to update slideshow images.
@@ -174,16 +182,16 @@ type Application struct {
 	// HTML sanitizer for titles and captions
 	sanitizer *bluemonday.Policy
 
-	// Image processing
-	imager *images.Imager
-
-	// Tagging
-	tagger tags.Tagger
+	// private components
+	emailer *emailer.Emailer
+	imager  *images.Imager
+	tagger  tags.Tagger
 
 	// HTML handlers for threats detected by application logic
 	wrongCode http.Handler
 
 	// Channels to background worker
+	chComp  chan reqUpdateShow
 	chImage chan images.ReqSave
 	chShow  chan reqUpdateShow
 	chShows chan []reqUpdateShow
@@ -241,7 +249,7 @@ func main() {
 	defer t.Stop()
 
 	chDone := make(chan bool, 1)
-	go app.galleryState.worker(app.chImage, app.chShow, app.chShows, app.chTopic, t.C, chDone)
+	go app.galleryState.worker(app.chComp, app.chImage, app.chShow, app.chShows, app.chTopic, t.C, chDone)
 
 	// preconfigured HTTP/HTTPS server
 	// ## name stutter!
@@ -408,6 +416,11 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		errorLog.Fatal(err)
 	}
 
+	// setup emailing
+	if app.cfg.EmailHost != "" {
+		app.emailer = emailer.New(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, app.templateCache)
+	}
+
 	// setup image processing
 	app.imager = &images.Imager{
 		FilePath:       ImagePath,
@@ -442,6 +455,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// create worker channels
+	app.chComp = make(chan reqUpdateShow, 10)
 	app.chImage = make(chan images.ReqSave, 20)
 	app.chShow = make(chan reqUpdateShow, 10)
 	app.chShows = make(chan []reqUpdateShow, 1)
