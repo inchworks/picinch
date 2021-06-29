@@ -25,6 +25,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+
 	"time"
 
 	"github.com/go-mail/mail/v2"
@@ -32,20 +33,25 @@ import (
 
 type Emailer struct {
 	dialer *mail.Dialer
+	local string
 	sender string
 	templates map[string]*template.Template
 }
 
 // New returns an Emailer, used to send emails.
-func New(host string, port int, username, password, sender string, templates map[string]*template.Template) *Emailer {
-	dialer := mail.NewDialer(host, port, username, password)
-	dialer.Timeout = 5 * time.Second
+// ## localHost specifies an optional domain naame, used to set message IDs. I'm not sure if this is needed for an email client.
+func New(host string, port int, username, password, sender string, localHost string, templates map[string]*template.Template) *Emailer {
 
-	return &Emailer{
-		dialer: dialer,
+	em := &Emailer{
+		local: localHost,
 		sender: sender,
 		templates: templates,
 	}
+
+	em.dialer = mail.NewDialer(host, port, username, password)
+	em.dialer.Timeout = 5 * time.Second
+
+	return em
 }
 
 // Send constructs and sends an email.
@@ -58,7 +64,6 @@ func (m *Emailer) Send(recipient, templateName string, data interface{}) error {
 	if !ok {
 		return fmt.Errorf("The template %s does not exist", templateName)
 	}
-
 
 	subject := new(bytes.Buffer)
 	err = ts.ExecuteTemplate(subject, "subject", data)
@@ -82,6 +87,13 @@ func (m *Emailer) Send(recipient, templateName string, data interface{}) error {
 	msg.SetHeader("To", recipient)
 	msg.SetHeader("From", m.sender)
 	msg.SetHeader("Subject", subject.String())
+
+	if m.local != "" {
+		// for messsage ID required by RFC 2822
+		now := time.Now()
+		msg.SetHeader("Message-Id", fmt.Sprintf("<%d.%d@picinch.%s>", now.Unix(), now.Nanosecond(), m.local))
+	}
+
 	msg.SetBody("text/plain", plainBody.String())
 	msg.AddAlternative("text/html", htmlBody.String())
 

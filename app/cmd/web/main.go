@@ -417,8 +417,13 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// setup emailing
+	var localHost string
+	if 	len(cfg.Domains) > 0 {
+		localHost = cfg.Domains[0]
+	}
+
 	if app.cfg.EmailHost != "" {
-		app.emailer = emailer.New(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, app.templateCache)
+		app.emailer = emailer.New(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, localHost, app.templateCache)
 	}
 
 	// setup image processing
