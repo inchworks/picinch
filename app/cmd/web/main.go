@@ -418,9 +418,10 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// setup emailing
 	var localHost string
-	if 	len(cfg.Domains) > 0 {
-		localHost = cfg.Domains[0]
-	}
+	// Not required with some SMTP relay services.
+	// if len(cfg.Domains) > 0 {
+	// 	localHost = cfg.Domains[0]
+	// }
 
 	if app.cfg.EmailHost != "" {
 		app.emailer = emailer.New(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, localHost, app.templateCache)
@@ -437,7 +438,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// setup tagging
-	// #### make stores exclusive to tagger
 	app.tagger.ErrorLog = app.errorLog
 	app.tagger.UserStore = app.userStore
 

@@ -28,15 +28,15 @@ The PicInch team
     <meta name="viewport" content="width=device-width" />
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <style type="text/css">
-      /*  desktop and mobile adjustments - desktop experience */
+      {{/*  desktop and mobile adjustments - desktop experience */}}
       .hideOnMobile {
         display:block!important;
       }
-      @media only screen and (min-width: 641px) { /*Apple Mail, iPad, iPad mini, Outlook 2011, 2016, outlook.com, yahoo*/
+      @media only screen and (min-width: 641px) { {{/*Apple Mail, iPad, iPad mini, Outlook 2011, 2016, outlook.com, yahoo */}}
         .hideOnMobile {display:none;}
       }
       @media only screen and (max-width: 640px) {
-        /*  desktop and mobile adjustments - mobile experience */
+        {{/*  desktop and mobile adjustments - mobile experience */}}
         .hideOnMobile {
           display:none!important;
           width:0;
@@ -48,9 +48,9 @@ The PicInch team
           margin: 25px auto !important;
         }
     }
-      /* gmail app on iOS - as Jay Oram */
+      /* gmail app on iOS */
       @supports (-webkit-overflow-scrolling:touch) and (color:#ffff) {
-        /* button extends to 100% width */
+        {{/* button extends to 100% width */}}
         div > u ~ div .gmailbutton { width: 100%!important;}
       }
     </style>
