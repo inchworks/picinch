@@ -45,6 +45,8 @@ const (
 
 	tagOrderName = ` ORDER BY name`
 
+	tagCount = `SELECT COUNT(*) FROM tag`
+
 	tagWhereId         = tagSelect + ` WHERE id = ?`
 	tagRootWhereName  = tagSelect + ` WHERE gallery = ? AND parent = 0 AND name = ?`
 	tagChildWhereName  = tagSelect + ` WHERE parent = ? AND name = ?`
@@ -76,6 +78,14 @@ func NewTagStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *TagStore {
 			sqlUpdate: tagUpdate,
 		},
 	}
+}
+
+// Count returns the number of tags.
+// (It is used just as a convenient way to check if the tag table exists.)
+func (st *TagStore) Count() (int, error) {
+	var n int
+
+	return n, st.DBX.Get(&n, tagCount)
 }
 
 // ForParent returns all tags specific to a user.

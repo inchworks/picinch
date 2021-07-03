@@ -515,6 +515,9 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	if err = mysql.MigrateWebparts2(app.userStore, app.tx); err != nil {
 		app.errorLog.Fatal(err)
 	}
+	if err = mysql.MigrateTags(app.tagger.TagStore); err != nil {
+		app.errorLog.Fatal(err)
+	}
 
 	return g
 }

@@ -104,6 +104,24 @@ var cmds = [...]string{
 		KEY IDX_START_DETAIL (start, detail)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 
+	`CREATE TABLE user (
+		id int(11) NOT NULL AUTO_INCREMENT,
+		parent int(11) NOT NULL,
+		username varchar(60) COLLATE utf8_unicode_ci NOT NULL,
+		name varchar(60) COLLATE utf8_unicode_ci NOT NULL,
+		role smallint(6) NOT NULL,
+		status smallint(6) NOT NULL,
+		password char(60) COLLATE utf8_unicode_ci NOT NULL,
+		created datetime NOT NULL,
+		PRIMARY KEY (id),
+		UNIQUE KEY IDX_USERNAME (username),
+		KEY IDX_USER_PARENT (parent),
+		CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
+}
+
+var cmdsTags = [...]string{
+
 	`CREATE TABLE tag (
 		id int(11) NOT NULL AUTO_INCREMENT,
 		gallery int(11) NOT NULL,
@@ -132,21 +150,6 @@ var cmds = [...]string{
 		CONSTRAINT FK_TAG_TAG FOREIGN KEY (tag) REFERENCES tag (id) ON DELETE CASCADE,
 		CONSTRAINT FK_TAG_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
-
-	`CREATE TABLE user (
-		id int(11) NOT NULL AUTO_INCREMENT,
-		parent int(11) NOT NULL,
-		username varchar(60) COLLATE utf8_unicode_ci NOT NULL,
-		name varchar(60) COLLATE utf8_unicode_ci NOT NULL,
-		role smallint(6) NOT NULL,
-		status smallint(6) NOT NULL,
-		password char(60) COLLATE utf8_unicode_ci NOT NULL,
-		created datetime NOT NULL,
-		PRIMARY KEY (id),
-		UNIQUE KEY IDX_USERNAME (username),
-		KEY IDX_USER_PARENT (parent),
-		CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 }
 
 // Setup initialises a new database, if it has no tables.
@@ -160,7 +163,10 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 			if driverErr.Number == 1146  {
 
 				// no gallery table - make the database
-				err = setupTables(stGallery.DBX, *stGallery.ptx)
+				err = setupTables(stGallery.DBX, *stGallery.ptx, cmds[:])
+				if err == nil {
+					err = setupTables(stGallery.DBX, *stGallery.ptx, cmdsTags[:])
+				}
 			}
 		} else if stGallery.convertError(err) != models.ErrNoRecord {
 			// ok if no gallery record yet
@@ -222,12 +228,21 @@ func setupAdmin(st *UserStore, adminName string, adminPW string) error {
 
 // create database tables
 
-func setupTables(db *sqlx.DB, tx *sqlx.Tx) error {
+func setupTables(db *sqlx.DB, tx *sqlx.Tx, cmds []string) error {
 
 	for _, cmd := range cmds {
 		if _, err := tx.Exec(cmd); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// MigrateTags adds tag tables. Needed for version 0.9.7.
+func MigrateTags(stTag *TagStore) error {
+
+	if _, err :=stTag.Count(); err != nil {
+		return setupTables(stTag.DBX, *stTag.ptx, cmdsTags[:])
 	}
 	return nil
 }

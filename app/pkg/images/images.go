@@ -276,6 +276,10 @@ func Thumbnail(filename string) string {
 	case ".jpg", ".png":
 		return "S" + filename[1:]
 
+	// ## extensions not normalised for current websites :-(
+	case ".jpeg", ".JPG", ".PNG", ".JPEG":
+		return "S" + filename[1:]
+
 	default:
 		// replace file extension
 		tn := strings.TrimSuffix(filename, filepath.Ext(filename)) + ".jpg"
