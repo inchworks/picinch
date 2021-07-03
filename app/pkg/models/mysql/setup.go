@@ -238,7 +238,7 @@ func setupTables(db *sqlx.DB, tx *sqlx.Tx, cmds []string) error {
 	return nil
 }
 
-// MigrateTags adds tag tables. Needed for version 0.9.7.
+// MigrateTags adds tag tables. Needed for version 0.9.8.
 func MigrateTags(stTag *TagStore) error {
 
 	if _, err :=stTag.Count(); err != nil {
