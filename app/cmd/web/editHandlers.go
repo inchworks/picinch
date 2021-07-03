@@ -329,12 +329,12 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nShow, err := strconv.ParseInt(f.Get("nShow"), 10, 64)
+	nShow, err := strconv.ParseInt(f.Get("nShow"), 36, 64)
 	if err != nil {
 		app.log(err)
 		app.clientError(w, http.StatusBadRequest)
 	}
-	nUser, err := strconv.ParseInt(f.Get("nUser"), 10, 64)
+	nUser, err := strconv.ParseInt(f.Get("nUser"), 36, 64)
 	if err != nil {
 		app.log(err)
 		app.clientError(w, http.StatusBadRequest)
@@ -350,7 +350,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	// need topic if there is no slideshow (otherwise we prefer to trust the database)
 	var nTopic int64
 	if nShow == 0 {
-		nTopic, _ = strconv.ParseInt(f.Get("nTopic"), 10, 64)
+		nTopic, _ = strconv.ParseInt(f.Get("nTopic"), 36, 64)
 	
 		if nTopic == 0 {
 			app.clientError(w, http.StatusBadRequest)
