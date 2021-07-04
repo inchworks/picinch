@@ -50,7 +50,10 @@ jQuery(document).ready(function() {
 	// pause videos
 	$("#slideshow1").find('.carousel-item').each(function(index, el) {
   		if (index !== 0) {
-    		$(this).find('video')[0].pause();
+            let vid = $(this).find('video')[0];
+            if (vid != null) {
+                vid.pause();
+            }
   		}
 	});
 
