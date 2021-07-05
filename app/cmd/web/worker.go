@@ -247,6 +247,7 @@ func (s *GalleryState) updateSlides(showId int64, revised bool) error {
 				// We must remove the reference so that all viewers don't get a missing file error.
 				// log the error, but process the remaining slides
 				slide.Image = ""
+				slide.Format = slide.Format &^ models.SlideImage
 				s.app.SlideStore.Update(slide)
 				s.app.errorLog.Print(err.Error()) 
 
