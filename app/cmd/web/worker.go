@@ -218,12 +218,10 @@ func (s *GalleryState) updateHighlights(id int64) error {
 	return nil
 }
 
-// Update image versions for a slideshow. Also sets slideshow revision time.
-
+// updateSlides changes image versions for a slideshow. It also sets the slideshow revision time.
 func (s *GalleryState) updateSlides(showId int64, revised bool) error {
 
 	// serialise display state while slides are changing
-
 	defer s.updatesGallery()()
 
 	// check if this is an update or deletion
@@ -245,10 +243,15 @@ func (s *GalleryState) updateSlides(showId int64, revised bool) error {
 			var newImage string
 			var err error
 			if newImage, err = s.app.imager.Updated(slide.Image); err != nil {
-				s.app.errorLog.Print(err.Error()) // log the error, but process the remaining slides
-			}
+				// ## We have lost the image, but have no way to warn the user :-(
+				// We must remove the reference so that all viewers don't get a missing file error.
+				// log the error, but process the remaining slides
+				slide.Image = ""
+				s.app.SlideStore.Update(slide)
+				s.app.errorLog.Print(err.Error()) 
 
-			if newImage != "" {
+			} else if newImage != "" {
+				// updated image
 				slide.Image = newImage
 				s.app.SlideStore.Update(slide)
 			}

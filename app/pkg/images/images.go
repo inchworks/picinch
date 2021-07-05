@@ -153,10 +153,10 @@ func (im *Imager) ReadVersions(showId int64, timestamp string) error {
 		// find new files
 		newVersions := im.globVersions(filepath.Join(im.FilePath, "P-"+timestamp+"-*"))
 
-		for name, nv := range newVersions {
+		for lc, nv := range newVersions {
 			nv.replace = true
 
-			cv := im.versions[name]
+			cv := im.versions[lc]
 			if cv.revision != 0 {
 
 				// current version is to be replaced and deleted
@@ -168,7 +168,7 @@ func (im *Imager) ReadVersions(showId int64, timestamp string) error {
 				// this is a new name
 				nv.revision = 1
 			}
-			im.versions[name] = nv
+			im.versions[lc] = nv
 		}
 	}
 
@@ -289,6 +289,7 @@ func Thumbnail(filename string) string {
 
 // Updated is called from a background worker to check if an image file has changed.
 // If so, it renames the image to a new version, removes the old version and returns the new filename.
+// An empty string indicates no change.
 func (im *Imager) Updated(fileName string) (string, error) {
 
 	// is there an image?
@@ -300,13 +301,18 @@ func (im *Imager) Updated(fileName string) (string, error) {
 	_, name, rev := NameFromFile(fileName)
 
 	// convert non-displayable file types, to match converted image
-	name, _ = changeType(name)
+	// ## could we safely just check slide.Format
+	if FileType(name) == models.SlideImage {
+		name, _ = changeType(name)
+	}
+	lc := strings.ToLower(name)
 
-	cv := im.versions[name]
+	// current version
+	cv := im.versions[lc]
 	if cv.revision == 0 {
-		// we might have no versioned file if the user has just changed the slideshow a second time
+		// we have a name but no image file - upload delayed or failed
 		// never mind, we'll fix it on the next call
-		return "", nil
+		return "", errors.New("Missing file upload")
 	}
 
 	var err error
@@ -328,7 +334,7 @@ func (im *Imager) Updated(fileName string) (string, error) {
 
 	// keep this file
 	cv.keep = true
-	im.versions[name] = cv
+	im.versions[lc] = cv
 
 	return newName, nil
 }
@@ -345,7 +351,7 @@ func FileType(name string) int {
 	}
 }
 
-// changeType normalises the file extension, and indicates if it should be converted to a displayable type.
+// changeType normalises an image file extension, and indicates if it should be converted to a displayable type.
 func changeType(name string) (nm string, changed bool) {
 
 	// convert other file types to JPG
@@ -374,8 +380,7 @@ func changeType(name string) (nm string, changed bool) {
 	return 
 }
 
-// Find versions of new or existing files
-
+// globVersions finds versions of new or existing files.
 func (im *Imager) globVersions(pattern string) map[string]fileVersion {
 
 	versions := make(map[string]fileVersion)
@@ -385,7 +390,9 @@ func (im *Imager) globVersions(pattern string) map[string]fileVersion {
 
 		fileName := filepath.Base(newFile)
 		_, name, rev := NameFromFile(fileName)
-		versions[name] = fileVersion{
+
+		// index case-blind
+		versions[strings.ToLower(name)] = fileVersion{
 			fileName: fileName,
 			revision: rev,
 		}
