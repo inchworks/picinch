@@ -31,7 +31,6 @@ import (
 	"github.com/justinas/nosurf"
 
 	"inchworks.com/picinch/pkg/form"
-	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/tags"
 )
 
@@ -148,7 +147,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	}
 
 	// expect one slide with an image
-	slides, err := f.GetSlides()
+	slides, err := f.GetSlides(app.validTypeCheck())
 	if err != nil {
 		app.log(err)
 		app.clientError(w, http.StatusBadRequest)
@@ -262,7 +261,7 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// save image returned with form
+	// get image returned with form
 	f := r.MultipartForm.File["image"]
 	if f == nil || len(f) == 0 {
 		// ## don't know how we can get a form without a file, but we do
@@ -271,7 +270,8 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 	}
 	fh :=f[0]
 
-	err, byUser := images.Save(fh, timestamp, app.chImage)
+	// schedule image to be saved as a file
+	err, byUser := app.imager.Save(fh, timestamp, app.chImage)
 	var s string
 	if err != nil {
 		if byUser {
@@ -322,7 +322,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 
 	// process form data
 	f := form.NewSlides(r.PostForm, 10, nosurf.Token(r))
-	slides, err := f.GetSlides()
+	slides, err := f.GetSlides(app.validTypeCheck())
 	if err != nil {
 		app.log(err)
 		app.clientError(w, http.StatusBadRequest)

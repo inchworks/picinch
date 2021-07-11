@@ -109,8 +109,9 @@
 {{end}}
 
 {{ define "pagescripts" }}
-   <script type="text/javascript" src='/static/js/setup-02.js'></script>
-   <script>
+	<script type="text/javascript" src='/static/js/setup-02.js'></script>
+	<script type="text/javascript" src='/static/js/upload-01.js'></script>
+	<script>
 		// page-specific processing
 
 		function pageReady() {
@@ -118,7 +119,7 @@
 			// Set name of the photo, and upload on select
 
 			$(".custom-file-input").on("change", function() {
-				saveFile($(this));
+				uploadFile($(this), {{.CSRFToken}}, {{.Form.Get "timestamp"}}, $("#submit"));
 			});
 		}
 
@@ -126,97 +127,12 @@
 
 			// add change handler (not copied with prototype, it seems)
 			$newForm.find(".custom-file-input").on("change", function() {
-				saveFile($(this));
+				uploadFile($(this), {{.CSRFToken}}, {{.Form.Get "timestamp"}}, $("#submit"));
 			});
 
 			// increment showOrder in prototype
 			$f = $prototype.find(".showOrder");
 			$f.val(Number($f.val())+1);
-		}
-
-		// image specified for uploading
-
-		function saveFile($inp) {
-
-			var fileName = $inp.val().split("\\").pop();
-
-			// in form entry, as confirmation to user ..
-			$inp.siblings(".custom-file-label").addClass("selected").html(fileName);
-
-			// and in hidden field, so we can match the image to the slide
-			$inp.siblings(".imageName").val(fileName);
-
-			// clear previous status
-			reset($inp);
-
-			// show progress and status
-			$inp.closest(".childForm").find(".upload").show();
-
-			// upload file with AJAX
-			var fd = new FormData();
-			fd.append('csrf_token', {{.CSRFToken}});
-			fd.append('image', $inp[0].files[0]);
-  
-			$.ajax({
-				url: '/upload/{{ .Form.Get "timestamp" }}',  
-				type: 'POST',
-				data: fd,
-				dataType: 'json',
-				success:function(reply, rqStatus, jq){ uploaded($inp, reply, rqStatus) },
-				error:function(jq, rqStatus, error){ uploadFailed($inp, rqStatus, error) },
-				cache: false,
-				contentType: false,
-				processData: false,
-				xhr: function() { return xhrWithProgress($inp); }
-			});
-		}
-
-		// XHR object with progress monitoring
-
-		function xhrWithProgress($inp) {
-    		var xhr = $.ajaxSettings.xhr();
-			var $p = $inp.closest(".childForm").find(".progress-bar");
-        	xhr.upload.onprogress = function (e) {
-            	if (e.lengthComputable) {
-					var percent = (e.loaded / e.total) * 100;
-					$p.width(percent + '%');
-            	}
-        	};
-        	return xhr;	
-		}
-
-		// upload request done
-
-		function uploaded($inp, reply, rqStatus) {
-			var $alert = $inp.closest(".childForm").find(".alert")
-			if (reply.error == "")
-				setStatus($alert, "uploaded", "alert-success");
-			else
-				setStatus($alert,reply.error, "alert-danger");
-		}
-
-		// upload failed
-
-		function uploadFailed($inp, rqStatus, error) {
-			var $alert = $inp.closest(".childForm").find(".alert")
-			setStatus($alert, rqStatus + " : " + error, "alert-danger")
-		}
-
-		// reset upload bar and status
-
-		function reset($inp) {
-			$inp.closest(".childForm").find(".progress-bar").width(0);
-
- 			var $alert = $inp.closest(".childForm").find(".alert")
-			$alert.text("");
-			$alert.removeClass("alert-success alert-danger");
-		}
-
-		// set upload status
-
-		function setStatus($alert, status, highlight) {
-			$alert.text(status);
-			$alert.addClass(highlight);
 		}
 
     </script>

@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"time"
 
+	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/models"
 )
 
@@ -271,3 +272,10 @@ func (app *Application) serverError(w http.ResponseWriter, err error) {
 	}
 }
 
+// validTypeCheck returns a function to check for acceptable file types
+func (app *Application) validTypeCheck() form.ValidTypeFunc {
+
+	return func(name string) bool {
+		return app.imager.FileType(name) != 0
+	}
+}

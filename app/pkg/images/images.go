@@ -48,6 +48,7 @@ type Imager struct {
 	MaxH      int
 	ThumbW    int
 	ThumbH    int
+	VideoTypes []string
 	VideoThumbnail string
 
 	// state
@@ -113,6 +114,24 @@ func FileFromName(ownerId string, name string, rev int) string {
 	} else {
 		return ""
 	}
+}
+
+// FileType returns the image type (0 if not accepted)
+func (im *Imager) FileType(name string) int {
+
+	_, err := imaging.FormatFromFilename(name)
+	if err == nil {
+		return models.SlideImage
+	} else {
+		// check for acceptable video types
+		t := filepath.Ext(name)
+		for _, vt := range im.VideoTypes {
+			if t == vt {
+				return models.SlideVideo
+			}
+		}
+	}
+	return 0
 }
 
 // NameFrommFile returns the owner ID, image name and revison from a file name.
@@ -202,7 +221,7 @@ func (im *Imager) RemoveVersions() error {
 }
 
 // Save decodes an uploaded image, and schedules it to be saved as a file.
-func Save(fh *multipart.FileHeader, timestamp string, chImage chan<- ReqSave) (err error, byClient bool) {
+func (im *Imager) Save(fh *multipart.FileHeader, timestamp string, chImage chan<- ReqSave) (err error, byClient bool) {
 
 	// get image from request header
 	file, err := fh.Open()
@@ -217,8 +236,7 @@ func Save(fh *multipart.FileHeader, timestamp string, chImage chan<- ReqSave) (e
 	// image or video?
 	var img image.Image
 	name := CleanName(fh.Filename)
-	ft := FileType(name)
-
+	ft := im.FileType(name)
 
 	switch ft {
 	case models.SlideImage:
@@ -302,7 +320,7 @@ func (im *Imager) Updated(fileName string) (string, error) {
 
 	// convert non-displayable file types, to match converted image
 	// ## could we safely just check slide.Format
-	if FileType(name) == models.SlideImage {
+	if im.FileType(name) == models.SlideImage {
 		name, _ = changeType(name)
 	}
 	lc := strings.ToLower(name)
@@ -337,18 +355,6 @@ func (im *Imager) Updated(fileName string) (string, error) {
 	im.versions[lc] = cv
 
 	return newName, nil
-}
-
-// FileType returns the image type (0 if not accepted)
-func FileType(name string) int {
-
-	_, err := imaging.FormatFromFilename(name)
-	if err == nil {
-		return models.SlideImage
-	} else {
-		// ## check video types
-		return models.SlideVideo
-	}
 }
 
 // changeType normalises an image file extension, and indicates if it should be converted to a displayable type.

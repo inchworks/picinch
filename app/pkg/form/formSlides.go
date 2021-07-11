@@ -21,8 +21,6 @@ import (
 	"net/url"
 
 	"github.com/inchworks/webparts/multiforms"
-
-	"inchworks.com/picinch/pkg/images"
 )
 
 type PublicCompForm struct {
@@ -43,6 +41,8 @@ type SlideFormData struct {
 	ImageName string
 	ImageType string
 }
+
+type ValidTypeFunc func(string) bool
 
 // NewPublicComp returns a form for a public competition, with a set number of slides.
 func NewPublicComp(data url.Values, nSlides int, token string) *PublicCompForm {
@@ -93,7 +93,7 @@ func (f *SlidesForm) AddTemplate(nSlides int) {
 }
 
 // GetSlides returns slides as structs. They are sent as arrays of values for each field name.
-func (f *PublicCompForm) GetSlides() (items []*SlideFormData, err error) {
+func (f *PublicCompForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, err error) {
 
 	nItems := f.NChildItems()
 
@@ -107,7 +107,7 @@ func (f *PublicCompForm) GetSlides() (items []*SlideFormData, err error) {
 		items = append(items, &SlideFormData{
 			Child:     multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			Title:     f.ChildRequired("title", i, ix),
-			ImageName: f.ChildFile("imageName", i, ix, validType),
+			ImageName: f.ChildFile("imageName", i, ix, vt),
 			Caption:   f.ChildGet("caption", i),
 		})
 
@@ -125,7 +125,7 @@ func (f *PublicCompForm) GetSlides() (items []*SlideFormData, err error) {
 }
 
 // GetSlides returns slides as structs. They are sent as arrays of values for each field name.
-func (f *SlidesForm) GetSlides() (items []*SlideFormData, err error) {
+func (f *SlidesForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, err error) {
 
 	nItems := f.NChildItems()
 
@@ -140,7 +140,7 @@ func (f *SlidesForm) GetSlides() (items []*SlideFormData, err error) {
 			Child:     multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			ShowOrder: f.ChildMin("showOrder", i, ix, 1),
 			Title:     f.ChildTrimmed("title", i),
-			ImageName: f.ChildFile("imageName", i, ix, validType),
+			ImageName: f.ChildFile("imageName", i, ix, vt),
 			Caption:   f.ChildGet("caption", i),
 		})
 	}
@@ -149,10 +149,4 @@ func (f *SlidesForm) GetSlides() (items []*SlideFormData, err error) {
 	f.Children = items
 
 	return items, nil
-}
-
-// validType returns true if the file type is acceptable
-func validType(name string) bool {
-
-	return images.FileType(name) != 0
 }

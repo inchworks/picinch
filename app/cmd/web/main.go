@@ -129,9 +129,10 @@ type Configuration struct {
 	UsageAnonymised usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 
 	// variants
-	HomeSwitch string `yaml:"home-switch" env:"home-switch" env-default:""` // switch home page to specified template, e.g when site disabled
-	MiscName   string `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscelleneous files, as in "example.com/misc/file"
-	Options    string `yaml:"options" env:"options" env-default:""`         // site features: main-comp, with-comp
+	HomeSwitch string   `yaml:"home-switch" env:"home-switch" env-default:""` // switch home page to specified template, e.g when site disabled
+	MiscName   string   `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscelleneous files, as in "example.com/misc/file"
+	Options    string   `yaml:"options" env:"options" env-default:""`         // site features: main-comp, with-comp
+	VideoTypes []string `yaml:"video-types" env:"video-types" env-default:""` // video types (.mp4, .mov, etc.)
 
 	// email
 	EmailHost     string `yaml:"email-host" env:"email-host" env-default:""`
@@ -434,6 +435,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		MaxH:           app.cfg.MaxH,
 		ThumbW:         app.cfg.ThumbW,
 		ThumbH:         app.cfg.ThumbH,
+		VideoTypes:     app.cfg.VideoTypes,
 		VideoThumbnail: filepath.Join(UIPath, "static/images/video.jpg"),
 	}
 

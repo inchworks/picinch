@@ -259,7 +259,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 			imageName := images.CleanName(qsSrc[iSrc].ImageName)
 			qd := models.Slide{
 				Slideshow: showId,
-				Format:    slideFormat(qsSrc[iSrc]),
+				Format:    s.app.slideFormat(qsSrc[iSrc]),
 				ShowOrder: qsSrc[iSrc].ShowOrder,
 				Created:   now,
 				Revised:   now,
@@ -295,7 +295,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 					qsSrc[iSrc].Caption != qDest.Caption ||
 					imageName != dstName {
 
-					qDest.Format = slideFormat(qsSrc[iSrc])
+					qDest.Format = s.app.slideFormat(qsSrc[iSrc])
 					qDest.ShowOrder = qsSrc[iSrc].ShowOrder
 					qDest.Revised = now
 					qDest.Title = s.sanitize(qsSrc[iSrc].Title, qDest.Title)
@@ -726,8 +726,8 @@ func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicC
 	return f, show.Title, nil
 }
 
-// onEnterComp processes a competition entry and returns true for valid client request.
-// If auto validation is needed, it returns the validation code; 0 for email validation; -1 for failure.
+// onEnterComp processes a competition entry and returns a validation code.
+// The code is 0 for auto-validation and -1 for a bad entry.
 func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name string, email string, location string, title string, caption string, image string, nAgreed int) int64 {
 
 	// serialisation
@@ -772,17 +772,24 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 		return -1
 	}
 
+	// must be an acceptable file type
+	// (it should have been validated when the image was uploaded)
+	sf := s.app.imager.FileType(image)
+	if sf == 0 {
+		return -1
+	}
+	if caption != "" {
+		sf += models.SlideCaption
+	}
+
 	// create slide for image
 	// ## a future version will allow multiple slides
 	slide := &models.Slide{
 		Slideshow: show.Id,
-		Format:    images.FileType(image),
+		Format:    sf,
 		Revised:   time.Now(),
+		Caption:   caption,
 		Image:     images.FileFromName(timestamp, image, 0),
-	}
-	if caption != "" {
-		slide.Caption = caption
-		slide.Format = slide.Format + models.SlideCaption
 	}
 
 	if err = s.app.SlideStore.Update(slide); err != nil {
@@ -806,7 +813,6 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 	}
 	return vc
 }
-
 
 // OnRemoveUser removes a user's contributions from the database
 func (s *GalleryState) OnRemoveUser(user *users.User) {
@@ -844,23 +850,6 @@ func (s *GalleryState) UserDisplayName(userId int64) string {
 	r, _ := s.app.userStore.Get(userId)
 
 	return r.Name
-}
-
-// slideFormat returns an auto-format for a slide.
-func slideFormat(slide *form.SlideFormData) int {
-
-	var f int
-	if len(slide.Title) > 0 {
-		f = models.SlideTitle
-	}
-	if len(slide.ImageName) > 0 {
-		f = f + images.FileType(slide.ImageName)
-	}
-	if len(slide.Caption) > 0 {
-		f = f + models.SlideCaption
-	}
-
-	return f
 }
 
 // onRemoveSlideshow does cleanup when a slideshow is removed.
@@ -1049,5 +1038,22 @@ func shareCode(isShared bool, hasCode int64) int64 {
 	} else {
 		return 0
 	}
+}
+
+// slideFormat returns an auto-format for a slide.
+func (app *Application) slideFormat(slide *form.SlideFormData) int {
+
+	var f int
+	if len(slide.Title) > 0 {
+		f = models.SlideTitle
+	}
+	if len(slide.ImageName) > 0 {
+		f = f + app.imager.FileType(slide.ImageName)
+	}
+	if len(slide.Caption) > 0 {
+		f = f + models.SlideCaption
+	}
+
+	return f
 }
 
