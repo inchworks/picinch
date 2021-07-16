@@ -24,6 +24,10 @@ A `misc` directory is provided to serve miscellaneous content such as videos.
 
 Basic usage statistics are recorded daily and aggregated by month.
 
+**New** A topic can be shared with a URL containing an access code.
+
+**New** Static pages can be added using Go templates.
+
 ## Appearance
 Display layout is responsive to device size (PC, tablet or phone).
 
@@ -58,10 +62,17 @@ Security features:
 
 ## Limitations
 The following may be addressed in future updates:
+- Although support for video upload can be enabled, there is no limit on video size. There is also no support to convert videos to web formats (such as .mov to .mp4).
+- Support for competitions and judging is a work in progress.
+- HEIC format images are not supported.
+
+The following are unlikely to change:
 - Photos can be viewed individually without logging in, if their names can be guessed.
 - There is no password change or reset facility. However a user’s status can be reset to allow a new password to be specified on sign-up. Slideshows and images are preserved.
 - No option to restrict highlight visibility to signed-up users.
 - No option for public viewing of all highlights and public slideshows for a user, only the most recent ones shown on the home page.
 - There is no facility to comment on images or to rate them.
 - There is no bulk submission of images.
-- HEIC format images are not supported.
+
+## v0.10.0 change
+A changes breaks compatibility with previous versions: `site.partial.tmpl` replaces `site.tmpl`.
