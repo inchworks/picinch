@@ -84,13 +84,18 @@ Contributions on the home page are limited per-user.
 **slideshows-public** `1` public slideshows on home page, per user
 
 ## Website
-**misc-name** `misc` path in URL for miscelleneous files, as in `example.com/misc/file`
+Options to change the operation of the website.
+**home-switch** switches the home page to a specified template, for example, `disabled` to show `disabled.page.tmpl` when the website is offline.
+
+**misc-name** `misc` path in URL for miscellaneous files, as in `example.com/misc/file`
 
 **parent-highlights** `16` highlights available for parent website
 
 **thumbnail-refresh** `1h` refresh interval for topic thumbnails. Units m(inutes) or h(ours).
 
-**usage-anon** `1` Anonymisation of user IDs: 0 = daily, 1 = immediate.
+**usage-anon** `1` anonymisation of user IDs: 0 = daily, 1 = immediate.
+
+**video-types** acceptable video file types, such as `.mp4, .mov`. (Work in progress.)
 
 ## For testing
 **http-addr** `:8000` site HTTP address

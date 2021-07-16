@@ -29,17 +29,6 @@ import (
 	"inchworks.com/picinch/pkg/models"
 )
 
-// about returns a configurable static page for the website
-func (app *Application) about(w http.ResponseWriter, r *http.Request) {
-
-	ps := httprouter.ParamsFromContext(r.Context())
-
-	// check if page exists
-	page := ps.ByName("page")
-
-	app.render(w, r, page + ".page.tmpl", nil)
-}
-
 // classes serves the home page for a competition.
 func (app *Application) classes(w http.ResponseWriter, r *http.Request) {
 
@@ -157,6 +146,17 @@ func (app *Application) home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.render(w, r, "home.page.tmpl", data)
+}
+
+// info returns a configurable static page for the website
+func (app *Application) info(w http.ResponseWriter, r *http.Request) {
+
+	ps := httprouter.ParamsFromContext(r.Context())
+
+	// check if page exists
+	page := ps.ByName("page")
+
+	app.render(w, r, page + ".page.tmpl", nil)
 }
 
 // Logout user

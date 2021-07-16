@@ -16,10 +16,13 @@ services:
       MYSQL_USER: server
       MYSQL_PASSWORD: test-only
     volumes:
-       - ./mysql:/var/lib/mysql
+       - mysql:/var/lib/mysql
 
   adminer:
     image: adminer
     ports:
       - 9080:8080
     restart: unless-stopped
+
+volumes:
+  mysql:

@@ -18,7 +18,7 @@ services:
       MYSQL_USER: server
       MYSQL_PASSWORD: "<server-password>"
     volumes:
-      - ./mysql:/var/lib/mysql
+      - mysql:/var/lib/mysql
     logging:
       driver: "json-file"
       options:
@@ -28,7 +28,7 @@ services:
   gallery:
     image: inchworks/picinch:0.9
     ports:
-      - 443:4000
+      - 443:4000:
       - 80:8000
     restart: always
     environment:
@@ -39,10 +39,10 @@ services:
       admin-name: "admin@example.com"
       admin-password: "<your-password>"
     volumes:
-      - ./certs:/certs 
+      - certs:/certs 
       - ./photos:/photos
-      - ./site:/site
-      - ./misc:/misc 
+      - ./site:/site:ro
+      - ./misc:/misc:ro
     logging:
       driver: "json-file"
       options:
@@ -50,6 +50,10 @@ services:
         max-file: "5"
     depends_on:
       - db
+
+volumes:
+  certs:
+  mysql:
 ```
 
 Edit the example to change the following items. (Take care to keep indentation unchanged when editing. Do not use tabs.)

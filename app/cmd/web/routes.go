@@ -53,7 +53,7 @@ func (app *Application) Routes() http.Handler {
 
 	// public pages
 	router.Handler("GET", "/", publicHs.ThenFunc(app.home))
-	router.Handler("GET", "/about/:page", publicHs.ThenFunc(app.about))
+	router.Handler("GET", "/info/:page", publicHs.ThenFunc(app.info))
 
 	// public competition
 	if app.cfg.Options == "main-comp" {

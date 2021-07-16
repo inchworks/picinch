@@ -50,7 +50,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.9.8"
+	version = "0.9.9"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -130,7 +130,7 @@ type Configuration struct {
 
 	// variants
 	HomeSwitch string   `yaml:"home-switch" env:"home-switch" env-default:""` // switch home page to specified template, e.g when site disabled
-	MiscName   string   `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscelleneous files, as in "example.com/misc/file"
+	MiscName   string   `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscellaneous files, as in "example.com/misc/file"
 	Options    string   `yaml:"options" env:"options" env-default:""`         // site features: main-comp, with-comp
 	VideoTypes []string `yaml:"video-types" env:"video-types" env-default:""` // video types (.mp4, .mov, etc.)
 

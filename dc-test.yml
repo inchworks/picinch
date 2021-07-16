@@ -16,7 +16,7 @@ services:
       MYSQL_USER: server
       MYSQL_PASSWORD: test-only
     volumes:
-      - ./mysql:/var/lib/mysql
+      - mysql:/var/lib/mysql
     logging:
       driver: "json-file"
       options:
@@ -42,8 +42,8 @@ services:
       admin-password: admin-test-only
     volumes:
       - ./photos:/photos
-      - ./site:/site
-      - ./misc:/misc
+      - ./site:/site:ro
+      - ./misc:/misc:ro
     logging:
       driver: "json-file"
       options:
@@ -51,3 +51,6 @@ services:
         max-file: "10"
     depends_on:
       - db
+
+volumes:
+  mysql:
