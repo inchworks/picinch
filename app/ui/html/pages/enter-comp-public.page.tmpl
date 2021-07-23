@@ -94,7 +94,8 @@
 										<label class='custom-file-label'><div class='invalid-feedback d-inline'>{{ .ChildError "imageName"}}</div>Choose photo...</label>
 									</div>
 								</div>
-								<small class="form-text text-muted">{{block "compPhoto" .}}A photo or video, taken within the last three months.{{end}}</small>
+								<div class='invalid-feedback bad-file'></div>
+								<small class="form-text text-muted">{{block "compPhoto" .}}A photo or short video, taken within the last three months.{{end}}</small>
 							</div>
 							<div class="form-group col-md-6 upload" style='display:none'>
 								<div class="offset-md-2 col-md-5 progress">
@@ -146,7 +147,7 @@
 
 {{ define "pagescripts" }}
 	<script type="text/javascript" src='/static/js/setup-02.js'></script>
-	<script type="text/javascript" src='/static/js/upload-01.js'></script>
+	<script type="text/javascript" src='/static/js/upload-02.js'></script>
 	<script>
 		// page-specific processing
 
@@ -155,7 +156,7 @@
 			// Set name of the photo, and upload on select
 
 			$(".custom-file-input").on("change", function() {
-				uploadFile($(this), {{.CSRFToken}}, {{.Form.Get "timestamp"}}, $("#submit"));
+				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
 			});
 		}
 

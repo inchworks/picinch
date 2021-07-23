@@ -93,7 +93,6 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-
 // getFormEnterComp serves the form to enter a competition.
 func (app *Application) getFormEnterComp(w http.ResponseWriter, r *http.Request) {
 
@@ -114,7 +113,7 @@ func (app *Application) getFormEnterComp(w http.ResponseWriter, r *http.Request)
 
 	// display form
 	app.render(w, r, "enter-comp-public.page.tmpl", &compFormData{
-		Form: f,
+		Form:     f,
 		Category: c,
 	})
 }
@@ -166,14 +165,14 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 		app.clientError(w, http.StatusUnauthorized)
 		return
 	}
-	
+
 	// timestamp, to associate uploaded images
 	timestamp := f.Get("timestamp")
 
 	// redisplay form if data invalid
 	if !f.Valid() {
 		app.render(w, r, "enter-comp-public.page.tmpl", &compFormData{
-			Form: f,
+			Form:     f,
 			Category: show.Title,
 		})
 		return
@@ -181,8 +180,8 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 
 	// save changes
 	code := app.galleryState.onEnterComp(id, timestamp, f.Get("name"), f.Get("email"), f.Get("location"),
-			slides[0].Title, slides[0].Caption, slides[0].ImageName, nAgreed)
-	
+		slides[0].Title, slides[0].Caption, slides[0].ImageName, nAgreed)
+
 	if code == 0 {
 
 		app.session.Put(r, "flash", "Competition entry saved - check your email.")
@@ -199,7 +198,6 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 		app.clientError(w, http.StatusBadRequest)
 	}
 }
-
 
 // Main form to setup gallery
 
@@ -254,7 +252,8 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 	timestamp := ps.ByName("timestamp")
 
 	// multipart form
-	err := r.ParseMultipartForm(int64(app.cfg.MaxUpload) << 20)
+	// (The limit, 10 MB, is just for memory use, not the size of the upload)
+	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		app.log(err)
 		app.clientError(w, http.StatusBadRequest)
@@ -268,7 +267,15 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 		app.clientError(w, http.StatusBadRequest)
 		return
 	}
-	fh :=f[0]
+
+	// check image size, rounded to nearest MB
+	// (Our client script checks file sizes, so we needn't send a nice error.)
+	fh := f[0]
+	sz := (fh.Size + (1 << 19)) >> 20
+	if sz > int64(app.cfg.MaxUpload) {
+		app.clientError(w, http.StatusRequestEntityTooLarge)
+		return
+	}
 
 	// schedule image to be saved as a file
 	err, byUser := app.imager.Save(fh, timestamp, app.chImage)
@@ -306,8 +313,9 @@ func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
 
 	// display form
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
-		Form:  f,
-		Title: slideshow.Title, // ## could be in form, to allow editing
+		Form:      f,
+		Title:     slideshow.Title, // ## could be in form, to allow editing
+		MaxUpload: app.cfg.MaxUpload,
 	})
 }
 
@@ -341,8 +349,8 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	}
 	timestamp := f.Get("timestamp") // request ID for uploaded images
 
- 	// allow access to slideshow?
-	 if nShow != 0 && !app.allowUpdateShow(r, nShow) {
+	// allow access to slideshow?
+	if nShow != 0 && !app.allowUpdateShow(r, nShow) {
 		app.clientError(w, http.StatusUnauthorized)
 		return
 	}
@@ -351,10 +359,10 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	var nTopic int64
 	if nShow == 0 {
 		nTopic, _ = strconv.ParseInt(f.Get("nTopic"), 36, 64)
-	
+
 		if nTopic == 0 {
 			app.clientError(w, http.StatusBadRequest)
-			return	
+			return
 		}
 
 		// allow access for user?
@@ -369,7 +377,11 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		app.errorLog.Print(f.ChildErrors)
 
 		t := app.galleryState.SlideshowTitle(nShow)
-		app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{Form: f, Title: t})
+		app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
+			Form:      f,
+			Title:     t,
+			MaxUpload: app.cfg.MaxUpload,
+		})
 		return
 	}
 
@@ -470,7 +482,7 @@ func (app *Application) getFormTagSlideshow(w http.ResponseWriter, r *http.Reque
 	// tag values and fields
 	var tus []*tagUser
 	for _, u := range users {
-		tu := &tagUser {
+		tu := &tagUser{
 			Name: u.name,
 			Tags: tagHTML(u.tags),
 		}
@@ -525,9 +537,9 @@ func tagHTML(tags []*tags.ItemTag) []*tagData {
 		}
 
 		tc := &tagData{
-			tagId: t.Id,
+			tagId:   t.Id,
 			TagHTML: template.HTML(html),
-			Tags: tagHTML(t.Children),
+			Tags:    tagHTML(t.Children),
 		}
 
 		tcs = append(tcs, tc)
@@ -581,7 +593,6 @@ func (app *Application) postFormTags(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-
 // Form to set user's slides for topic
 
 func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
@@ -595,8 +606,9 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 
 	// display form
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
-		Form:  f,
-		Title: title,
+		Form:      f,
+		Title:     title,
+		MaxUpload: app.cfg.MaxUpload,
 	})
 }
 

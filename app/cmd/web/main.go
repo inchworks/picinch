@@ -116,15 +116,17 @@ type Configuration struct {
 	// total limits
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
 	MaxHighlightsTotal  int `yaml:"highlights-page" env-default:"12"`    // highlights for home page, and user's page
-	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`   // total slides in H format topic // ## misleading name?
+	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`   // slides in highights slideshow
 	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`    // total slideshows on home page
 
 	// per user limits
 	MaxHighlights       int `yaml:"highlights-user"  env-default:"2"`  // highlights on home page
-	MaxSlides           int `yaml:"slides-show" env-default:"10"`      // ## not implemented
+	MaxSlides           int `yaml:"slides-show" env-default:"50"`      // slides in a slideshow
 	MaxSlideshowsClub   int `yaml:"slideshows-club"  env-default:"2"`  // club slideshows on home page, per user
 	MaxSlideshowsPublic int `yaml:"slideshows-public" env-default:"1"` // public slideshows on home page, per user
 
+	// operational settings
+	BanBadFiles     bool            `yaml:"limit-bad-files" env-default:"false"` // apply ban to requests for missing files
 	SiteRefresh     time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"` // refresh interval for topic thumbnails. Units m or h.
 	UsageAnonymised usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 

@@ -143,9 +143,10 @@ func (app *Application) Routes() http.Handler {
 	fsMisc := noDirFileSystem{http.Dir(MiscPath)}
 
 	// serve static files and content (Alice doesn't seem to simplify these)
-	router.Handler("GET", path.Join(misc, "*filepath"), staticHs.Then(http.StripPrefix(misc, app.fileServer(fsMisc))))
-	router.Handler("GET", "/static/*filepath", staticHs.Then(http.StripPrefix("/static", app.fileServer(fsStatic))))
-	router.Handler("GET", "/photos/*filepath", staticHs.Then(http.StripPrefix("/photos", app.fileServer(fsPhotos))))
+	ban := app.cfg.BanBadFiles 
+	router.Handler("GET", path.Join(misc, "*filepath"), staticHs.Then(http.StripPrefix(misc, app.fileServer(fsMisc, true))))
+	router.Handler("GET", "/static/*filepath", staticHs.Then(http.StripPrefix("/static", app.fileServer(fsStatic, ban))))
+	router.Handler("GET", "/photos/*filepath", staticHs.Then(http.StripPrefix("/photos", app.fileServer(fsPhotos, ban))))
 
 	// return 'standard' middleware chain followed by router
 	return commonHs.Then(router)

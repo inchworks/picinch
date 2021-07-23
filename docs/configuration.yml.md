@@ -67,33 +67,38 @@ Photos uploaded are resized to fit these dimensions.
 
 **thumbnail-height** `208` thumbnail height
 
+**max-upload** `32` maximum image or video upload, in megabytes
+
 ## Total limits
 **highlights-page** `12` highlights shown on home page, and on user's page
 
-**highlights-topic** `32` total slides in H format topic ??
-
-## Per-user limits
-Contributions on the home page are limited per-user.
-
-**highlights-user** `2` highlights shown on home page
-
-**slides-show** `10` not implemented
-
-**slideshows-club** `2` club slideshows on home page, per user
-
-**slideshows-public** `1` public slideshows on home page, per user
-
-## Website
-Options to change the operation of the website.
-**home-switch** switches the home page to a specified template, for example, `disabled` to show `disabled.page.tmpl` when the website is offline.
-
-**misc-name** `misc` path in URL for miscellaneous files, as in `example.com/misc/file`
+**highlights-topic** `32` total slides highlights slideshow
 
 **parent-highlights** `16` highlights available for parent website
+
+**slideshows-page** `16` slideshows shown on home page
+
+## Per-user limits
+**highlights-user** `2` highlights shown on home page
+
+**slides-show** `50` slides shown in a slideshow
+
+**slideshows-club** `2` club slideshows on home page
+
+**slideshows-public** `1` public slideshows on home page
+
+## Operational settings
+**ban-bad-files** `false` apply IP ban to requests for missing files
 
 **thumbnail-refresh** `1h` refresh interval for topic thumbnails. Units m(inutes) or h(ours).
 
 **usage-anon** `1` anonymisation of user IDs: 0 = daily, 1 = immediate.
+
+## Website variants
+Options to change the operation of the website.
+**home-switch** switches the home page to a specified template, for example, `disabled` to show `disabled.page.tmpl` when the website is offline.
+
+**misc-name** `misc` path in URL for miscellaneous files, as in `example.com/misc/file`
 
 **video-types** acceptable video file types, such as `.mp4, .mov`. (Work in progress.)
 

@@ -60,6 +60,7 @@
 											<label class='custom-file-label'><div class='invalid-feedback d-inline'>{{ .ChildError "imageName"}}</div>Choose photo...</label>
 										</div>
 									</div>
+									<div class='invalid-feedback bad-file'></div>
 								</div>
 								<div class="col-md-2">
 									<a href="#" class="btn btn-secondary btnDeleteChild">Delete</a>
@@ -110,7 +111,7 @@
 
 {{ define "pagescripts" }}
 	<script type="text/javascript" src='/static/js/setup-02.js'></script>
-	<script type="text/javascript" src='/static/js/upload-01.js'></script>
+	<script type="text/javascript" src='/static/js/upload-02.js'></script>
 	<script>
 		// page-specific processing
 
@@ -119,7 +120,7 @@
 			// Set name of the photo, and upload on select
 
 			$(".custom-file-input").on("change", function() {
-				uploadFile($(this), {{.CSRFToken}}, {{.Form.Get "timestamp"}}, $("#submit"));
+				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
 			});
 		}
 
@@ -127,7 +128,7 @@
 
 			// add change handler (not copied with prototype, it seems)
 			$newForm.find(".custom-file-input").on("change", function() {
-				uploadFile($(this), {{.CSRFToken}}, {{.Form.Get "timestamp"}}, $("#submit"));
+				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
 			});
 
 			// increment showOrder in prototype

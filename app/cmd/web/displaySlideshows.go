@@ -162,7 +162,7 @@ func (s *GalleryState) DisplayShared(code int64, seq int) (string, *DataSlidesho
 	if slideshow.User.Valid {
 
 		// this is a single slideshow
-		return "carousel-default.page.tmpl", s.displaySlides(slideshow, from, 100)
+		return "carousel-default.page.tmpl", s.displaySlides(slideshow, from, s.app.cfg.MaxSlides)
 	}
 
 	// this is a topic
@@ -202,7 +202,7 @@ func (s *GalleryState) DisplaySlideshow(id int64, from string) *DataSlideshow {
 	}
 
 	// .. and slides
-	return s.displaySlides(show, from, 100)
+	return s.displaySlides(show, from, s.app.cfg.MaxSlides)
 }
 
 // DisplayToDo returns data for slideshows with user-specific tags.
@@ -310,7 +310,7 @@ func (s *GalleryState) DisplayTopicUser(topicId int64, userId int64, from string
 	}
 
 	// .. and slides
-	return s.displaySlides(show, from, 30)
+	return s.displaySlides(show, from, s.app.cfg.MaxSlides)
 }
 
 // displayUserTags returns a tree of all tags assigned to the user, with reference counts.

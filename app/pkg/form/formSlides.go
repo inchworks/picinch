@@ -25,12 +25,12 @@ import (
 
 type PublicCompForm struct {
 	*multiforms.Form
-	Children  []*SlideFormData
+	Children []*SlideFormData
 }
 
 type SlidesForm struct {
 	*multiforms.Form
-	Children  []*SlideFormData
+	Children []*SlideFormData
 }
 
 type SlideFormData struct {

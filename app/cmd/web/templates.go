@@ -178,8 +178,9 @@ type dataValidated struct {
 // template data for forms
 
 type compFormData struct {
-	Form     *form.PublicCompForm
-	Category string
+	Form      *form.PublicCompForm
+	Category  string
+	MaxUpload int  // in MB
 	DataCommon
 }
 
@@ -189,8 +190,9 @@ type simpleFormData struct {
 }
 
 type slidesFormData struct {
-	Form  *form.SlidesForm
-	Title string
+	Form      *form.SlidesForm
+	Title     string
+	MaxUpload int // in MB
 	DataCommon
 }
 

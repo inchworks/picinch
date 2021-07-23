@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -98,13 +99,20 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 // fileServer returns a handler that serves files.
 // It wraps http.File server with a limit on the number of bad requests accepted.
 // (Thanks https://stackoverflow.com/questions/34017342/log-404-on-http-fileserver.)
-func (app *Application) fileServer(root http.FileSystem) http.Handler {
+func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handler {
 
 	fs := http.FileServer(root)
 
-	// allow 1 every 20 seconds, burst of 20, banned after 1 rejection,
-	// (probably probing to guess file names, but we must allow for missing files that are our fault).
-	lim := app.lhs.New("N", 20*time.Second, 20, 1, "F,P", nil)
+	var ban int
+	if banBad {
+		ban = 1  // banned after 2 rejections
+	} else {
+		ban = math.MaxInt32  // never ban
+	}
+
+	// limit bad file requests to one per second, burst of 5
+	// (probably probing to guess file names, but we should allow for a few missing files that are our fault).
+	lim := app.lhs.New("N", time.Second, 10, ban, "F,P", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -119,11 +127,10 @@ func (app *Application) fileServer(root http.FileSystem) http.Handler {
 		// serve file request
 		fs.ServeHTTP(sw, r)
 		if sw.status == http.StatusNotFound {
-
 			// Log threat. Limiter will ban user if there are too many.
 			if ok, _ := lim.Allow(r); ok {
 				app.threat("bad file", r)
-			}				
+			}
 		}
 	})
 }
