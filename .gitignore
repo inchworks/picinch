@@ -22,7 +22,6 @@ __debug_bin
 
 # PicInch working folders
 /mysql*/
-imported/
 misc/
 photos/
 site/

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -35,6 +36,7 @@ import (
 	"github.com/inchworks/webparts/limithandler"
 	"github.com/inchworks/webparts/multiforms"
 	"github.com/inchworks/webparts/server"
+	"github.com/inchworks/webparts/stackfs"
 	"github.com/inchworks/webparts/users"
 	"github.com/jmoiron/sqlx"
 	"github.com/justinas/nosurf"
@@ -44,13 +46,14 @@ import (
 	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
 	"inchworks.com/picinch/pkg/models/mysql"
-	"inchworks.com/picinch/pkg/picinch"
+
 	"inchworks.com/picinch/pkg/tags"
+	"inchworks.com/picinch/ui"
 )
 
 // version and copyright
 const (
-	version = "0.10.0"
+	version = "0.10.1"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -64,7 +67,6 @@ const (
 	CertPath  = "../certs"  // cached certificates
 	ImagePath = "../photos" // pictures
 	SitePath  = "../site"   // site-specific resources
-	UIPath    = "../app/ui" // user inteface resources
 	MiscPath  = "../misc"   // misc
 )
 
@@ -186,9 +188,10 @@ type Application struct {
 	sanitizer *bluemonday.Policy
 
 	// private components
-	emailer *emailer.Emailer
-	imager  *images.Imager
-	tagger  tags.Tagger
+	emailer  *emailer.Emailer
+	imager   *images.Imager
+	tagger   tags.Tagger
+	staticFS fs.FS
 
 	// HTML handlers for threats detected by application logic
 	wrongCode http.Handler
@@ -325,71 +328,21 @@ func (app *Application) Token(r *http.Request) string {
 	return nosurf.Token(r)
 }
 
-// importFiles copies customisation files and resources from external packages.
-func importFiles(toDir, fromDir string) error {
-
-	files, err := filepath.Glob(fromDir)
-	if err != nil {
-		return err // no error if dir doesn't exist
-	}
-
-	// create directories
-	if err = os.MkdirAll(toDir, os.ModePerm); err != nil {
-		return err
-	}
-
-	// copy files
-	for _, file := range files {
-
-		if err = picinch.CopyFile(toDir, "", file); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Initialisation, common to live and test
 
 func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, threatLog *log.Logger, db *sqlx.DB) *Application {
 
 	// package templates
-	var pts []string
+	var pts []fs.FS
 
 	// templates for user management
-	pw, err := users.WebPath()
-	if err != nil {
-		errorLog.Print(err)
-	} else if pw != "" {
-		pts = append(pts, filepath.Join(pw, "template"))
-	}
+	pt, err := fs.Sub(users.WebFiles, "web/template")
+	pts = append(pts, pt)
 
 	// initialise template cache
-	templateCache, err := newTemplateCache(pts, filepath.Join(UIPath, "html"), filepath.Join(SitePath, "templates"))
+	templateCache, err := newTemplateCache(pts, filepath.Join(SitePath, "templates"))
 	if err != nil {
 		errorLog.Fatal(err)
-	}
-
-	// import package resources
-	pw, err = multiforms.WebPath()
-	if err != nil {
-		errorLog.Print(err)
-	} else if pw != "" {
-		err = importFiles(filepath.Join(UIPath, "static/js/imported"), filepath.Join(pw, "static/*.js"))
-		if err != nil {
-			errorLog.Print(err)
-		}
-	}
-
-	// import custom style sheets
-	err = importFiles(filepath.Join(UIPath, "static/css"), filepath.Join(SitePath, "css/*.*"))
-	if err != nil {
-		errorLog.Print(err)
-	}
-
-	// import custom images
-	err = importFiles(filepath.Join(UIPath, "static/images"), filepath.Join(SitePath, "images/*.*"))
-	if err != nil {
-		errorLog.Print(err)
 	}
 
 	// session manager
@@ -406,6 +359,25 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		templateCache: templateCache,
 		db:            db,
 		sanitizer:     bluemonday.UGCPolicy(),
+	}
+
+	// embedded static files from packages
+	staticForms, err := fs.Sub(multiforms.WebFiles, "web/static")
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+
+	// embedded static files from app
+	staticApp, err := fs.Sub(ui.Files, "static")
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+
+	// combine embedded static files with site customisation
+	// ## perhaps site resources should be under "static"?
+	app.staticFS, err = stackfs.New(staticForms, staticApp, os.DirFS(SitePath))
+	if err != nil {
+		errorLog.Fatal(err)
 	}
 
 	// initialise gallery state
@@ -438,7 +410,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		ThumbW:         app.cfg.ThumbW,
 		ThumbH:         app.cfg.ThumbH,
 		VideoTypes:     app.cfg.VideoTypes,
-		VideoThumbnail: filepath.Join(UIPath, "static/images/video.jpg"),
 	}
 
 	// setup tagging

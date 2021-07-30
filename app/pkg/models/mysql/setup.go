@@ -90,7 +90,7 @@ var cmds = [...]string{
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 
 	`INSERT INTO slideshow (id, gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image) VALUES
-	(1,	1, 10, 2, 0, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '');`,
+	(1,	1, 10, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '');`,
 
 	`CREATE TABLE statistic (
 		id int(11) NOT NULL AUTO_INCREMENT,

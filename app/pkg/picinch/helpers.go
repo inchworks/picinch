@@ -19,38 +19,11 @@ package picinch
 
 import (
 	"crypto/rand"
-	"io"
+	"net/http"
 	"math/big"
 	"os"
-	"path/filepath"
 	"strings"
 )
-
-// copyFile copies a file to the specified directory.
-func CopyFile(toDir, name, from string) error {
-	var src *os.File
-	var dst *os.File
-	var err error
-
-	if src, err = os.Open(from); err != nil {
-		return err
-	}
-	defer src.Close()
-
-	if name == "" {
-		name = filepath.Base(from)
-	}
-
-	if dst, err = os.Create(filepath.Join(toDir, name)); err != nil {
-		return err
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, src); err != nil {
-		return err
-	}
-	return nil
-}
 
 // fremPage returns the referring page
 // ## Not used - it is more complex than this. Must recognise own pages and handle "/userId" etc.
@@ -88,4 +61,45 @@ func SecureCode(nChars int) (int64, error) {
 		return 0, err
 	}
 	return code.Add(code, min).Int64(), nil
+}
+
+// ServeFile returns a file as an HTTP response.
+// Implementation is needed because http.ServeFile does not support file systems.
+// This version is a simplified copy of http.serveFile, omitting:
+// - the check for a path with ".."
+// - handling of index.html
+// - redirection to canonical path
+// - directory listing.
+func ServeFile(w http.ResponseWriter, r *http.Request, fs http.FileSystem, name string) {
+
+	f, err := fs.Open(name)
+	if err != nil {
+		msg, code := toHTTPError(err)
+		http.Error(w, msg, code)
+		return
+	}
+	defer f.Close()
+
+	d, err := f.Stat()
+	if err != nil {
+		msg, code := toHTTPError(err)
+		http.Error(w, msg, code)
+		return
+	}
+
+	// serveContent will check modification time
+	http.ServeContent(w, r, d.Name(), d.ModTime(), f)
+}
+
+// toHTTPError converts OS errors to HTTP errors.
+// This implementation is identical to http.tpHTTPError.
+func toHTTPError(err error) (msg string, httpStatus int) {
+	if os.IsNotExist(err) {
+		return "404 page not found", http.StatusNotFound
+	}
+	if os.IsPermission(err) {
+		return "403 Forbidden", http.StatusForbidden
+	}
+	// Default:
+	return "500 Internal Server Error", http.StatusInternalServerError
 }

@@ -18,9 +18,9 @@
 package main
 
 import (
+	"io/fs"
 	"net/http"
 	"path"
-	"path/filepath"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/alice"
@@ -126,11 +126,6 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/user/signup", dynHs.ThenFunc(app.users.GetFormSignup))
 	router.Handler("POST", "/user/signup", dynHs.Append(app.limitLogin).ThenFunc(app.users.PostFormSignup))
 
-	// files that must be in root
-	router.GET("/apple-touch-icon.png", rootImagesHandler)
-	router.GET("/favicon.ico", rootImagesHandler)
-	router.GET("/robots.txt", robotsHandler)
-
 	// these are just a courtesy, say no immediately instead of redirecting to "/path/" first
 	misc := path.Join("/", app.cfg.MiscName)
 	router.Handler("GET", misc, http.NotFoundHandler())
@@ -138,7 +133,7 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/static", http.NotFoundHandler())
 
 	// file systems that block directory listing
-	fsStatic := noDirFileSystem{http.Dir(filepath.Join(UIPath, "static"))}
+	fsStatic := noDirFileSystem{http.FS(app.staticFS)}
 	fsPhotos := noDirFileSystem{http.Dir(ImagePath)}
 	fsMisc := noDirFileSystem{http.Dir(MiscPath)}
 
@@ -148,17 +143,13 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/static/*filepath", staticHs.Then(http.StripPrefix("/static", app.fileServer(fsStatic, ban))))
 	router.Handler("GET", "/photos/*filepath", staticHs.Then(http.StripPrefix("/photos", app.fileServer(fsPhotos, ban))))
 
+	// files that must be in root
+	fsImages, _ := fs.Sub(app.staticFS, "images")
+	fsRoot := http.FS(fsImages)
+	router.Handler("GET", "/robots.txt", staticHs.Then(app.fileServer(fsStatic, false)))
+	router.Handler("GET", "/apple-touch-icon.png", staticHs.Then(app.fileServer(fsRoot, false)))
+	router.Handler("GET", "/favicon.ico", staticHs.Then(app.fileServer(fsRoot, false)))
+	
 	// return 'standard' middleware chain followed by router
 	return commonHs.Then(router)
-}
-
-// Special handling for files that must be in root
-
-func robotsHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	http.ServeFile(w, r, filepath.Join(UIPath, "static/robots.txt"))
-}
-
-func rootImagesHandler(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	file := path.Base(r.URL.Path)
-	http.ServeFile(w, r, filepath.Join(UIPath, "static/images", file))
 }

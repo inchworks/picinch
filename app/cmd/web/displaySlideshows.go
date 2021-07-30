@@ -23,7 +23,8 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
+	"io/fs"
+	"os"
 	"strconv"
 
 	"inchworks.com/picinch/pkg/models"
@@ -410,25 +411,24 @@ func (s *GalleryState) ForUsers() *DataUsers {
 	}
 }
 
-// Get highlighted image, for parent website
-
-func (s *GalleryState) Highlighted(prefix string, nImage int) string {
+// Highlighted gets a highlighted image, for a parent website.
+func (s *GalleryState) Highlighted(prefix string, nImage int) (fs.FS, string) {
 
 	if nImage >= s.app.cfg.MaxHighlightsParent || nImage < 1 {
-		return ""
+		return nil, ""
 	} // silly image number
 
 	// get cached image name
-	if nImage < len(s.highlights) {
+	if nImage <= len(s.highlights) {
 		image := s.highlights[nImage-1]
 
 		// with specified prefix as first character (main or thumbnail)
 		image = prefix[:1] + image[1:]
 
-		return filepath.Join(ImagePath, image)
+		return os.DirFS(ImagePath), image
 
 	} else {
-		return filepath.Join(UIPath, "static/images/no-photos-white.jpg")
+		return s.app.staticFS, "images/no-photos-white.jpg"
 	}
 }
 

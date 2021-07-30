@@ -18,6 +18,7 @@
 package main
 
 import (
+	"io/fs"
 	"html/template"
 	"net/http"
 	"os"
@@ -31,6 +32,7 @@ import (
 	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/ui"
 )
 
 // Template data for all pages - implements TemplateData interface so we can add data without knowing
@@ -244,31 +246,50 @@ var functions = template.FuncMap{
 
 // newTemplateCache returns a cache of all templates for the application.
 // Code extended from Let's Go, to add sub-directories and package templates.
-func newTemplateCache(forPkgs []string, forApp string, forSite string) (map[string]*template.Template, error) {
+func newTemplateCache(forPkgs []fs.FS, forSite string) (map[string]*template.Template, error) {
 
 	// cache of templates indexed by page name
 	cache := map[string]*template.Template{}
 
-	// add library page templates
+	// templates
+	root, err := fs.Sub(ui.Files, "html")
+	if err != nil {
+		return nil, err
+	}
+	site := os.DirFS(forSite)
+
+	// add library page templates, using app for layout and partials
+	parts, err := fs.Sub(root, "pages")
+	if err != nil {
+		return nil, err
+	}
 	for _, forPkg := range forPkgs {
-		if err := addTemplates(forPkg, forApp, filepath.Join(forApp, "pages"), forSite, cache); err != nil {
+		if err := addTemplates(forPkg, root, parts, site, cache); err != nil {
 			return nil, err
 		}
 	}
 
 	// add application page templates from sub-directories
-	err := filepath.Walk(forApp, func(path string, info os.FileInfo, err error) error {
+	err = fs.WalkDir(root, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() {
-			return addTemplates(path, forApp, path, forSite, cache)
+		if d.IsDir() {
+			// a set of page template files
+			tfs, err := fs.Sub(root, d.Name())
+			if err != nil {
+				return err
+			}
+			return addTemplates(tfs, root, tfs, site, cache)
 		}
 		return nil // ignore page templates in root
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	// add site-specific page templates
-	if err := addTemplates(forSite, forApp, forSite, "", cache); err != nil {
+	if err := addTemplates(site, root, site, nil, cache); err != nil {
 		return nil, err
 	}
 
@@ -276,72 +297,59 @@ func newTemplateCache(forPkgs []string, forApp string, forSite string) (map[stri
 	return cache, err
 }
 
-// addTemplates parses the files to define templates called by the specified page template.
-// Layout and partial files (subs) are usually taken from the same folder as the page template, but a different
-// folder is needed for library pages.
-func addTemplates(dir string, root string, subs string, site string, cache map[string]*template.Template) error {
+// addTemplates parses a set of template files for HTML pages.
+// It adds template definitions from files in root (all), parts (layout and partial) and site (site-specific partial).
+// Layout and partial files (parts) are usually taken from the same folder as the page template, but a different
+// folder is needed for library pages. The site-specific FS is null when parsing site-specific pages.
+func addTemplates(pages fs.FS, root fs.FS, parts fs.FS, site fs.FS, cache map[string]*template.Template) error {
 
-	// get all filepaths with the extension '.page.tmpl' (all the 'page' templates for the application)
-	pages, err := filepath.Glob(filepath.Join(dir, "*.page.tmpl"))
+	// get the set of 'page' templates
+	pgs, err := fs.Glob(pages, "*.page.tmpl")
 	if err != nil {
 		return err
 	}
 
-	for _, page := range pages {
+	for _, pg := range pgs {
 
-		// Extract the file name (e.g. 'home.page.tmpl') from the full file path
-		name := filepath.Base(page)
+		// extract the file name (e.g. 'home.page.tmpl') from the full file path
+		name := filepath.Base(pg)
 
 		// The template.FuncMap must be registered with the template set before calling ParseFiles().
 		// So we create an empty template set, use the Funcs() method to register the map, and then parse the file.
 
-		// Parse the page template file in to a template set.
-		ts, err := template.New(name).Funcs(functions).ParseFiles(page)
+		// parse the page template file in to a template set
+		ts, err := template.New(name).Funcs(functions).ParseFS(pages, pg)
 		if err != nil {
 			return err
 		}
 
-		// Add any root template files (first, so templates can be redefined in a sub-folder)
-		if ts, err = parseGlobIf(ts, filepath.Join(root, "*.tmpl")); err != nil {
+		// add any root template files (first, so templates can be redefined in a sub-folder)
+		if ts, err = parseIf(ts, root, "*.tmpl"); err != nil {
 			return err
 		}
 
-		// Add any 'layout' template files to the template set.
-		if ts, err = parseGlobIf(ts, filepath.Join(subs, "*.layout.tmpl")); err != nil {
+		// add any 'layout' template files to the template set
+		if ts, err = parseIf(ts, parts, "*.layout.tmpl"); err != nil {
 			return err
 		}
 
-		// Add any 'partial' template files to the template set
-		if ts, err = parseGlobIf(ts, filepath.Join(subs, "*.partial.tmpl")); err != nil {
+		// add any 'partial' template files to the template set
+		if ts, err = parseIf(ts, parts, "*.partial.tmpl"); err != nil {
 			return err
 		}
 
-		// Add any site-specific template files (last, so they can redefine application templates)
-		if site != "" {
-			if ts, err = parseGlobIf(ts, filepath.Join(site, "*.partial.tmpl")); err != nil {
+		// add any site-specific template files (last, so they can redefine application templates)
+		if site != nil {
+			if ts, err = parseIf(ts, site, "*.partial.tmpl"); err != nil {
 				return err
 			}
 		}
 
-		// Add the page's template set for the page to the cache, keyed by the file name
+		// add the template set for the page to the cache, keyed by the file name
 		cache[name] = ts
 	}
 
 	return nil
-}
-
-// parseGlobIf adds any optional templates to set.
-func parseGlobIf(ts *template.Template, pattern string) (*template.Template, error) {
-
-	// ## ParseGlob fails if there are no matches. I can't find out how to test for that error :-(.
-	m, err := filepath.Glob(pattern)
-	if len(m) > 0 {
-		ts, err = ts.ParseGlob(pattern)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return ts, err
 }
 
 // checked returns "checked" if the parameter is true, for use with a form checkbox.
@@ -351,6 +359,19 @@ func checked(isChecked bool) string {
 		return "checked"
 	} else {
 		return ""
+	}
+}
+
+// parseIf checks if any files match the pattern, and then calls template.ParseFS.
+// Inconveniently, ParseFS requires at least one template file :-(.
+func parseIf(ts *template.Template, set fs.FS, pattern string) (*template.Template, error) {
+
+	// (ParseFS doesn't accept an empty set)
+	ms, _ := fs.Glob(set, pattern)
+	if len(ms) > 0 {
+		return ts.ParseFS(set, pattern)
+	} else {
+		return ts, nil
 	}
 }
 

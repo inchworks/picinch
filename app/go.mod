@@ -1,6 +1,6 @@
 module inchworks.com/picinch
 
-go 1.12
+go 1.16
 
 require (
 	github.com/disintegration/imaging v1.6.2
@@ -19,4 +19,4 @@ require (
 	gopkg.in/mail.v2 v2.3.1 // indirect
 )
 
-// replace github.com/inchworks/webparts v0.6.0 => ../../webparts
+replace github.com/inchworks/webparts v0.7.1 => ../../webparts

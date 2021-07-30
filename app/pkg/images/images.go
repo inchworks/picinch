@@ -23,10 +23,12 @@ package images
 
 import (
 	"bytes"
+	"embed"
 	"errors"
 	"fmt"
 	"image"
 	"io"
+	"io/fs"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -36,8 +38,6 @@ import (
 
 	"github.com/disintegration/imaging"
 	"inchworks.com/picinch/pkg/models"
-
-	"inchworks.com/picinch/pkg/picinch"
 )
 
 type Imager struct {
@@ -49,7 +49,6 @@ type Imager struct {
 	ThumbW    int
 	ThumbH    int
 	VideoTypes []string
-	VideoThumbnail string
 
 	// state
 	showId      int64
@@ -72,6 +71,10 @@ type ReqSave struct {
 	Fullsize  bytes.Buffer
 	Img       image.Image
 }
+
+// webFiles are the package's web resources (templates and static files)
+//go:embed web
+var webFiles embed.FS
 
 // cleanName removes unwanted characters from a filename, to make it safe for display and storage.
 // From https://stackoverflow.com/questions/54461423/efficient-way-to-remove-all-non-alphanumeric-characters-from-large-text.
@@ -357,6 +360,32 @@ func (im *Imager) Updated(fileName string) (string, error) {
 	return newName, nil
 }
 
+// copyFile copies a static file to the specified directory.
+func copyStatic(toDir, name string, fromFS fs.FS, path string) error {
+	var src fs.File
+	var dst *os.File
+	var err error
+
+	if src, err = fromFS.Open(path); err != nil {
+		return err
+	}
+	defer src.Close()
+
+	if name == "" {
+		name = filepath.Base(path)
+	}
+
+	if dst, err = os.Create(filepath.Join(toDir, name)); err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return err
+	}
+	return nil
+}
+
 // changeType normalises an image file extension, and indicates if it should be converted to a displayable type.
 func changeType(name string) (nm string, changed bool) {
 
@@ -494,7 +523,9 @@ func (im *Imager) saveVideo(req ReqSave) error {
 	}
 
 	// set thumbnail, replacing video type by JPG
-	if err = picinch.CopyFile(im.FilePath, Thumbnail(fn), im.VideoThumbnail); err != nil {
+	// ## This is temporary, as I hope to generate a thumbnail for each video in future.
+	// ## So no provision for app to customise the thumbnail.
+	if err = copyStatic(im.FilePath, Thumbnail(fn), webFiles, "web/static/video.jpg"); err != nil {
 		return nil
 	}
 	

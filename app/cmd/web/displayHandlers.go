@@ -27,6 +27,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 
 	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/pkg/picinch"
 )
 
 // classes serves the home page for a competition.
@@ -106,12 +107,12 @@ func (app *Application) highlight(w http.ResponseWriter, r *http.Request) {
 	prefix := ps.ByName("prefix")
 	n, _ := strconv.Atoi(ps.ByName("nImage"))
 
-	// get highlighted image
-	image := app.galleryState.Highlighted(prefix, n)
+	// get highlighted image, with the file system that holds it
+	fs, image := app.galleryState.Highlighted(prefix, n)
 
 	// return image
 	if image != "" {
-		http.ServeFile(w, r, image)
+		picinch.ServeFile(w, r, http.FS(fs), image)
 	} else {
 		app.notFound(w)
 	}
