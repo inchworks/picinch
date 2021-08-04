@@ -23,9 +23,6 @@ The following templates are intended to be redefined, and you will probably want
 
 **website** Website name, added to page titles and shown on log-in page.
 
-You may also add static pages with `*.page.tmpl` files, and specify common page layouts with `*.layout.tmpl` files. 
-Use `notices.page.tmpl` and `gallery.layout.tmpl` as examples. Static pages are accessed by path `info/*` with the same name as the page template.
-
 ### Graphics
 Files in `images/` replace the default brand and favicon images for PicInch.
 
@@ -46,8 +43,17 @@ The following may be left unchanged (although realfavicongenerator.net will make
 - browserconfig.xml
 - site.webmanifest
 
-You may also add any images you wish to include in customised templates. `site/images/filename` will be served as `static/images/filename`. These files are copied so large files, such as videos, should go in
+You may also add add additional images you wish to include in customised templates to `/images`. They will be served as `static/images/*`. These files are intended to be unchanging; dynamic content should go in
 `/srv/picinch/misc`.
+
+### Additional Content
+You may also add static pages with `templates/*.page.tmpl` files, and specify common page layouts with `*.layout.tmpl` files.
+Use `notices.page.tmpl` and `gallery.layout.tmpl` as examples. Static pages are accessed by path `info/*` with the same name as the page template.
+
+Use `static/css` and `static/js` to hold any additional stylesheets and scripts needed by your pages.
+These are not included automatically; you will need to reference them as needed in your template files.
+
+Note that additional templates and files should have different names to those used in the PicInch code, unless you intend to override the corresponding parts of PicInch.
 
 ### Configuration Parameters
 The essential items are shown in docker-compose.yml. See [configuration.yml]({{ site.baseurl }}{% link configuration.yml.md %}) for the full set of options.

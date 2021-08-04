@@ -90,8 +90,8 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("POST", "/assign-slideshows", curatorHs.ThenFunc(app.postFormAssignShows))
 	router.Handler("GET", "/edit-topic/:nShow/:nUser", ownerHs.ThenFunc(app.getFormTopic))
 
-	// upload image
-	router.Handler("POST", "/upload/:timestamp", publicHs.ThenFunc(app.postFormImage))
+	// upload media files
+	router.Handler("POST", "/upload/:timestamp", publicHs.ThenFunc(app.postFormMedia))
 
 	// displays
 	router.Handler("GET", "/slideshow/:nShow/:seq", dynHs.ThenFunc(app.slideshow))

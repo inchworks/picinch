@@ -17,6 +17,8 @@ github.com/ilyakaznacheev/cleanenv v1.2.5 h1:/SlcF9GaIvefWqFJzsccGG/NJdoaAwb7Mm7
 github.com/ilyakaznacheev/cleanenv v1.2.5/go.mod h1:/i3yhzwZ3s7hacNERGFwvlhwXMDcaqwIzmayEhbRplk=
 github.com/inchworks/usage v0.2.0 h1:vA7mMChetDX9f8OEVvezzBAJ87zXtMTON6fSmbKpOsA=
 github.com/inchworks/usage v0.2.0/go.mod h1:iga9SonKBPB+ZAwq2VaAj5nuaN5wHvuNFpLBfCmktSY=
+github.com/inchworks/webparts v0.8.0 h1:o6veoS+iVvyi+Hp5ZW/vBG1uiYo0kOC+kw3PJFnNqZQ=
+github.com/inchworks/webparts v0.8.0/go.mod h1:LDI/1qraLoG+aHvsGy+Xz6HJ7530VURUU17XdI95iFU=
 github.com/jmoiron/sqlx v1.3.4 h1:wv+0IJZfL5z0uZoUjlpKgHkgaFSYD+r9CfrXjEXsO7w=
 github.com/jmoiron/sqlx v1.3.4/go.mod h1:2BljVx/86SuTyjE+aPYlHCTNvZrnJXghYGpNiXLBMCQ=
 github.com/joho/godotenv v1.3.0 h1:Zjp+RcGpHhGlrMbJzXTrZZPrWj+1vfm90La1wgB6Bhc=

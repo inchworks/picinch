@@ -119,7 +119,7 @@ func (app *Application) getFormEnterComp(w http.ResponseWriter, r *http.Request)
 }
 
 // postFormEnterComp handles a request to enter a competition.
-// ## This version allows only one image.
+// ## This version allows only one media file.
 func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
@@ -145,7 +145,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// expect one slide with an image
+	// expect one slide with a media file
 	slides, err := f.GetSlides(app.validTypeCheck())
 	if err != nil {
 		app.log(err)
@@ -245,8 +245,8 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// postFormImage handles an uploaded image
-func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
+// postFormImage handles an uploaded media file
+func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 	timestamp := ps.ByName("timestamp")
@@ -260,7 +260,7 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get image returned with form
+	// get file returned with form
 	f := r.MultipartForm.File["image"]
 	if f == nil || len(f) == 0 {
 		// ## don't know how we can get a form without a file, but we do
@@ -268,7 +268,7 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// check image size, rounded to nearest MB
+	// check file size, rounded to nearest MB
 	// (Our client script checks file sizes, so we needn't send a nice error.)
 	fh := f[0]
 	sz := (fh.Size + (1 << 19)) >> 20
@@ -277,8 +277,8 @@ func (app *Application) postFormImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// schedule image to be saved as a file
-	err, byUser := app.imager.Save(fh, timestamp, app.chImage)
+	// schedule upload to be saved as a file
+	err, byUser := app.uploader.Save(fh, timestamp, app.chImage)
 	var s string
 	if err != nil {
 		if byUser {

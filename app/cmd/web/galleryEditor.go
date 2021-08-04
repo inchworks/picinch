@@ -28,11 +28,11 @@ import (
 	"time"
 
 	"inchworks.com/picinch/pkg/form"
-	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
 	"inchworks.com/picinch/pkg/picinch"
 
 	"github.com/inchworks/webparts/multiforms"
+	"github.com/inchworks/webparts/uploader"
 	"github.com/inchworks/webparts/users"
 	"inchworks.com/picinch/pkg/tags"
 )
@@ -56,7 +56,7 @@ func (s *GalleryState) ForAssignShows(tok string) (f *form.SlideshowsForm) {
 	// form
 	var d = make(url.Values)
 	f = form.NewSlideshows(d, tok)
-	
+
 	// add template and slideshows to form
 	f.AddTemplate()
 	for i, sh := range slideshows {
@@ -183,7 +183,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (f *form.Slide
 
 	// add slides to form
 	for i, sl := range slides {
-		_, image, _ := images.NameFromFile(sl.Image)
+		_, image, _ := uploader.NameFromFile(sl.Image)
 		f.Add(i, sl.ShowOrder, sl.Title, image, sl.Caption)
 	}
 
@@ -226,7 +226,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 			show = &models.Slideshow{
 				GalleryOrder: 5, // default
 				Visible:      models.SlideshowTopic,
-				User:         sql.NullInt64 { Int64: userId, Valid: true } ,
+				User:         sql.NullInt64{Int64: userId, Valid: true},
 				Topic:        topicId,
 				Created:      now,
 				Revised:      now,
@@ -256,7 +256,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 
 		} else if iDest == nDest {
 			// no more destination slides - add new one
-			imageName := images.CleanName(qsSrc[iSrc].ImageName)
+			imageName := uploader.CleanName(qsSrc[iSrc].ImageName)
 			qd := models.Slide{
 				Slideshow: showId,
 				Format:    s.app.slideFormat(qsSrc[iSrc]),
@@ -265,9 +265,9 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 				Revised:   now,
 				Title:     s.sanitize(qsSrc[iSrc].Title, ""),
 				Caption:   s.sanitize(qsSrc[iSrc].Caption, ""),
-				Image:     images.FileFromName(timestamp, imageName, 0),
+				Image:     uploader.FileFromName(timestamp, imageName, 0),
 			}
-			// only a new image is counted as a revision to the slideshow
+			// only a new media file is counted as a revision to the slideshow
 			if imageName != "" {
 				revised = true
 			}
@@ -286,10 +286,10 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 
 			} else if ix == iDest {
 				// check if details changed
-				// (checking image name at this point, version change will be handled later)
-				imageName := images.CleanName(qsSrc[iSrc].ImageName)
+				// (checking media name at this point, version change will be handled later)
+				imageName := uploader.CleanName(qsSrc[iSrc].ImageName)
 				qDest := qsDest[iDest]
-				_, dstName, _ := images.NameFromFile(qDest.Image)
+				_, dstName, _ := uploader.NameFromFile(qDest.Image)
 				if qsSrc[iSrc].ShowOrder != qDest.ShowOrder ||
 					qsSrc[iSrc].Title != qDest.Title ||
 					qsSrc[iSrc].Caption != qDest.Caption ||
@@ -301,10 +301,10 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 					qDest.Title = s.sanitize(qsSrc[iSrc].Title, qDest.Title)
 					qDest.Caption = s.sanitize(qsSrc[iSrc].Caption, qDest.Caption)
 
-					// If the image name hasn't changed, leave the old version in use for now,
+					// If the media name hasn't changed, leave the old version in use for now,
 					// so that the slideshow still works. We'll detect a version change later.
 					if imageName != dstName {
-						qDest.Image = images.FileFromName(timestamp, qsSrc[iSrc].ImageName, 0)
+						qDest.Image = uploader.FileFromName(timestamp, qsSrc[iSrc].ImageName, 0)
 					}
 
 					s.app.SlideStore.Update(qDest)
@@ -341,7 +341,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 		}
 	}
 
-	// request worker to generate image versions, and remove unused images
+	// request worker to generate media versions, and remove unused images
 	// (skipped if the user didn't add any slides for a new topic)
 	if showId != 0 {
 		s.app.chShow <- reqUpdateShow{showId: showId, timestamp: timestamp, revised: revised}
@@ -349,7 +349,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, timestamp st
 
 	// then worker should change the topic thumbnail, in case we just updated or removed the current one
 	if topicId != 0 {
-		s.app.chTopic <- reqUpdateTopic{ topicId: topicId, revised: revised }
+		s.app.chTopic <- reqUpdateTopic{topicId: topicId, revised: revised}
 	}
 
 	ok = true
@@ -578,7 +578,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (f 
 
 	// add slides to form
 	for i, sl := range slides {
-		_, image, _ := images.NameFromFile(sl.Image)
+		_, image, _ := uploader.NameFromFile(sl.Image)
 		f.Add(i, sl.ShowOrder, sl.Title, image, sl.Caption)
 	}
 
@@ -684,8 +684,8 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) bool {
 						rDest.Created = now
 						rDest.Revised = now
 
-						// needs an image before it will appear on home page
-						s.app.chTopic <- reqUpdateTopic{ topicId: rDest.Id, revised: false }
+						// needs a media file before it will appear on home page
+						s.app.chTopic <- reqUpdateTopic{topicId: rDest.Id, revised: false}
 					}
 
 					s.app.SlideshowStore.Update(rDest)
@@ -722,7 +722,7 @@ func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicC
 
 	// generate request timestamp for uploaded images (we don't have a user ID yet)
 	f.Set("timestamp", strconv.FormatInt(time.Now().UnixNano(), 36))
- 
+
 	return f, show.Title, nil
 }
 
@@ -773,8 +773,8 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 	}
 
 	// must be an acceptable file type
-	// (it should have been validated when the image was uploaded)
-	sf := s.app.imager.FileType(image)
+	// (it should have been validated when the file was uploaded)
+	sf := slideMedia(s.app.uploader.FileType(image))
 	if sf == 0 {
 		return -1
 	}
@@ -782,14 +782,14 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 		sf += models.SlideCaption
 	}
 
-	// create slide for image
+	// create slide for media file
 	// ## a future version will allow multiple slides
 	slide := &models.Slide{
 		Slideshow: show.Id,
 		Format:    sf,
 		Revised:   time.Now(),
 		Caption:   caption,
-		Image:     images.FileFromName(timestamp, image, 0),
+		Image:     uploader.FileFromName(timestamp, image, 0),
 	}
 
 	if err = s.app.SlideStore.Update(slide); err != nil {
@@ -804,7 +804,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, timestamp string, name stri
 		s.app.tagger.SetTagRef(show.Id, 0, "agreements", 0, strconv.Itoa(nAgreed))
 	}
 
-	// request worker to generate image version, remove unused images, and send validation email
+	// request worker to generate media version, remove unused images, and send validation email
 	s.app.chComp <- reqUpdateShow{showId: show.Id, timestamp: timestamp, revised: false}
 
 	// auto validation is not needed if we can send emails.
@@ -836,7 +836,7 @@ func (s *GalleryState) OnRemoveUser(user *users.User) {
 
 	// change topic images as needed
 	for topicId := range topics {
-		s.app.chTopic <- reqUpdateTopic{ topicId: topicId, revised: false }
+		s.app.chTopic <- reqUpdateTopic{topicId: topicId, revised: false}
 	}
 }
 
@@ -860,10 +860,10 @@ func (s *GalleryState) onRemoveSlideshow(slideshow *models.Slideshow) {
 	// slides will be removed by cascade delete
 	s.app.SlideshowStore.DeleteId(slideshow.Id)
 
-	// request worker to remove images, and change topic image
+	// request worker to remove media files, and change topic image
 	s.app.chShow <- reqUpdateShow{showId: slideshow.Id, timestamp: "", revised: false}
 	if topicId != 0 {
-		s.app.chTopic <- reqUpdateTopic{ topicId: topicId, revised: false }
+		s.app.chTopic <- reqUpdateTopic{topicId: topicId, revised: false}
 	}
 }
 
@@ -1048,7 +1048,7 @@ func (app *Application) slideFormat(slide *form.SlideFormData) int {
 		f = models.SlideTitle
 	}
 	if len(slide.ImageName) > 0 {
-		f = f + app.imager.FileType(slide.ImageName)
+		f = f + slideMedia(app.uploader.FileType(slide.ImageName))
 	}
 	if len(slide.Caption) > 0 {
 		f = f + models.SlideCaption
@@ -1057,3 +1057,15 @@ func (app *Application) slideFormat(slide *form.SlideFormData) int {
 	return f
 }
 
+// slide media returns the slide type for the specified media type.
+func slideMedia(mediaType int) int {
+
+	switch mediaType {
+	case uploader.MediaImage:
+		return models.SlideImage
+	case uploader.MediaVideo:
+		return models.SlideVideo
+	default:
+		return 0  // invalid media type
+	}
+}

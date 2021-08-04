@@ -36,14 +36,14 @@ import (
 	"github.com/inchworks/webparts/limithandler"
 	"github.com/inchworks/webparts/multiforms"
 	"github.com/inchworks/webparts/server"
-	"github.com/inchworks/webparts/stackfs"
+	"github.com/inchworks/webparts/stack"
+	"github.com/inchworks/webparts/uploader"
 	"github.com/inchworks/webparts/users"
 	"github.com/jmoiron/sqlx"
 	"github.com/justinas/nosurf"
 	"github.com/microcosm-cc/bluemonday"
 
 	"inchworks.com/picinch/pkg/emailer"
-	"inchworks.com/picinch/pkg/images"
 	"inchworks.com/picinch/pkg/models"
 	"inchworks.com/picinch/pkg/models/mysql"
 
@@ -180,16 +180,16 @@ type Application struct {
 	userStore      *mysql.UserStore
 
 	// common components
-	lhs   *limithandler.Handlers
-	usage *usage.Recorder
-	users users.Users
+	lhs      *limithandler.Handlers
+	uploader *uploader.Uploader
+	usage    *usage.Recorder
+	users    users.Users
 
 	// HTML sanitizer for titles and captions
 	sanitizer *bluemonday.Policy
 
 	// private components
 	emailer  *emailer.Emailer
-	imager   *images.Imager
 	tagger   tags.Tagger
 	staticFS fs.FS
 
@@ -198,7 +198,7 @@ type Application struct {
 
 	// Channels to background worker
 	chComp  chan reqUpdateShow
-	chImage chan images.ReqSave
+	chImage chan uploader.ReqSave
 	chShow  chan reqUpdateShow
 	chShows chan []reqUpdateShow
 	chTopic chan reqUpdateTopic
@@ -339,8 +339,14 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	pt, err := fs.Sub(users.WebFiles, "web/template")
 	pts = append(pts, pt)
 
+	// application templates
+	forApp, err := fs.Sub(ui.Files, "html")
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+
 	// initialise template cache
-	templateCache, err := newTemplateCache(pts, filepath.Join(SitePath, "templates"))
+	templateCache, err := stack.NewTemplates(pts, forApp, os.DirFS(filepath.Join(SitePath, "templates")), templateFuncs)
 	if err != nil {
 		errorLog.Fatal(err)
 	}
@@ -366,7 +372,11 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	if err != nil {
 		errorLog.Fatal(err)
 	}
-
+	staticUploader, err := fs.Sub(uploader.WebFiles, "web/static")
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+	
 	// embedded static files from app
 	staticApp, err := fs.Sub(ui.Files, "static")
 	if err != nil {
@@ -375,7 +385,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// combine embedded static files with site customisation
 	// ## perhaps site resources should be under "static"?
-	app.staticFS, err = stackfs.New(staticForms, staticApp, os.DirFS(SitePath))
+	app.staticFS, err = stack.NewFS(staticForms, staticUploader, staticApp, os.DirFS(SitePath))
 	if err != nil {
 		errorLog.Fatal(err)
 	}
@@ -402,14 +412,14 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		app.emailer = emailer.New(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, localHost, app.templateCache)
 	}
 
-	// setup image processing
-	app.imager = &images.Imager{
-		FilePath:       ImagePath,
-		MaxW:           app.cfg.MaxW,
-		MaxH:           app.cfg.MaxH,
-		ThumbW:         app.cfg.ThumbW,
-		ThumbH:         app.cfg.ThumbH,
-		VideoTypes:     app.cfg.VideoTypes,
+	// setup media upload processing
+	app.uploader = &uploader.Uploader{
+		FilePath:   ImagePath,
+		MaxW:       app.cfg.MaxW,
+		MaxH:       app.cfg.MaxH,
+		ThumbW:     app.cfg.ThumbW,
+		ThumbH:     app.cfg.ThumbH,
+		VideoTypes: app.cfg.VideoTypes,
 	}
 
 	// setup tagging
@@ -436,7 +446,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// create worker channels
 	app.chComp = make(chan reqUpdateShow, 10)
-	app.chImage = make(chan images.ReqSave, 20)
+	app.chImage = make(chan uploader.ReqSave, 20)
 	app.chShow = make(chan reqUpdateShow, 10)
 	app.chShows = make(chan []reqUpdateShow, 1)
 	app.chTopic = make(chan reqUpdateTopic, 10)

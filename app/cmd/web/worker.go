@@ -27,7 +27,8 @@ import (
 	"strconv"
 	"time"
 
-	"inchworks.com/picinch/pkg/images"
+	"github.com/inchworks/webparts/uploader"
+
 	"inchworks.com/picinch/pkg/models"
 )
 
@@ -41,7 +42,7 @@ type validationData struct {
 // worker does all background processing for PicInch.
 func (s *GalleryState) worker(
 	chComp <-chan reqUpdateShow,
-	chImage <-chan images.ReqSave,
+	chImage <-chan uploader.ReqSave,
 	chShow <-chan reqUpdateShow,
 	chShows <-chan []reqUpdateShow,
 	chTopic <-chan reqUpdateTopic,
@@ -63,7 +64,7 @@ func (s *GalleryState) worker(
 		case req := <-chImage:
 
 			// resize and save image, with thumbnail
-			if err := s.app.imager.SaveRequested(req); err != nil {
+			if err := s.app.uploader.SaveRequested(req); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
 
@@ -165,11 +166,11 @@ func (s *GalleryState) onRefresh() error {
 // onUpdateShow processes an updated or deleted slideshow.
 func (s *GalleryState) onUpdateShow(showId int64, timestamp string, revised bool) error {
 
-	// images
-	im := s.app.imager
+	// upload manager
+	ul := s.app.uploader
 
 	// setup
-	if err := im.ReadVersions(showId, timestamp); err != nil {
+	if err := ul.ReadVersions(showId, timestamp); err != nil {
 		return err
 	}
 
@@ -179,7 +180,7 @@ func (s *GalleryState) onUpdateShow(showId int64, timestamp string, revised bool
 	}
 
 	// remove unused versions
-	if err := im.RemoveVersions(); err != nil {
+	if err := ul.RemoveVersions(); err != nil {
 		return err
 	}
 
@@ -218,7 +219,7 @@ func (s *GalleryState) updateHighlights(id int64) error {
 	return nil
 }
 
-// updateSlides changes image versions for a slideshow. It also sets the slideshow revision time.
+// updateSlides changes media versions for a slideshow. It also sets the slideshow revision time.
 func (s *GalleryState) updateSlides(showId int64, revised bool) error {
 
 	// serialise display state while slides are changing
@@ -234,7 +235,7 @@ func (s *GalleryState) updateSlides(showId int64, revised bool) error {
 	thumbnail := ""
 	nImages := 0
 
-	// check each slide for an updated image
+	// check each slide for an updated media file
 	slides := s.app.SlideStore.ForSlideshow(showId, 1000)
 	for _, slide := range slides {
 
@@ -242,8 +243,8 @@ func (s *GalleryState) updateSlides(showId int64, revised bool) error {
 
 			var newImage string
 			var err error
-			if newImage, err = s.app.imager.Updated(slide.Image); err != nil {
-				// ## We have lost the image, but have no way to warn the user :-(
+			if newImage, err = s.app.uploader.Updated(slide.Image); err != nil {
+				// ## We have lost the file, but have no way to warn the user :-(
 				// We must remove the reference so that all viewers don't get a missing file error.
 				// log the error, but process the remaining slides
 				slide.Image = ""
@@ -252,7 +253,7 @@ func (s *GalleryState) updateSlides(showId int64, revised bool) error {
 				s.app.errorLog.Print(err.Error()) 
 
 			} else if newImage != "" {
-				// updated image
+				// updated media
 				slide.Image = newImage
 				s.app.SlideStore.Update(slide)
 			}

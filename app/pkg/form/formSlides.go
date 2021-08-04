@@ -115,7 +115,6 @@ func (f *PublicCompForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, er
 		if len(items[i].ImageName) == 0 {
 			f.ChildErrors.Add("imageName", ix, "No photo!")
 		}
-
 	}
 
 	// Add the child items back into the form, in case we need to redisplay it
