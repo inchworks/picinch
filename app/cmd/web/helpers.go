@@ -276,6 +276,6 @@ func (app *Application) serverError(w http.ResponseWriter, err error) {
 func (app *Application) validTypeCheck() form.ValidTypeFunc {
 
 	return func(name string) bool {
-		return app.uploader.FileType(name) != 0
+		return app.uploader.MediaType(name) != 0
 	}
 }

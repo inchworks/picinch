@@ -33,6 +33,7 @@ import (
 	"github.com/golangcollege/sessions"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/inchworks/usage"
+	"github.com/inchworks/webparts/etx"
 	"github.com/inchworks/webparts/limithandler"
 	"github.com/inchworks/webparts/multiforms"
 	"github.com/inchworks/webparts/server"
@@ -53,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.10.1"
+	version = "0.11.0"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -129,6 +130,7 @@ type Configuration struct {
 
 	// operational settings
 	BanBadFiles     bool            `yaml:"limit-bad-files" env-default:"false"` // apply ban to requests for missing files
+	MaxUploadAge    time.Duration   `yaml:"max-upload-age"  env-default:"8h"`    // maximum time for a slideshow update. Units m or h.
 	SiteRefresh     time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"` // refresh interval for topic thumbnails. Units m or h.
 	UsageAnonymised usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 
@@ -146,17 +148,19 @@ type Configuration struct {
 	Sender        string `yaml:"sender" env:"sender" env-default:""`
 }
 
-// Request to update slideshow images.
-type reqUpdateShow struct {
-	showId    int64
-	timestamp string // timestamp for any updated images
-	revised   bool
+// Poeration to update slideshow images.
+type OpUpdateShow struct {
+	ShowId  int64
+	TopicId int64
+	Revised bool
+	tx      etx.TxId
 }
 
-// Request to update topic images.
-type reqUpdateTopic struct {
-	topicId int64
-	revised bool
+// Operation to update topic images.
+type OpUpdateTopic struct {
+	TopicId int64
+	Revised bool
+	tx      etx.TxId
 }
 
 // Application struct supplies application-wide dependencies.
@@ -175,12 +179,14 @@ type Application struct {
 
 	SlideStore     *mysql.SlideStore
 	GalleryStore   *mysql.GalleryStore
+	redoStore      *mysql.RedoStore
 	SlideshowStore *mysql.SlideshowStore
 	statisticStore *mysql.StatisticStore
 	userStore      *mysql.UserStore
 
 	// common components
 	lhs      *limithandler.Handlers
+	tm       *etx.TM
 	uploader *uploader.Uploader
 	usage    *usage.Recorder
 	users    users.Users
@@ -197,11 +203,10 @@ type Application struct {
 	wrongCode http.Handler
 
 	// Channels to background worker
-	chComp  chan reqUpdateShow
-	chImage chan uploader.ReqSave
-	chShow  chan reqUpdateShow
-	chShows chan []reqUpdateShow
-	chTopic chan reqUpdateTopic
+	chComp  chan OpUpdateShow
+	chShow  chan OpUpdateShow
+	chShows chan []OpUpdateShow
+	chTopic chan OpUpdateTopic
 
 	// Since we support just one gallery at a time, we can cache state here.
 	// With multiple galleries, we'd need a per-gallery cache.
@@ -247,6 +252,7 @@ func main() {
 	app := initialise(cfg, errorLog, infoLog, threatLog, db)
 
 	defer app.lhs.Stop()
+	defer app.uploader.Stop()
 	defer app.usage.Stop()
 
 	// start background worker
@@ -255,10 +261,16 @@ func main() {
 	defer t.Stop()
 
 	chDone := make(chan bool, 1)
-	go app.galleryState.worker(app.chComp, app.chImage, app.chShow, app.chShows, app.chTopic, t.C, chDone)
+	go app.galleryState.worker(app.chComp, app.chShow, app.chShows, app.chTopic, t.C, chDone)
+
+	// redo any pending operations
+
+	infoLog.Print("Starting operation recovery")
+	if err := app.tm.Recover(&app.galleryState, app.uploader); err != nil {
+		errorLog.Fatal(err)
+	}
 
 	// preconfigured HTTP/HTTPS server
-	// ## name stutter!
 	srv := &server.Server{
 		ErrorLog: app.newServerLog(os.Stdout, "SERVER\t", log.Ldate|log.Ltime),
 		InfoLog:  infoLog,
@@ -306,9 +318,9 @@ func (app *Application) OnAddUser(user *users.User) {
 }
 
 // OnRemoveUser is called to delete any application data for a user.
-func (app *Application) OnRemoveUser(user *users.User) {
+func (app *Application) OnRemoveUser(tx etx.TxId, user *users.User) {
 
-	app.galleryState.OnRemoveUser(user)
+	app.galleryState.OnRemoveUser(tx, user)
 }
 
 // Render writes an HTTP response using the specified template and field (embedded as Users).
@@ -376,7 +388,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	if err != nil {
 		errorLog.Fatal(err)
 	}
-	
+
 	// embedded static files from app
 	staticApp, err := fs.Sub(ui.Files, "static")
 	if err != nil {
@@ -412,6 +424,9 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		app.emailer = emailer.New(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, localHost, app.templateCache)
 	}
 
+	// set up extended transaction manager, and recover
+	app.tm = etx.New(app, app.redoStore)
+
 	// setup media upload processing
 	app.uploader = &uploader.Uploader{
 		FilePath:   ImagePath,
@@ -419,8 +434,10 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		MaxH:       app.cfg.MaxH,
 		ThumbW:     app.cfg.ThumbW,
 		ThumbH:     app.cfg.ThumbH,
+		MaxAge:     app.cfg.MaxUploadAge,
 		VideoTypes: app.cfg.VideoTypes,
 	}
+	app.uploader.Initialise(app.errorLog, &app.galleryState, app.tm)
 
 	// setup tagging
 	app.tagger.ErrorLog = app.errorLog
@@ -442,14 +459,14 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		App:   app,
 		Roles: []string{"unknown", "friend", "member", "curator", "admin"},
 		Store: app.userStore,
+		TM:    app.tm,
 	}
 
 	// create worker channels
-	app.chComp = make(chan reqUpdateShow, 10)
-	app.chImage = make(chan uploader.ReqSave, 20)
-	app.chShow = make(chan reqUpdateShow, 10)
-	app.chShows = make(chan []reqUpdateShow, 1)
-	app.chTopic = make(chan reqUpdateTopic, 10)
+	app.chComp = make(chan OpUpdateShow, 10)
+	app.chShow = make(chan OpUpdateShow, 10)
+	app.chShows = make(chan []OpUpdateShow, 1)
+	app.chTopic = make(chan OpUpdateTopic, 10)
 
 	return app
 }
@@ -464,6 +481,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	// ## transaction should be per-gallery if we support multiple galleries
 	app.SlideStore = mysql.NewSlideStore(app.db, &app.tx, app.errorLog)
 	app.GalleryStore = mysql.NewGalleryStore(app.db, &app.tx, app.errorLog)
+	app.redoStore = mysql.NewRedoStore(app.db, &app.tx, app.errorLog)
 	app.SlideshowStore = mysql.NewSlideshowStore(app.db, &app.tx, app.errorLog)
 	app.statisticStore = mysql.NewStatisticStore(app.db, &app.statsTx, app.errorLog)
 	app.tagger.TagStore = mysql.NewTagStore(app.db, &app.tx, app.errorLog)
@@ -501,6 +519,9 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 		app.errorLog.Fatal(err)
 	}
 	if err = mysql.MigrateTags(app.tagger.TagStore); err != nil {
+		app.errorLog.Fatal(err)
+	}
+	if err = mysql.MigrateRedo(app.redoStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
 

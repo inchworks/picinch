@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/inchworks/webparts/etx"
 	"github.com/inchworks/webparts/uploader"
 
 	"inchworks.com/picinch/pkg/models"
@@ -39,13 +40,59 @@ type validationData struct {
 	Link  string
 }
 
+// Implement RM interface for webparts.etx.
+
+// Operation types
+const (
+	OpComp = iota
+	OpShow
+	OpTopic
+)
+
+func (s *GalleryState) Name() string {
+	return "gallery"
+}
+
+func (s *GalleryState) ForOperation(opType int) etx.Op {
+	switch opType {
+	case OpComp, OpShow:
+		return &OpUpdateShow{}
+	case OpTopic:
+		return &OpUpdateTopic{}
+	default:
+		var unknown struct{}
+		return &unknown
+	}
+}
+
+// Do operation requested via TM.
+func (s *GalleryState) Operation(id etx.TxId, opType int, op etx.Op) {
+
+	// send the request to the worker
+	switch req := op.(type) {
+	case *OpUpdateShow:
+		req.tx = id
+		if opType == OpComp {
+			s.app.chComp <- *req
+		} else {
+			s.app.chShow <- *req
+		}
+
+	case *OpUpdateTopic:
+		req.tx = id
+		s.app.chTopic <- *req
+
+	default:
+		s.app.errorLog.Print("Unknown TX operation")
+	}
+}
+
 // worker does all background processing for PicInch.
 func (s *GalleryState) worker(
-	chComp <-chan reqUpdateShow,
-	chImage <-chan uploader.ReqSave,
-	chShow <-chan reqUpdateShow,
-	chShows <-chan []reqUpdateShow,
-	chTopic <-chan reqUpdateTopic,
+	chComp <-chan OpUpdateShow,
+	chShow <-chan OpUpdateShow,
+	chShows <-chan []OpUpdateShow,
+	chTopic <-chan OpUpdateTopic,
 	chRefresh <-chan time.Time,
 	done <-chan bool) {
 
@@ -57,21 +104,14 @@ func (s *GalleryState) worker(
 		case req := <-chComp:
 
 			// a competition entry has been added
-			if err := s.onCompEntry(req.showId, req.timestamp, req.revised); err != nil {
-				s.app.errorLog.Print(err.Error())
-			}
-
-		case req := <-chImage:
-
-			// resize and save image, with thumbnail
-			if err := s.app.uploader.SaveRequested(req); err != nil {
+			if err := s.onCompEntry(req.ShowId, req.tx, req.Revised); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
 
 		case req := <-chShow:
 
 			// a slideshow has been updated or removed
-			if err := s.onUpdateShow(req.showId, req.timestamp, req.revised); err != nil {
+			if err := s.onUpdateShow(req.ShowId, req.TopicId, req.tx, req.Revised); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
 
@@ -79,7 +119,7 @@ func (s *GalleryState) worker(
 
 			// a set of slideshows have been updated (e.g. user removed)
 			for _, req := range reqs {
-				if err := s.onUpdateShow(req.showId, req.timestamp, req.revised); err != nil {
+				if err := s.onUpdateShow(req.ShowId, req.TopicId, req.tx, req.Revised); err != nil {
 					s.app.errorLog.Print(err.Error())
 				}
 				runtime.Gosched()
@@ -88,7 +128,7 @@ func (s *GalleryState) worker(
 		case req := <-chTopic:
 
 			// a topic slideshow has been updated or removed
-			if err := s.onUpdateTopic(req.topicId, req.revised); err != nil {
+			if err := s.onUpdateTopic(req.TopicId, req.tx, req.Revised); err != nil {
 				s.app.errorLog.Print(err.Error())
 			}
 
@@ -107,17 +147,17 @@ func (s *GalleryState) worker(
 }
 
 // onCompEntry processes a competition entry.
-func (s *GalleryState) onCompEntry(showId int64, timestamp string, revised bool) error {
+func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) error {
 
 	app := s.app
 
 	// slideshow for competition
-	if err := s.onUpdateShow(showId, timestamp, revised); err != nil {
+	if err := s.onUpdateShow(showId, 0, tx, revised); err != nil {
 		return err
 	}
 
 	// entry and user
-	defer s.updatesNone()
+	defer s.updatesGallery()()
 	show, err := app.SlideshowStore.Get(showId)
 	if err != nil {
 		return err
@@ -164,37 +204,54 @@ func (s *GalleryState) onRefresh() error {
 }
 
 // onUpdateShow processes an updated or deleted slideshow.
-func (s *GalleryState) onUpdateShow(showId int64, timestamp string, revised bool) error {
+func (s *GalleryState) onUpdateShow(showId int64, topicId int64, tx etx.TxId, revised bool) error {
 
 	// upload manager
 	ul := s.app.uploader
 
 	// setup
-	if err := ul.ReadVersions(showId, timestamp); err != nil {
-		return err
-	}
+	bind := ul.StartBind(showId, tx)
 
 	// set versioned images, and update slideshow
-	if err := s.updateSlides(showId, revised); err != nil {
+	if err := s.updateSlides(showId, revised, bind); err != nil {
 		return err
 	}
 
-	// remove unused versions
-	if err := ul.RemoveVersions(); err != nil {
-		return err
+	// update topic, before we remove any thumbnails it might use
+	if topicId != 0 {
+		if err := s.onUpdateTopic(topicId, 0, revised); err != nil {
+			return err
+		}
 	}
 
 	// update highlighted images
-	return s.updateHighlights(showId)
+	if err := s.updateHighlights(showId); err != nil {
+		return err		
+	}
+
+	// remove unused versions
+	if err := bind.End(); err != nil {
+		return err
+	}
+
+	// terminate the extended transaction
+	defer s.updatesGallery()()
+	return s.app.tm.End(tx)
 }
 
-// A slideshow for a topic has been updated or deleted
-
-func (s *GalleryState) onUpdateTopic(id int64, revised bool) error {
-
+// onUpdateTopic processes a topic with an updated or deleted slideshow.
+// A TxId is specified if the extended transaction should be ended as part of the database transaction.
+func (s *GalleryState) onUpdateTopic(topicId int64, tx etx.TxId, revised bool) error {
 	defer s.updatesGallery()()
 
-	topic := s.app.SlideshowStore.GetIf(id)
+	if tx != 0 {
+		// this is the end of the aynchronous operation
+		if err := s.app.tm.End(tx); err != nil {
+			return err
+		}
+	}
+
+	topic := s.app.SlideshowStore.GetIf(topicId)
 	if topic == nil {
 		return nil
 	}
@@ -202,9 +259,10 @@ func (s *GalleryState) onUpdateTopic(id int64, revised bool) error {
 	return s.updateTopic(topic, revised)
 }
 
-// Update highlighted images when a highlight slideshow is changed
-
+// updateHighlights changes the cached images when a highlight slideshow is changed.
 func (s *GalleryState) updateHighlights(id int64) error {
+
+	defer s.updatesNone()()
 
 	show := s.app.SlideshowStore.GetIf(id)
 	if show == nil {
@@ -220,7 +278,7 @@ func (s *GalleryState) updateHighlights(id int64) error {
 }
 
 // updateSlides changes media versions for a slideshow. It also sets the slideshow revision time.
-func (s *GalleryState) updateSlides(showId int64, revised bool) error {
+func (s *GalleryState) updateSlides(showId int64, revised bool, bind *uploader.Bind) error {
 
 	// serialise display state while slides are changing
 	defer s.updatesGallery()()
@@ -243,14 +301,14 @@ func (s *GalleryState) updateSlides(showId int64, revised bool) error {
 
 			var newImage string
 			var err error
-			if newImage, err = s.app.uploader.Updated(slide.Image); err != nil {
+			if newImage, err = bind.File(slide.Image); err != nil {
 				// ## We have lost the file, but have no way to warn the user :-(
 				// We must remove the reference so that all viewers don't get a missing file error.
 				// log the error, but process the remaining slides
 				slide.Image = ""
 				slide.Format = slide.Format &^ models.SlideImage
 				s.app.SlideStore.Update(slide)
-				s.app.errorLog.Print(err.Error()) 
+				s.app.errorLog.Print(err.Error())
 
 			} else if newImage != "" {
 				// updated media

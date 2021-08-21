@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/inchworks/webparts/etx"
 	"github.com/inchworks/webparts/multiforms"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
@@ -166,8 +167,12 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// timestamp, to associate uploaded images
-	timestamp := f.Get("timestamp")
+	// transaction Id, to associate uploaded images
+	tx, err := etx.Id(f.Get("timestamp"))
+	if err != nil {
+		app.log(err)
+		app.clientError(w, http.StatusBadRequest)
+	}
 
 	// redisplay form if data invalid
 	if !f.Valid() {
@@ -179,8 +184,13 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	}
 
 	// save changes
-	code := app.galleryState.onEnterComp(id, timestamp, f.Get("name"), f.Get("email"), f.Get("location"),
+	code := app.galleryState.onEnterComp(id, tx, f.Get("name"), f.Get("email"), f.Get("location"),
 		slides[0].Title, slides[0].Caption, slides[0].ImageName, nAgreed)
+
+	if code >= 0 {
+		// bind updated media, now that update is committed
+		app.uploader.DoNext(tx)
+	}
 
 	if code == 0 {
 
@@ -278,7 +288,12 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// schedule upload to be saved as a file
-	err, byUser := app.uploader.Save(fh, timestamp, app.chImage)
+	id, err := etx.Id(timestamp)
+	if err != nil {
+		app.clientError(w, http.StatusInternalServerError)
+	}
+
+	err, byUser := app.uploader.Save(fh, id)
 	var s string
 	if err != nil {
 		if byUser {
@@ -310,6 +325,10 @@ func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
 	}
 
 	f, slideshow := app.galleryState.ForEditSlideshow(showId, nosurf.Token(r))
+	if f == nil {
+		app.clientError(w, http.StatusInternalServerError)
+		return
+	}
 
 	// display form
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
@@ -347,7 +366,11 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		app.log(err)
 		app.clientError(w, http.StatusBadRequest)
 	}
-	timestamp := f.Get("timestamp") // request ID for uploaded images
+	tx, err := etx.Id(f.Get("timestamp"))
+	if err != nil {
+		app.log(err)
+		app.clientError(w, http.StatusBadRequest)
+	}
 
 	// allow access to slideshow?
 	if nShow != 0 && !app.allowUpdateShow(r, nShow) {
@@ -386,13 +409,16 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save changes
-	ok, userId := app.galleryState.OnEditSlideshow(nShow, nTopic, timestamp, nUser, slides)
-	if ok {
+	status, userId := app.galleryState.OnEditSlideshow(nShow, nTopic, tx, nUser, slides)
+	if status == 0 {
+		// bind updated media, now that update is committed
+		app.uploader.DoNext(tx)
+
 		app.session.Put(r, "flash", "Slide changes saved.")
 		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
 
 	} else {
-		app.clientError(w, http.StatusBadRequest)
+		app.clientError(w, status)
 	}
 }
 
@@ -455,7 +481,11 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 	}
 
 	// save changes
-	if app.galleryState.OnEditSlideshows(userId, slideshows) {
+	if tx := app.galleryState.OnEditSlideshows(userId, slideshows); tx != 0 {
+
+		// bind updated media, now that update is committed
+		app.tm.DoNext(tx)
+
 		app.session.Put(r, "flash", "Slideshow changes saved.")
 		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
 
@@ -662,7 +692,8 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save changes
-	if app.galleryState.OnEditTopics(slideshows) {
+	if tx := app.galleryState.OnEditTopics(slideshows); tx != 0 {
+		app.tm.DoNext(tx)
 		app.session.Put(r, "flash", "Topic changes saved.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 

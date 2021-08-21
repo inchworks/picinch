@@ -23,7 +23,6 @@ import (
 	"path"
 	"strconv"
 	"sync"
-	"time"
 
 	"inchworks.com/picinch/pkg/models"
 )
@@ -43,6 +42,12 @@ type GalleryState struct {
 // Initialisation
 func (s *GalleryState) Init(a *Application) {
 	s.app = a
+}
+
+// Begin implements the DB interface for uploader.
+func (s *GalleryState) Begin() func() {
+
+	return s.updatesGallery()
 }
 
 // Cache highlight image names
@@ -94,16 +99,6 @@ func (s *GalleryState) setupCache(g *models.Gallery) error {
 
 	// cached highlight images
 	return s.cacheHighlights()
-}
-
-// 31 bit timestamp for updates (easier to store than 64 bit)
-
-func timestamp() int {
-
-	t := time.Now().Unix() // uint64
-
-	const low31 = (1 << 31) - 1
-	return int(t & low31) // discard high bits
 }
 
 // Take mutex and start transaction for update to gallery and, possibly, displays

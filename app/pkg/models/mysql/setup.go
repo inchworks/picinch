@@ -120,6 +120,17 @@ var cmds = [...]string{
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 }
 
+var cmdsRedo = [...]string{
+
+	`CREATE TABLE redo (
+		id BIGINT NOT NULL,
+		manager varchar(32) COLLATE utf8_unicode_ci NOT NULL,
+		optype int(11) NOT NULL,
+		operation JSON NOT NULL,
+		PRIMARY KEY (id)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
+}
+
 var cmdsTags = [...]string{
 
 	`CREATE TABLE tag (
@@ -234,6 +245,15 @@ func setupTables(db *sqlx.DB, tx *sqlx.Tx, cmds []string) error {
 		if _, err := tx.Exec(cmd); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// MigrateRedo adds the redo table. Needed for version 0.11.0.
+func MigrateRedo(stRedo *RedoStore) error {
+
+	if _, err :=stRedo.Count(); err != nil {
+		return setupTables(stRedo.DBX, *stRedo.ptx, cmdsRedo[:])
 	}
 	return nil
 }

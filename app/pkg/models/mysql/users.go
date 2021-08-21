@@ -251,7 +251,7 @@ func (st *UserStore) Name(id int64) string {
 // Rollback transaction
 
 func (st *UserStore) Rollback() {
-	// #### implement!
+	// ## implement!
 }
 
 // Users that can set tags.
