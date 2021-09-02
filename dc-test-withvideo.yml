@@ -1,0 +1,59 @@
+version: '3'
+
+# Development on iMac, builds PicInch in container with ffmpeg, test without HTTPS
+
+services:
+
+  db:
+    image: mariadb:10.4
+    container_name: picinch_db
+    expose:
+      - 3306
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root-test-only
+      MYSQL_DATABASE: picinch
+      MYSQL_USER: server
+      MYSQL_PASSWORD: test-only
+    volumes:
+      - mysql:/var/lib/mysql
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50k"
+        max-file: "10"
+      
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - 9080:8080
+
+  server:
+    build:
+      context: app/.
+      dockerfile: Dockerfile.withvideo
+    ports:
+      - 8000:8000
+    restart: unless-stopped
+    environment:
+      domains: ""
+      db-source: tcp(picinch_db:3306)/picinch
+      db-password: test-only
+      admin-name: admin@picinch.com
+      admin-password: admin-test-only
+      video-types: ".mp4, .mov"
+    volumes:
+      - ./photos:/photos
+      - ./site:/site:ro
+      - ./misc:/misc:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50k"
+        max-file: "10"
+    depends_on:
+      - db
+
+volumes:
+  mysql:

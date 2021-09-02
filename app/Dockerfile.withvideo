@@ -9,11 +9,11 @@ COPY . .
 #  - rebuild all packages (-a)
 RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o picinch ./cmd/web
 
-# New container with just the app
-FROM scratch
+# New container with app and ffmpeg
+FROM alpine:3
 
-# Certificates. Assume image is up to date.
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# Certificates and ffmpeg
+RUN apk --no-cache add ca-certificates ffmpeg
 
 # Copy binary from previous stage
 COPY --from=builder /picinch/picinch /app/

@@ -135,10 +135,11 @@ type Configuration struct {
 	UsageAnonymised usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 
 	// variants
-	HomeSwitch string   `yaml:"home-switch" env:"home-switch" env-default:""` // switch home page to specified template, e.g when site disabled
-	MiscName   string   `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscellaneous files, as in "example.com/misc/file"
-	Options    string   `yaml:"options" env:"options" env-default:""`         // site features: main-comp, with-comp
-	VideoTypes []string `yaml:"video-types" env:"video-types" env-default:""` // video types (.mp4, .mov, etc.)
+	HomeSwitch    string        `yaml:"home-switch" env:"home-switch" env-default:""` // switch home page to specified template, e.g when site disabled
+	MiscName      string        `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscellaneous files, as in "example.com/misc/file"
+	Options       string        `yaml:"options" env:"options" env-default:""`         // site features: main-comp, with-comp
+	VideoSnapshot time.Duration `yaml:"video-snapshot"  env-default:"3s"`             // snapshot time within video. -ve for no snapshots.
+	VideoTypes    []string      `yaml:"video-types" env:"video-types" env-default:""` // video types (.mp4, .mov, etc.)
 
 	// email
 	EmailHost     string `yaml:"email-host" env:"email-host" env-default:""`

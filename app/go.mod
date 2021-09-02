@@ -18,4 +18,4 @@ require (
 	gopkg.in/mail.v2 v2.3.1 // indirect
 )
 
-// replace github.com/inchworks/webparts v0.9.1 => ../../webparts
+replace github.com/inchworks/webparts v0.9.1 => ../../webparts
