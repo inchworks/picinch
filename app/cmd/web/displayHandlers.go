@@ -154,10 +154,16 @@ func (app *Application) info(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
-	// check if page exists
-	page := ps.ByName("page")
+	page := "info-" + ps.ByName("page") + ".page.tmpl"
 
-	app.render(w, r, page + ".page.tmpl", nil)
+	// check if page exists
+	_, ok := app.templateCache[page]
+	if !ok {
+		app.clientError(w, http.StatusNotFound)
+		return
+	}
+
+	app.render(w, r, page, nil)
 }
 
 // Logout user

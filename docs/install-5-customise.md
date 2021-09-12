@@ -47,8 +47,8 @@ You may also add add additional images you wish to include in customised templat
 `/srv/picinch/misc`.
 
 ### Additional Content
-You may also add static pages with `templates/*.page.tmpl` files, and specify common page layouts with `*.layout.tmpl` files.
-Use `notices.page.tmpl` and `gallery.layout.tmpl` as examples. Static pages are accessed by path `info/*` with the same name as the page template.
+You may also add static pages with `templates/info-*.page.tmpl` files, and specify common page layouts with `*.layout.tmpl` files.
+Use `info-notices.page.tmpl` and `gallery.layout.tmpl` as examples. Static pages are accessed by path `info/*` with the same name as the page template.
 
 Use `static/css` and `static/js` to hold any additional stylesheets and scripts needed by your pages.
 These are not included automatically; you will need to reference them as needed in your template files.
