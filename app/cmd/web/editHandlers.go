@@ -116,6 +116,7 @@ func (app *Application) getFormEnterComp(w http.ResponseWriter, r *http.Request)
 	app.render(w, r, "enter-comp-public.page.tmpl", &compFormData{
 		Form:     f,
 		Category: c,
+		MaxUpload: app.cfg.MaxUpload,
 	})
 }
 

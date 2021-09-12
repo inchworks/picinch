@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.11.0"
+	version = "0.11.2"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -139,12 +139,13 @@ type Configuration struct {
 	MiscName      string        `yaml:"misc-name" env:"misc-name" env-default:"misc"` // path in URL for miscellaneous files, as in "example.com/misc/file"
 	Options       string        `yaml:"options" env:"options" env-default:""`         // site features: main-comp, with-comp
 	VideoSnapshot time.Duration `yaml:"video-snapshot"  env-default:"3s"`             // snapshot time within video. -ve for no snapshots.
+	VideoPackage  string        `yaml:"video-package" env:"video-package" env-default:"ffmpeg"` // video processing package
 	VideoTypes    []string      `yaml:"video-types" env:"video-types" env-default:""` // video types (.mp4, .mov, etc.)
 
 	// email
 	EmailHost     string `yaml:"email-host" env:"email-host" env-default:""`
 	EmailPort     int    `yaml:"email-port" env:"email-port" env-default:"587"`
-	EmailUser     string `yaml:"email-user" env:"email-user" env:"email-user" env-default:""`
+	EmailUser     string `yaml:"email-user" env:"email-user" env-default:""`
 	EmailPassword string `yaml:"email-password" env:"email-password" env-default:""`
 	Sender        string `yaml:"sender" env:"sender" env-default:""`
 }
@@ -436,6 +437,8 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		ThumbW:     app.cfg.ThumbW,
 		ThumbH:     app.cfg.ThumbH,
 		MaxAge:     app.cfg.MaxUploadAge,
+		SnapshotAt: app.cfg.VideoSnapshot,
+		VideoPackage: app.cfg.VideoPackage,
 		VideoTypes: app.cfg.VideoTypes,
 	}
 	app.uploader.Initialise(app.errorLog, &app.galleryState, app.tm)

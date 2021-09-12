@@ -361,7 +361,8 @@ func (s *GalleryState) updateTopic(t *models.Slideshow, revised bool) error {
 
 	update := false
 
-	if t.Visible >= models.SlideshowClub {
+	// exclude hidden topics and competition categories
+	if t.Visible >= models.SlideshowClub && t.Format != "C"{
 		images := s.app.SlideStore.ImagesForTopic(t.Id)
 		nImages := len(images)
 

@@ -35,7 +35,7 @@ import (
 // which template we have
 
 type TemplateData interface {
-	addDefaultData(app *Application, r *http.Request)
+	addDefaultData(app *Application, r *http.Request, name string)
 }
 
 type DataCommon struct {
@@ -49,9 +49,11 @@ type DataCommon struct {
 	IsAuthenticated bool // user authenticated
 	IsCompetition   bool // competitions enabled
 	IsCurator       bool // user is curator
+
+	Page string
 }
 
-func (d *DataCommon) addDefaultData(app *Application, r *http.Request) {
+func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page string) {
 
 	d.CSRFToken = nosurf.Token(r)
 	d.Flash = app.session.PopString(r, "flash")
@@ -59,6 +61,7 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request) {
 	d.IsAuthenticated = app.isAuthenticated(r, models.UserFriend)
 	d.IsCompetition = (app.cfg.Options == "main-comp")
 	d.IsCurator = app.isAuthenticated(r, models.UserCurator)
+	d.Page = page
 }
 
 // template data for display pages
@@ -94,6 +97,7 @@ type DataMySlideshow struct {
 type DataPublished struct {
 	Id          int64
 	Title       string
+	Caption     string
 	NUser       int64
 	DisplayName string
 	Image       string
@@ -178,7 +182,7 @@ type dataValidated struct {
 type compFormData struct {
 	Form      *form.PublicCompForm
 	Category  string
-	MaxUpload int  // in MB
+	MaxUpload int // in MB
 	DataCommon
 }
 

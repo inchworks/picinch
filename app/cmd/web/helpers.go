@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	"inchworks.com/picinch/pkg/form"
@@ -217,7 +218,7 @@ func (app *Application) render(w http.ResponseWriter, r *http.Request, name stri
 		td = &DataCommon{}
 	}
 
-	td.addDefaultData(app, r)
+	td.addDefaultData(app, r, strings.SplitN(name, ".", 2)[0])
 
 	// Retrieve the appropriate template set from the cache based on the page name
 	// (like `home.page.tmpl`).

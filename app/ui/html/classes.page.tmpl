@@ -19,6 +19,8 @@
 {{define "page"}}
  	<div class="container">
 		<h2>Classes</h2>
+			{{block "classesIntro" .}}
+			{{end}}
 			<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 mb-4">
 			{{range .Categories}}
 				<div class="col mb-4">
@@ -29,7 +31,7 @@
 								<h5 class="card-title">{{ .Title }}</h5>
 							</a>
 							<div class="text-right mt-2">
-								<a href="/enter-comp/{{ .Id }}" class="btn btn-secondary">Enter</a>
+								<span class="mr-2">{{ .Caption }}</span><a href="/enter-comp/{{ .Id }}" class="btn btn-secondary">Enter</a>
 							</div>
 						</div>
 					</div>

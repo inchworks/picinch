@@ -61,17 +61,17 @@
                     {{if .IsAdmin}}
                         {{template "menu-admin" .}}
                     {{end}}
-                    {{if .IsCompetition}}
-                        {{template "menu-competition" .}}
-                     {{end}}
                     {{if .IsCurator}}
                         {{template "menu-curator" .}}
                     {{end}}
                     {{if .IsAuthenticated}}
                         {{template "menu-authenticated" .}}
+                        {{if .IsCompetition}}
+                            {{template "menu-competition" .}}
+                        {{end}}
                     {{else}}
                         {{template "menu-public" .}}
-                   {{end}}
+                    {{end}}
                 </ul>
             </div>
         </nav>

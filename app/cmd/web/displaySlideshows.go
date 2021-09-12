@@ -489,8 +489,8 @@ func (s *GalleryState) dataSlides(showId int64, max int) []*DataSlide {
 	return dataSlides
 }
 
-// Public or club slideshows and topics for home page
-
+// dataShowsPublished returns public or club slideshows and topics for home page.
+// It is also called for competition classes.
 func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int, maxTotal int) []*DataPublished {
 
 	a := s.app
@@ -531,6 +531,7 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 			data = append(data, &DataPublished{
 				Id:    show.Id,
 				Title: show.Title,
+				Caption: show.Caption,
 				Image: show.Image,
 			})
 		}

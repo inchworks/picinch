@@ -31,8 +31,8 @@ services:
 
   server:
     build:
-      context: app/.
-      dockerfile: Dockerfile.withvideo
+      context: ~/Websites
+      dockerfile: picinch/app/Dockerfile.testvideo
     ports:
       - 8000:8000
     restart: unless-stopped
@@ -42,7 +42,7 @@ services:
       db-password: test-only
       admin-name: admin@picinch.com
       admin-password: admin-test-only
-      video-types: ".mp4, .mov"
+      video-types: ".mp4,.mov"
     volumes:
       - ./photos:/photos
       - ./site:/site:ro
