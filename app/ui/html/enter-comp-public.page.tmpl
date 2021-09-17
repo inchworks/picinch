@@ -29,7 +29,10 @@
 
 	<div class="container">
 
-		<h3>{{ .Category }}</h3>
+		<div class="d-flex">
+			<h3>{{ .Category }}</h3>
+			<div class="ml-3">{{ .Caption }}</div>
+		</div>
 
 		{{block "compIntro" .}}
 		{{end}}

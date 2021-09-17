@@ -30,8 +30,9 @@
 								<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
 								<h5 class="card-title">{{ .Title }}</h5>
 							</a>
-							<div class="text-right mt-2">
-								<span class="mr-2">{{ .Caption }}</span><a href="/enter-comp/{{ .Id }}" class="btn btn-secondary">Enter</a>
+							<div class="d-flex justify-content-end">
+								<div class="card-caption mr-2 text-right">{{ .Caption }}</div>
+								<div><a href="/enter-comp/{{ .Id }}" class="btn btn-secondary">Enter</a></div>
 							</div>
 						</div>
 					</div>

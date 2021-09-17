@@ -97,7 +97,7 @@ type DataMySlideshow struct {
 type DataPublished struct {
 	Id          int64
 	Title       string
-	Caption     string
+	Caption     template.HTML
 	NUser       int64
 	DisplayName string
 	Image       string
@@ -182,6 +182,7 @@ type dataValidated struct {
 type compFormData struct {
 	Form      *form.PublicCompForm
 	Category  string
+	Caption   template.HTML
 	MaxUpload int // in MB
 	DataCommon
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/justinas/nosurf"
 
 	"inchworks.com/picinch/pkg/form"
+	"inchworks.com/picinch/pkg/models"
 	"inchworks.com/picinch/pkg/tags"
 )
 
@@ -106,7 +107,7 @@ func (app *Application) getFormEnterComp(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	f, c, err := app.galleryState.forEnterComp(id, nosurf.Token(r))
+	f, c, cap, err := app.galleryState.forEnterComp(id, nosurf.Token(r))
 	if err != nil {
 		app.serverError(w, err)
 		return
@@ -116,6 +117,7 @@ func (app *Application) getFormEnterComp(w http.ResponseWriter, r *http.Request)
 	app.render(w, r, "enter-comp-public.page.tmpl", &compFormData{
 		Form:     f,
 		Category: c,
+		Caption:  models.Nl2br(cap),
 		MaxUpload: app.cfg.MaxUpload,
 	})
 }

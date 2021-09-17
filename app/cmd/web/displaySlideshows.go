@@ -531,7 +531,7 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 			data = append(data, &DataPublished{
 				Id:    show.Id,
 				Title: show.Title,
-				Caption: show.Caption,
+				Caption: models.Nl2br(show.Caption),
 				Image: show.Image,
 			})
 		}

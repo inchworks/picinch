@@ -4,6 +4,10 @@ body {
   background-color: #ddd;
 }
 
+/* navigation */
+nav.navbar { background-color: #ccc; }
+div.dropdown-menu { background-color: #ccc; }
+
 header { background-color: #DDD; text-align:left; }
 img.banner { height: 40px;}
 span.banner {font-family: Palatino, serif; font-size:40px;}

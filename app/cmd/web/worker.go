@@ -156,6 +156,11 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) erro
 		return err
 	}
 
+	// email configured?
+	if s.app.emailer == nil {
+		return nil
+	}
+
 	// entry and user
 	defer s.updatesGallery()()
 	show, err := app.SlideshowStore.Get(showId)
@@ -178,7 +183,7 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) erro
 	}
 
 	// send validation request
-	// ## page.tmpl name is confusing. Actually it means top-level template file.
+	// (page.tmpl name is confusing. Actually it means top-level template file.)
 	return s.app.emailer.Send(user.Username, "validation-request.page.tmpl", &validationData{
 		Name:  user.Name,
 		Entry: show.Title,

@@ -359,12 +359,14 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 	if showId != 0 {
 		// request worker to generate media versions, and remove unused images
-		if err := s.txShow(&OpUpdateShow{
-			ShowId:  showId,
-			TopicId: topicId,
-			tx:      tx,
-			Revised: revised,
-		}); err != nil {
+		if err := s.txShow(
+			&OpUpdateShow{
+				ShowId:  showId,
+				TopicId: topicId,
+				tx:      tx,
+				Revised: revised,
+			},
+			OpShow); err != nil {
 			return http.StatusInternalServerError, 0
 		}
 	}
@@ -732,7 +734,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) etx.TxId {
 }
 
 // ForEditGallery returns a competition entry form.
-func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicCompForm, string, error) {
+func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicCompForm, string, string, error) {
 
 	// serialisation
 	defer s.updatesNone()()
@@ -740,7 +742,7 @@ func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicC
 	// get the category topic
 	show, err := s.app.SlideshowStore.Get(categoryId)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 
 	// initial data
@@ -751,7 +753,7 @@ func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicC
 	// generate request timestamp for uploaded images (we don't have a user ID yet)
 	f.Set("timestamp", strconv.FormatInt(time.Now().UnixNano(), 36))
 
-	return f, show.Title, nil
+	return f, show.Title, show.Caption, nil
 }
 
 // onEnterComp processes a competition entry and returns a validation code.
@@ -792,8 +794,8 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 		Shared:  vc,
 		Topic:   categoryId,
 		Revised: time.Now(),
-		Title:   title,
-		Caption: location,
+		Title:   s.sanitize(title, ""),
+		Caption: s.sanitize(location, ""),
 		Format:  "E",
 	}
 	if err = s.app.SlideshowStore.Update(show); err != nil {
@@ -817,7 +819,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 		Slideshow: show.Id,
 		Format:    sf,
 		Revised:   time.Now(),
-		Caption:   caption,
+		Caption:   s.sanitize(caption, ""),
 		Image:     uploader.FileFromName(tx, image),
 	}
 
@@ -834,7 +836,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 	}
 
 	// request worker to generate media version, remove unused images, and send validation email
-	if err := s.txShow(&OpUpdateShow{ShowId: show.Id, tx: tx, Revised: false}); err != nil {
+	if err := s.txShow(&OpUpdateShow{ShowId: show.Id, tx: tx, Revised: false}, OpComp); err != nil {
 		return -1
 	}
 
@@ -1107,6 +1109,6 @@ func (s *GalleryState) txBeginShow(tx etx.TxId, req *OpUpdateShow) error {
 }
 
 // txShow requests a show update as a transaction, so that it will be done even if the server restarts.
-func (s *GalleryState) txShow(req *OpUpdateShow) error {
-	return s.app.tm.SetNext(req.tx, s, OpShow, req)
+func (s *GalleryState) txShow(req *OpUpdateShow, opType int) error {
+	return s.app.tm.SetNext(req.tx, s, opType, req)
 }
