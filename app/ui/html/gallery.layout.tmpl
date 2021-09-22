@@ -64,11 +64,16 @@
                     {{if .IsCurator}}
                         {{template "menu-curator" .}}
                     {{end}}
+                    {{if .IsMember}}
+                        {{template "menu-member" .}}
+                    {{else if .IsFriend}}
+                        {{template "menu-friend" .}}
+                    {{end}}
                     {{if .IsAuthenticated}}
-                        {{template "menu-authenticated" .}}
                         {{if .IsCompetition}}
                             {{template "menu-competition" .}}
                         {{end}}
+                        {{template "menu-authenticated" .}}
                     {{else}}
                         {{template "menu-public" .}}
                     {{end}}

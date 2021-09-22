@@ -49,6 +49,8 @@ type DataCommon struct {
 	IsAuthenticated bool // user authenticated
 	IsCompetition   bool // competitions enabled
 	IsCurator       bool // user is curator
+	IsFriend        bool // user is friend
+	IsMember        bool // user is member
 
 	Page string
 }
@@ -61,6 +63,8 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page stri
 	d.IsAuthenticated = app.isAuthenticated(r, models.UserFriend)
 	d.IsCompetition = (app.cfg.Options == "main-comp")
 	d.IsCurator = app.isAuthenticated(r, models.UserCurator)
+	d.IsFriend = app.isAuthenticated(r, models.UserFriend)
+	d.IsMember = app.isAuthenticated(r, models.UserMember)
 	d.Page = page
 }
 

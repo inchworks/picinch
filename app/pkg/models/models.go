@@ -46,7 +46,7 @@ const (
 	// user roles
 	// These must match the database, so prefer specified values to iota.
 	UserUnknown = 0
-	UserFriend  = 1 // ## not implemented yet
+	UserFriend  = 1
 	UserMember  = 2
 	UserCurator = 3
 	UserAdmin   = 4

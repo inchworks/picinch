@@ -197,7 +197,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 
 	if code == 0 {
 
-		app.session.Put(r, "flash", "Competition entry saved - check your email.")
+		app.session.Put(r, "flash", "Competition entry saved - please check your email to confirm your address.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	} else if code > 0 {

@@ -19,6 +19,7 @@ package mysql
 
 import (
 	"log"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 
@@ -52,6 +53,7 @@ const (
 	slideshowRevisedSeq   = ` ORDER BY revised ASC LIMIT ?,1`
 
 	slideshowCountForTopic = `SELECT COUNT(*) FROM slideshow WHERE topic = ?`
+	slideshowCountForUser = `SELECT COUNT(*) FROM slideshow WHERE user = ?`
 
 	slideshowWhereId       = slideshowSelect + ` WHERE id = ?`
 	slideshowWhereTopic    = slideshowSelect + ` WHERE topic = ? AND user = ?`
@@ -72,6 +74,13 @@ const (
 		WHERE tag.parent = ? AND tag.name = ?
 		ORDER BY tagref.added ASC
 		LIMIT ?
+	`
+
+	slideshowsWhereTagOld = `
+		SELECT slideshow.* FROM slideshow
+		JOIN tagref ON tagref.item = slideshow.id
+		JOIN tag ON tag.id = tagref.tag
+		WHERE tag.gallery = ? AND tag.parent = ? AND tag.name = ? AND slideshow.revised < ?
 	`
 
 	slideshowsWhereTagTopic = `
@@ -211,24 +220,51 @@ func (st *SlideshowStore) CountForTopic(topicId int64) int {
 	return n
 }
 
+// CountForUser returns the number of slideshows for a user.
+func (st *SlideshowStore) CountForUser(userId int64) int {
+
+	var n int
+
+	if err := st.DBX.Get(&n, slideshowCountForUser, userId); err != nil {
+		st.logError(err)
+		return 0
+	}
+
+	return n
+}
+
 // ForTag returns all slideshows for a tag.
-func (st *SlideshowStore) ForTag(parent int64, tag string, nLimit int) []*models.Slideshow {
+// ## not needed?
+func (st *SlideshowStore) ForTag(tag string, nLimit int) []*models.Slideshow {
 
 	var slideshows []*models.Slideshow
 
-	if err := st.DBX.Select(&slideshows, slideshowsWhereTag, parent, tag, nLimit); err != nil {
+	if err := st.DBX.Select(&slideshows, slideshowsWhereTag, st.GalleryId, tag, nLimit); err != nil {
 		st.logError(err)
 		return nil
 	}
 	return slideshows
 }
 
-// ForTagTopic returns tagged slideshows, optionally for a topic.
-func (st *SlideshowStore) ForTagTopic(parent int64, tag string, topicId int64, nLimit int) []*models.Slideshow {
+// ForTagOld returns old slideshows for a tag.
+func (st *SlideshowStore) ForTagOld(parent int64, tag string, before time.Time) []*models.Slideshow {
 
 	var slideshows []*models.Slideshow
 
-	if err := st.DBX.Select(&slideshows, slideshowsWhereTagTopic, parent, tag, topicId, nLimit); err != nil {
+	if err := st.DBX.Select(&slideshows, slideshowsWhereTagOld, st.GalleryId, parent, tag, before); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
+}
+
+// ForTagTopic returns tagged slideshows, for a topic.
+// ## not needed?
+func (st *SlideshowStore) ForTagTopic(tag string, topicId int64, nLimit int) []*models.Slideshow {
+
+	var slideshows []*models.Slideshow
+
+	if err := st.DBX.Select(&slideshows, slideshowsWhereTagTopic, st.GalleryId, tag, topicId, nLimit); err != nil {
 		st.logError(err)
 		return nil
 	}

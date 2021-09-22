@@ -90,16 +90,16 @@ const (
 	`
 
 	usersWhereTag = `
-		SELECT user.* FROM TAGREF
+		SELECT user.* FROM tagref
 		JOIN user ON user.id = tagref.user
-		WHERE tagref.tag = ? AND tagref.slideshow IS NULL
+		WHERE tagref.tag = ? AND tagref.item IS NULL
 	`
 
 	usersWhereTagName = `
-	    SELECT user.* FROM TAG
+	    SELECT user.* FROM tag
 		JOIN tagref ON tagref.tag = tag.id 
 		JOIN user ON user.id = tagref.user
-		WHERE tag.gallery = ? AND tag.name = ? AND tag.parent = 0 AND tagref.slideshow IS NULL
+		WHERE tag.gallery = ? AND tag.name = ? AND tag.parent = 0 AND tagref.item IS NULL
 	`
 )
 

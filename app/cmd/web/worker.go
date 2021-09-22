@@ -94,6 +94,7 @@ func (s *GalleryState) worker(
 	chShows <-chan []OpUpdateShow,
 	chTopic <-chan OpUpdateTopic,
 	chRefresh <-chan time.Time,
+	chPurge <-chan time.Time,
 	done <-chan bool) {
 
 	for {
@@ -139,6 +140,12 @@ func (s *GalleryState) worker(
 				s.app.errorLog.Print(err.Error())
 			}
 
+		case t := <-chPurge:
+
+			// purge unvalidated competition entries
+			if err := s.onPurge(t); err != nil {
+				s.app.errorLog.Print(err.Error())
+			}
 		case <-done:
 			// ## do something to finish other pending requests
 			return
@@ -189,6 +196,57 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) erro
 		Entry: show.Title,
 		Link:  link,
 	})
+}
+
+// onPurge removes old unvalidate competition entries
+func (s *GalleryState) onPurge(t time.Time) error {
+
+	var nDelShows, nDelUsers int
+
+	defer s.updatesGallery()()
+
+	// entries before cut-off time
+	before := t.Add(-s.app.cfg.MaxUnvalidatedAge)
+	shows := s.app.SlideshowStore.ForTagOld(0, "new", before)
+
+	for _, show := range shows {
+		uId := show.User.Int64
+
+		// remove competition slideshow
+		// (slides removed by on delete cascade)
+		if err := s.app.SlideshowStore.DeleteId(show.Id); err != nil {
+			s.app.log(err)
+		}
+
+		// remove media files after slideshow has been deleted
+		tx := s.app.tm.Begin()
+		s.txBeginShow(tx, &OpUpdateShow{
+			ShowId:  show.Id,
+			TopicId: show.Topic,
+			Revised: false})
+
+		nDelShows++
+
+		// remove competitor with no other entries
+		user, err  := s.app.userStore.Get(uId)
+		if err != nil {
+			s.app.log(err)
+
+		} else if user.Status == models.UserUnknown {
+			n := s.app.SlideshowStore.CountForUser(uId)
+			if n == 0 {
+				if err := s.app.userStore.DeleteId(uId); err != nil {
+					s.app.log(err)
+				}
+				nDelUsers++
+			}
+		}
+	}
+
+	if nDelShows + nDelUsers > 0 {
+		s.app.infoLog.Printf("Removed %d unverified competition entries, and %d entrants", nDelShows, nDelUsers)
+	}
+	return nil
 }
 
 // Change topic(s) thumbnails
