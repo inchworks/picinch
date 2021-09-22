@@ -20,13 +20,12 @@ A set of recent highlight images are available for display on a parent website. 
 
 Two user roles are defined. A `curator` can manage topics and create slideshows on behalf of users. An `admin` can add, suspend and remove users, and is also a curator.
 
-A `misc` directory is provided to serve miscellaneous content such as videos.
-
+Other features include: Static pages can be added using Go templates.
 Basic usage statistics are recorded daily and aggregated by month.
+A `misc` directory is provided to serve miscellaneous content such as videos.
+A topic can be shared with a URL containing an access code.
 
-**New** A topic can be shared with a URL containing an access code.
-
-**New** Static pages can be added using Go templates.
+**New** Slideshows can include short video clips. Apple MOV files are converted to MP4 automatically.
 
 ## Appearance
 Display layout is responsive to device size (PC, tablet or phone).
@@ -62,9 +61,8 @@ Security features:
 
 ## Limitations
 The following may be addressed in future updates:
-- Although support for video upload can be enabled, there is no limit on video size. There is also no support to convert videos to web formats (such as .mov to .mp4).
 - Support for competitions and judging is a work in progress.
-- HEIC format images are not supported.
+- HEIC images and HEVC videos are not supported.
 
 The following are unlikely to change:
 - Photos can be viewed individually without logging in, if their names can be guessed.
@@ -75,4 +73,4 @@ The following are unlikely to change:
 - There is no bulk submission of images.
 
 ## v0.10.0 change
-A changes breaks compatibility with previous versions: `site.partial.tmpl` replaces `site.tmpl`.
+A change breaks compatibility with previous versions: `site.partial.tmpl` replaces `site.tmpl`.

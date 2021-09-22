@@ -90,6 +90,8 @@ Photos uploaded are resized to fit these dimensions.
 ## Operational settings
 **ban-bad-files** `false` apply IP ban to requests for missing files
 
+**max-upload-age** `8h` time limit to save a slideshow update, after uploading images. Units m(inutes) or h(ours).
+
 **thumbnail-refresh** `1h` refresh interval for topic thumbnails. Units m(inutes) or h(ours).
 
 **usage-anon** `1` anonymisation of user IDs: 0 = daily, 1 = immediate.
@@ -99,6 +101,8 @@ Options to change the operation of the website.
 **home-switch** switches the home page to a specified template, for example, `disabled` to show `disabled.page.tmpl` when the website is offline.
 
 **misc-name** `misc` path in URL for miscellaneous files, as in `example.com/misc/file`
+
+**video-snapshot** `3s` time within video for snapshot thumbnail. Units s(econds), -ve for no snapshots.
 
 **video-types** acceptable video file types, such as `.mp4, .mov`. (Work in progress.)
 
