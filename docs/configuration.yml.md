@@ -104,7 +104,7 @@ Options to change the operation of the website.
 
 **video-snapshot** `3s` time within video for snapshot thumbnail. Units s(econds), -ve for no snapshots.
 
-**video-types** acceptable video file types, such as `.mp4, .mov`. (Work in progress.)
+**video-types** ` ` acceptable video file types, such as `.mp4, .mov`.
 
 ## For testing
 **http-addr** `:8000` site HTTP address

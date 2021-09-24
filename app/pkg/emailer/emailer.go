@@ -25,82 +25,106 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-
 	"time"
 
 	"github.com/go-mail/mail/v2"
 )
 
-type Emailer struct {
+type Emailer interface {
+	Send(recipient, templateName string, data interface{}) error
+}
+
+type Dialer struct {
 	dialer *mail.Dialer
 	local string
 	sender string
 	templates map[string]*template.Template
 }
 
-// New returns an Emailer, used to send emails.
-// ## localHost specifies an optional domain naame, used to set message IDs. I'm not sure if this is needed for an email client.
-func New(host string, port int, username, password, sender string, localHost string, templates map[string]*template.Template) *Emailer {
+type parts struct {
+	subject string
+	plain string
+	html string
+}
 
-	em := &Emailer{
+// New returns an Emailer, used to send emails.
+// ## localHost specifies an optional domain name, used to set message IDs. I'm not sure if this is needed for an email client.
+func NewDialer(host string, port int, username, password, sender string, localHost string, templates map[string]*template.Template) *Dialer {
+
+	em := &Dialer{
 		local: localHost,
 		sender: sender,
 		templates: templates,
 	}
 
 	em.dialer = mail.NewDialer(host, port, username, password)
-	em.dialer.Timeout = 5 * time.Second
+	em.dialer.Timeout = 10 * time.Second
 
 	return em
 }
 
 // Send constructs and sends an email.
-func (m *Emailer) Send(recipient, templateName string, data interface{}) error {
+func (m *Dialer) Send(recipient, templateName string, data interface{}) error {
 
-	var err error
-
-	// get template from cache
-	ts, ok := m.templates[templateName]
-	if !ok {
-		return fmt.Errorf("The template %s does not exist", templateName)
-	}
-
-	subject := new(bytes.Buffer)
-	err = ts.ExecuteTemplate(subject, "subject", data)
+	// use templates for message parts
+	parts, err := execute(m.templates, templateName, data)
 	if err != nil {
 		return err
 	}
 
-	plainBody := new(bytes.Buffer)
-	err = ts.ExecuteTemplate(plainBody, "plainBody", data)
-	if err != nil {
-		return err
-	}
-
-	htmlBody := new(bytes.Buffer)
-	err = ts.ExecuteTemplate(htmlBody, "htmlBody", data)
-	if err != nil {
-		return err
-	}
-
+	// construct message
 	msg := mail.NewMessage()
 	msg.SetHeader("To", recipient)
 	msg.SetHeader("From", m.sender)
-	msg.SetHeader("Subject", subject.String())
+	msg.SetHeader("Subject", parts.subject)
 
+    // messsage ID required by RFC 2822, unless provided by the SMTP relay service
 	if m.local != "" {
-		// for messsage ID required by RFC 2822
+		
 		now := time.Now()
 		msg.SetHeader("Message-Id", fmt.Sprintf("<%d.%d@picinch.%s>", now.Unix(), now.Nanosecond(), m.local))
 	}
 
-	msg.SetBody("text/plain", plainBody.String())
-	msg.AddAlternative("text/html", htmlBody.String())
+	msg.SetBody("text/plain", parts.plain)
+	msg.AddAlternative("text/html", parts.html)
 
+	// send message
 	err = m.dialer.DialAndSend(msg)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// execute generates the email subject and body using templates.
+func execute(templates map[string]*template.Template, templateName string, data interface{}) (*parts, error) {
+
+	var err error
+
+	// get template from cache
+	ts, ok := templates[templateName]
+	if !ok {
+		return nil, fmt.Errorf("The template %s does not exist", templateName)
+	}
+
+	subject := new(bytes.Buffer)
+	err = ts.ExecuteTemplate(subject, "subject", data)
+	if err != nil {
+		return nil, err
+	}
+
+	plainBody := new(bytes.Buffer)
+	err = ts.ExecuteTemplate(plainBody, "plainBody", data)
+	if err != nil {
+		return nil, err
+	}
+
+	htmlBody := new(bytes.Buffer)
+	err = ts.ExecuteTemplate(htmlBody, "htmlBody", data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &parts{ subject.String(), plainBody.String(), htmlBody.String() }, nil
 }

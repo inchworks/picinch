@@ -57,3 +57,5 @@ JavaScript Libraries
 - [jQuery](https://jquery.com) For easier DOM processing and Ajax.
 - [Lightbox](https://lokeshdhakar.com/projects/lightbox2/) Overlay images on the current page.
 - [Popper](https://popper.js.org) Tooltip and popover positioning (used by Bootstrap).
+
+Video processing uses [FFmpeg](https://ffmpeg.org).

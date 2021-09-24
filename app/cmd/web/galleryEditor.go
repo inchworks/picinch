@@ -317,7 +317,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 					// If the media name hasn't changed, leave the old version in use for now,
 					// so that the slideshow still works. We'll detect a version change later.
 					if imageName != dstName {
-						qDest.Image = uploader.FileFromName(tx, qsSrc[iSrc].ImageName)
+						qDest.Image = uploader.FileFromName(tx, imageName)
 					}
 
 					s.app.SlideStore.Update(qDest)

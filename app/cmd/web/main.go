@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.12.0"
+	version = "0.12.1"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -198,7 +198,7 @@ type Application struct {
 	sanitizer *bluemonday.Policy
 
 	// private components
-	emailer  *emailer.Emailer
+	emailer  emailer.Emailer
 	tagger   tags.Tagger
 	staticFS fs.FS
 
@@ -421,13 +421,16 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// setup emailing
 	var localHost string
-	// Not required with some SMTP relay services.
+	// ## If not set by the SMTP relay service.
 	// if len(cfg.Domains) > 0 {
 	// 	localHost = cfg.Domains[0]
 	// }
 
-	if app.cfg.EmailHost != "" {
-		app.emailer = emailer.New(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, localHost, app.templateCache)
+	if app.cfg.EmailHost == "mailgun" {
+		app.emailer = emailer.NewGunner(app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, app.templateCache)
+
+		} else if app.cfg.EmailHost != "" {
+		app.emailer = emailer.NewDialer(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, localHost, app.templateCache)
 	}
 
 	// set up extended transaction manager, and recover
