@@ -281,8 +281,8 @@ func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) 
 	app.render(w, r, template, data)
 }
 
-// toDo handles a request to view tagged slideshows for a topic.
-func (app *Application) toDo(w http.ResponseWriter, r *http.Request) {
+// slideshowsTagged handles a request to view tagged slideshows for a topic.
+func (app *Application) slideshowsTagged(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 

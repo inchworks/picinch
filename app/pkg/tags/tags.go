@@ -24,6 +24,7 @@ package tags
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"runtime/debug"
@@ -123,11 +124,19 @@ func (tgr *Tagger) ChildSlideshowTags(item int64, parent int64, user int64, toEd
 }
 
 // DropTagRef removes a tag, and adds any successor tags. Returns false if the user lacks permission.
+// Returns true on success, or if the tag isn't referenced.
 func (tgr *Tagger) DropTagRef(item int64, parent int64, name string, user int64) bool {
 
+	// get tag definition
 	t := tgr.TagStore.GetNamed(parent, name)
 	if t == nil {
+		tgr.log(fmt.Errorf("DropTag not found: %v/%s", parent, name))
 		return false
+	}
+
+	// OK if reference has already been removed
+	if !tgr.TagRefStore.Exists(item, t.Id, user) {
+		return true
 	}
 
 	// add successor tag references
@@ -268,6 +277,7 @@ func (tgr *Tagger) addTagRefAll(item int64, path []string, user int64, detail st
 	// lookup tag
 	t := tgr.getTag(path)
 	if t == nil {
+		tgr.log(errors.New("Undefined tag : " + strings.Join(path, "/")))
 		return false
 	}
 

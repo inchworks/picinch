@@ -45,21 +45,17 @@ const (
 
 	tagrefWhereId = tagrefSelect + ` WHERE id = ?`
 
-	tagrefCountItems = `SELECT COUNT(*) FROM tagref WHERE tag = ? AND user = ? AND item IS NOT NULL`
+	tagrefCountItems = `SELECT COUNT(*) FROM tagref WHERE tag = ? AND item IS NOT NULL`
 
-	tagrefDeleteWhere = `
-		DELETE FROM tagref
-		WHERE item = ? AND tag = ? AND user = ?
-	`
-	tagrefDeleteWhereTag = `
-		DELETE tagref FROM tagref
-		INNER JOIN tag ON tag.id = tagref.tag
-		WHERE tag.parent = ? AND tag.name = ? AND tag.user = ? AND tagref.item = ?
-	`
+	tagrefDeleteWhere = `DELETE FROM tagref WHERE item = ? AND tag = ?`
 
-	tagrefExists = `SELECT EXISTS(SELECT * FROM tagref WHERE item = ? AND tag = ? AND user = ?)`
+	tagrefExistsUser = `SELECT EXISTS(SELECT * FROM tagref WHERE item = ? AND tag = ? AND user = ?)`
+	tagrefExistsUserNull = `SELECT EXISTS(SELECT * FROM tagref WHERE item = ? AND tag = ? AND user IS NULL)`
 
 	tagrefPermission = `SELECT EXISTS(SELECT * FROM tagref WHERE user = ? AND tag = ? AND item IS NULL)`
+
+	tagrefAndUser = ` AND user = ?`
+	tagrefAndUserNull = ` AND user IS NULL`
 )
 
 type TagRefStore struct {
@@ -84,7 +80,13 @@ func NewTagRefStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *TagRefStore {
 func (st *TagRefStore) CountItems(tag int64, user int64) int {
 	var n int
 
-	if err := st.DBX.Get(&n, tagrefCountItems, tag, user); err != nil {
+	var err error
+	if user == 0 {
+		err = st.DBX.Get(&n, tagrefCountItems + tagrefAndUserNull, tag)
+	} else {
+		err = st.DBX.Get(&n, tagrefCountItems + tagrefAndUser, tag, user)
+	}
+	if err != nil {
 		st.logError(err)
 		return 0
 	}
@@ -95,18 +97,14 @@ func (st *TagRefStore) CountItems(tag int64, user int64) int {
 // DeleteIf deletes a tag reference with a specified tag ID.
 func (st *TagRefStore) DeleteIf(item int64, tag int64, user int64) error {
 
-	if _, err := st.DBX.Exec(tagrefDeleteWhere, item, tag, user); err != nil {
-		return st.logError(err)
-	}
-
-	return nil
-}
-
-// DeleteIfName deletes a tag reference with a specified tag name.
-func (st *TagRefStore) DeleteIfName0(parent int64, name string, forUser int64, item int64) error {
-
-	if _, err := st.DBX.Exec(tagrefDeleteWhereTag, parent, name, forUser, item); err != nil {
-		return st.logError(err)
+	if user == 0 {
+		if _, err := st.DBX.Exec(tagrefDeleteWhere + tagrefAndUserNull, item, tag); err != nil {
+			return st.logError(err)
+		}
+	} else {
+		if _, err := st.DBX.Exec(tagrefDeleteWhere + tagrefAndUser, item, tag, user); err != nil {
+			return st.logError(err)
+		}
 	}
 
 	return nil
@@ -116,9 +114,16 @@ func (st *TagRefStore) DeleteIfName0(parent int64, name string, forUser int64, i
 func (st *TagRefStore) Exists(item int64, tag int64, user int64) bool {
 	var e bool
 
-	if err := st.DBX.Get(&e, tagrefExists, item, tag, user); err != nil {
-		st.logError(err)
-		return false
+	if user == 0 {
+		if err := st.DBX.Get(&e, tagrefExistsUserNull, item, tag); err != nil {
+			st.logError(err)
+			return false
+		}
+	} else {
+		if err := st.DBX.Get(&e, tagrefExistsUser, item, tag, user); err != nil {
+			st.logError(err)
+			return false
+		}
 	}
 
 	return e

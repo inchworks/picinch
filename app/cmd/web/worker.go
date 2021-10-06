@@ -234,7 +234,7 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 
 		} else if user.Status == models.UserUnknown {
 			n := s.app.SlideshowStore.CountForUser(uId)
-			if n == 0 {
+			if n == 1 {
 				if err := s.app.userStore.DeleteId(uId); err != nil {
 					s.app.log(err)
 				}

@@ -109,7 +109,7 @@ func (app *Application) Routes() http.Handler {
 
 	// tagged selection
 	router.Handler("GET", "/user-tags", authHs.ThenFunc(app.userTags))
-	router.Handler("GET", "/to-do/:nTopic/:nRoot/:nTag/:nMax", authHs.ThenFunc(app.toDo))
+	router.Handler("GET", "/slideshows-tagged/:nTopic/:nRoot/:nTag/:nMax", authHs.ThenFunc(app.slideshowsTagged))
 
 	// set tags
 	router.Handler("GET", "/tag-slideshow/:nShow/:nRoot", authHs.ThenFunc(app.getFormTagSlideshow))

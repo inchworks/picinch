@@ -919,8 +919,8 @@ func (s *GalleryState) validate(code int64) (string, *dataValidated) {
 	}
 
 	// remove new tag, which triggers addition of successor tags
+	// (succeeds if the tag has already been removed)
 	if !s.app.tagger.DropTagRef(show.Id, 0, "new", 0) {
-		// ## warn the user
 		return "", nil
 	}
 
