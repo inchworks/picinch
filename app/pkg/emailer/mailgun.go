@@ -14,15 +14,17 @@ type Gunner struct {
 	mg        *mailgun.MailgunImpl
 	local     string
 	sender    string
+	replyTo   string
 	templates map[string]*template.Template
 }
 
 // New returns a Mailgunner, used to send emails via Mailgun.
-func NewGunner(domain, apiKey string, sender string, templates map[string]*template.Template) *Gunner {
+func NewGunner(domain, apiKey string, sender string, replyTo string, templates map[string]*template.Template) *Gunner {
 
 	emr := &Gunner{
 		mg:        mailgun.NewMailgun(domain, apiKey),
 		sender:    sender,
+		replyTo:   replyTo,
 		templates: templates,
 	}
 	emr.mg.SetAPIBase(mailgun.APIBaseEU)
@@ -42,6 +44,9 @@ func (emr *Gunner) Send(recipient, templateName string, data interface{}) error 
 	// construct message
 	m := emr.mg.NewMessage(emr.sender, parts.subject, parts.plain, recipient)
 	m.SetHtml(parts.html)
+	if emr.replyTo != "" {
+		m.SetReplyTo(emr.replyTo)
+	}
 
 	// send message
 	// ## need retries?

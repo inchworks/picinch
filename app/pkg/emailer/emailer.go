@@ -35,25 +35,27 @@ type Emailer interface {
 }
 
 type Dialer struct {
-	dialer *mail.Dialer
-	local string
-	sender string
+	dialer    *mail.Dialer
+	local     string
+	sender    string
+	replyTo   string
 	templates map[string]*template.Template
 }
 
 type parts struct {
 	subject string
-	plain string
-	html string
+	plain   string
+	html    string
 }
 
 // New returns an Emailer, used to send emails.
 // ## localHost specifies an optional domain name, used to set message IDs. I'm not sure if this is needed for an email client.
-func NewDialer(host string, port int, username, password, sender string, localHost string, templates map[string]*template.Template) *Dialer {
+func NewDialer(host string, port int, username, password, sender string, replyTo string, localHost string, templates map[string]*template.Template) *Dialer {
 
 	em := &Dialer{
-		local: localHost,
-		sender: sender,
+		local:     localHost,
+		sender:    sender,
+		replyTo:   replyTo,
 		templates: templates,
 	}
 
@@ -77,10 +79,13 @@ func (m *Dialer) Send(recipient, templateName string, data interface{}) error {
 	msg.SetHeader("To", recipient)
 	msg.SetHeader("From", m.sender)
 	msg.SetHeader("Subject", parts.subject)
+	if m.replyTo != "" {
+		msg.SetHeader("Reply-To", m.replyTo)
+	}
 
-    // messsage ID required by RFC 2822, unless provided by the SMTP relay service
+	// messsage ID required by RFC 2822, unless provided by the SMTP relay service
 	if m.local != "" {
-		
+
 		now := time.Now()
 		msg.SetHeader("Message-Id", fmt.Sprintf("<%d.%d@picinch.%s>", now.Unix(), now.Nanosecond(), m.local))
 	}
@@ -126,5 +131,5 @@ func execute(templates map[string]*template.Template, templateName string, data 
 		return nil, err
 	}
 
-	return &parts{ subject.String(), plainBody.String(), htmlBody.String() }, nil
+	return &parts{subject.String(), plainBody.String(), htmlBody.String()}, nil
 }

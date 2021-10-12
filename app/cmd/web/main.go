@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.12.2"
+	version = "0.12.3"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -129,10 +129,10 @@ type Configuration struct {
 	MaxSlideshowsPublic int `yaml:"slideshows-public" env-default:"1"` // public slideshows on home page, per user
 
 	// operational settings
-	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`    // apply ban to requests for missing files
-	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env-default:"8h"`       // maximum time for a slideshow update. Units m or h.
+	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing files
+	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env-default:"8h"`                                 // maximum time for a slideshow update. Units m or h.
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition to be validated. Units h.
-	SiteRefresh       time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`    // refresh interval for topic thumbnails. Units m or h.
+	SiteRefresh       time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`                             // refresh interval for topic thumbnails. Units m or h.
 	UsageAnonymised   usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 
 	// variants
@@ -149,6 +149,7 @@ type Configuration struct {
 	EmailUser     string `yaml:"email-user" env:"email-user" env-default:""`
 	EmailPassword string `yaml:"email-password" env:"email-password" env-default:""`
 	Sender        string `yaml:"sender" env:"sender" env-default:""`
+	ReplyTo       string `yaml:"reply-to" env:"reply-to" env-default:""`
 }
 
 // Poeration to update slideshow images.
@@ -261,7 +262,7 @@ func main() {
 	// tickers for refresh and purge
 	tr := time.NewTicker(app.cfg.SiteRefresh)
 	defer tr.Stop()
-	tp := time.NewTicker(app.cfg.MaxUnvalidatedAge/8)
+	tp := time.NewTicker(app.cfg.MaxUnvalidatedAge / 8)
 	defer tp.Stop()
 
 	// start background worker
@@ -427,10 +428,10 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	// }
 
 	if app.cfg.EmailHost == "mailgun" {
-		app.emailer = emailer.NewGunner(app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, app.templateCache)
+		app.emailer = emailer.NewGunner(app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, app.cfg.ReplyTo, app.templateCache)
 
-		} else if app.cfg.EmailHost != "" {
-		app.emailer = emailer.NewDialer(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, localHost, app.templateCache)
+	} else if app.cfg.EmailHost != "" {
+		app.emailer = emailer.NewDialer(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, app.cfg.ReplyTo, localHost, app.templateCache)
 	}
 
 	// set up extended transaction manager, and recover

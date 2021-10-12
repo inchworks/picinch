@@ -42,9 +42,12 @@
 
 {{define "menu-competition"}}
     <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">TAGS</a>
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">SELECT</a>
         <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-	        <a class="dropdown-item" href="/user-tags">FOR ME</a>
+            {{if .IsCurator}}
+	            <a class="dropdown-item" href="/select-slideshow">SLIDESHOW</a>
+            {{end}}
+	        <a class="dropdown-item" href="/user-tags">TAGS</a>
          </div>
     </li>
 {{end}}

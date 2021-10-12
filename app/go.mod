@@ -8,7 +8,7 @@ require (
 	github.com/golangcollege/sessions v1.2.0
 	github.com/ilyakaznacheev/cleanenv v1.2.5
 	github.com/inchworks/usage v0.2.0
-	github.com/inchworks/webparts v0.10.1
+	github.com/inchworks/webparts v0.10.2
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0

@@ -139,6 +139,8 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	f.MaxLength("email", 60)
 	f.MaxLength("location", 60)
 
+	f.MatchesPattern("email", multiforms.EmailRX)
+
 	// agreements must be checked
 	var nAgreed int
 	for _, a := range []string{"agree1", "agree2"} {
@@ -187,7 +189,8 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	}
 
 	// save changes
-	code := app.galleryState.onEnterComp(id, tx, f.Get("name"), f.Get("email"), f.Get("location"),
+	email := f.Get("email")
+	code := app.galleryState.onEnterComp(id, tx, f.Get("name"), email, f.Get("location"),
 		slides[0].Title, slides[0].Caption, slides[0].ImageName, nAgreed)
 
 	if code >= 0 {
@@ -197,7 +200,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 
 	if code == 0 {
 
-		app.session.Put(r, "flash", "Competition entry saved - please check your email to confirm your address.")
+		app.session.Put(r, "flash", "Competition entry saved - please check your email to confirm your address: " + email + ".")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	} else if code > 0 {

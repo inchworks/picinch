@@ -114,6 +114,7 @@ type DataSlideshow struct {
 	Title       string
 	Caption     string
 	DisplayName string
+	Reference   string
 	AfterHRef   string
 	BeforeHRef  string
 	Slides      []*DataSlide

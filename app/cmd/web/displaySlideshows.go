@@ -28,7 +28,6 @@ import (
 	"strconv"
 
 	"inchworks.com/picinch/pkg/models"
-
 )
 
 // Copyright © Rob Burke inchworks.com, 2020.
@@ -163,7 +162,7 @@ func (s *GalleryState) DisplayShared(code int64, seq int) (string, *DataSlidesho
 	if slideshow.User.Valid {
 
 		// this is a single slideshow
-		return "carousel-default.page.tmpl", s.displaySlides(slideshow, from, s.app.cfg.MaxSlides)
+		return "carousel-default.page.tmpl", s.displaySlides(slideshow, 0, from, s.app.cfg.MaxSlides)
 	}
 
 	// this is a topic
@@ -192,7 +191,7 @@ func (s *GalleryState) DisplayShared(code int64, seq int) (string, *DataSlidesho
 }
 
 // DisplaySlideshow returns data for a slideshow.
-func (s *GalleryState) DisplaySlideshow(id int64, from string) *DataSlideshow {
+func (s *GalleryState) DisplaySlideshow(id int64, forRole int, from string) *DataSlideshow {
 
 	defer s.updatesNone()()
 
@@ -203,46 +202,7 @@ func (s *GalleryState) DisplaySlideshow(id int64, from string) *DataSlideshow {
 	}
 
 	// .. and slides
-	return s.displaySlides(show, from, s.app.cfg.MaxSlides)
-}
-
-// DisplayToDo returns data for slideshows with user-specific tags.
-func (s *GalleryState) DisplayToDo(topicId int64, rootId int64, tagId int64, userId int64, nMax int) *DataTagged {
-
-	defer s.updatesNone()()
-
-	// validate that user has permission for this tag
-	if !s.app.tagger.HasPermission(rootId, userId) {
-		return nil
-	}
-
-	// ## should validate that tag is a child of the root
-
-	parentName, tagName := s.app.tagger.Names(tagId)
-
-	// get slideshows, tagged for user
-	slideshows := s.app.SlideshowStore.ForTagUser(tagId, userId, nMax)
-
-	// ## no support for topic-specific
-
-	var dShows []*DataPublished
-
-	for _, sh := range slideshows {
-		dShows = append(dShows, &DataPublished{
-			Id:          sh.Id,
-			Title:       sh.Title,
-			Image:       sh.Image,
-			DisplayName: sh.Caption,
-			NTagRef:     sh.TagRefId,
-		})
-	}
-
-	return &DataTagged{
-		NRoot:      rootId,
-		Parent:     parentName,
-		Tag:        tagName,
-		Slideshows: dShows,
-	}
+	return s.displaySlides(show, forRole, from, s.app.cfg.MaxSlides)
 }
 
 // DisplayTopicHome returns a template and data for a topic shown on a website page.
@@ -311,17 +271,7 @@ func (s *GalleryState) DisplayTopicUser(topicId int64, userId int64, from string
 	}
 
 	// .. and slides
-	return s.displaySlides(show, from, s.app.cfg.MaxSlides)
-}
-
-// displayUserTags returns a tree of all tags assigned to the user, with reference counts.
-func (s *GalleryState) displayUserTags(userId int64) *DataTags {
-
-	defer s.updatesNone()()
-
-	return &DataTags{
-		Tags: s.app.dataTags(s.app.tagger.TagStore.ForUser(userId), 0, 0, userId),
-	}
+	return s.displaySlides(show, 0, from, s.app.cfg.MaxSlides)
 }
 
 // User's view of gallery - just their name, topics and own slideshows at present
@@ -529,10 +479,10 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 		} else {
 			// topic - data for display
 			data = append(data, &DataPublished{
-				Id:    show.Id,
-				Title: show.Title,
+				Id:      show.Id,
+				Title:   show.Title,
 				Caption: models.Nl2br(show.Caption),
-				Image: show.Image,
+				Image:   show.Image,
 			})
 		}
 
@@ -577,7 +527,7 @@ func (s *GalleryState) displayHighlights(topic *models.Slideshow, from string, p
 }
 
 // displaySlides returns slides for a slideshow or a user's own view of a topic contribution.
-func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max int) *DataSlideshow {
+func (s *GalleryState) displaySlides(show *models.Slideshow, forRole int, from string, max int) *DataSlideshow {
 
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
 	user, err := s.app.userStore.Get(show.User.Int64)
@@ -596,10 +546,24 @@ func (s *GalleryState) displaySlides(show *models.Slideshow, from string, max in
 		})
 	}
 
+	// competition reference
+	var ref string
+	switch forRole {
+	case models.UserAdmin:
+		ref = "#" + strconv.FormatInt(show.Id, 10) + " : " + user.Name + "<" + user.Username + ">"
+
+	case models.UserMember:
+		ref = "#" + strconv.FormatInt(show.Id, 10) + " : " + user.Name
+
+	case models.UserFriend:
+		ref = "#" + strconv.FormatInt(show.Id, 10)
+	}
+
 	data := &DataSlideshow{
 		Title:       show.Title,
 		Caption:     show.Caption,
 		DisplayName: user.Name,
+		Reference:   ref,
 		AfterHRef:   from,
 		BeforeHRef:  from,
 		Slides:      dataSlides,

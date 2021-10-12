@@ -82,34 +82,34 @@ func (app *Application) allowUpdateShow(r *http.Request, showId int64) bool {
 	return app.allowAccessUser(r, s.User.Int64) // owner or curator
 }
 
-// allow show to be viewed
-
-func (app *Application) allowViewShow(r *http.Request, id int64) (bool, bool) {
+// allowViewShow returns whether the specified slideshow can be viewed by the current user,
+// and whether it is a topic.
+func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bool, isTopic bool) {
 
 	// get show user and visibility
-	s := app.SlideshowStore.GetIf(id)
+	s := app.SlideshowStore.GetIf(showId)
 	if s == nil {
-		return false, false
+		return // no
 	}
 
 	// is this a topic
-	isTopic := !s.User.Valid
+	isTopic = !s.User.Valid
 
 	switch s.Visible {
 
 	case models.SlideshowPublic:
-		return true, isTopic // everyone
+		canView = true; return // everyone
 
 	case models.SlideshowClub:
 		if app.isAuthenticated(r, models.UserFriend) {
-			return true, isTopic // all club members and friends
+			canView = true; return // all club members and friends
 		} 
 
 	case models.SlideshowTopic:
 		// depends on topic visibility
 		t, err := app.SlideshowStore.Get(s.Topic)
 		if err != nil {
-			return false, isTopic
+			canView = false; return
 		}
 
 		switch t.Visible {
@@ -119,15 +119,15 @@ func (app *Application) allowViewShow(r *http.Request, id int64) (bool, bool) {
 
 		case models.SlideshowClub:
 			if app.isAuthenticated(r, models.UserFriend) {
-				return true, isTopic // all club members and friends
+				canView = true; return // all club members and friends
 			}
 		}
 	}
 
 	if isTopic {
-		return app.isAuthenticated(r, models.UserCurator), true // curator or admin
+		canView = app.isAuthenticated(r, models.UserCurator); return // curator or admin
 	} else {
-		return app.allowAccessUser(r, s.User.Int64), false // owner or curator
+		canView = app.allowAccessUser(r, s.User.Int64); return // owner or curator
 	}
 }
 
@@ -255,6 +255,17 @@ func (app *Application) reply(w http.ResponseWriter, v interface{}) {
 	}
 
 	// ## Need to send JSON response with error, not a normal HTTP error, instead of panic
+}
+
+// role returns the authenticated role of the active user (saved in context from session).
+func (app *Application) role(r *http.Request) int {
+
+	auth, ok := r.Context().Value(contextKeyUser).(AuthenticatedUser)
+	if ok {
+		return auth.role
+	} else {
+		return 0
+	}
 }
 
 // Write error message and stack trace to the errorLog. If possible, send 500 Internal Server Error response to the user
