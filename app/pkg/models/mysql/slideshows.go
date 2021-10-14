@@ -42,7 +42,6 @@ const (
 	slideshowSet = `
 		INSERT INTO slideshow (id, gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image)
 		VALUES (:id, :gallery, :gallery_order, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image)`
-
 )
 
 const (
@@ -53,16 +52,17 @@ const (
 	slideshowRevisedSeq   = ` ORDER BY revised ASC LIMIT ?,1`
 
 	slideshowCountForTopic = `SELECT COUNT(*) FROM slideshow WHERE topic = ?`
-	slideshowCountForUser = `SELECT COUNT(*) FROM slideshow WHERE user = ?`
+	slideshowCountForUser  = `SELECT COUNT(*) FROM slideshow WHERE user = ?`
 
 	slideshowWhereId       = slideshowSelect + ` WHERE id = ?`
 	slideshowWhereTopic    = slideshowSelect + ` WHERE topic = ? AND user = ?`
 	slideshowWhereTopicSeq = slideshowSelect + ` WHERE topic = ?` + slideshowRevisedSeq
 
-	slideshowsWhereTopic    = slideshowSelect + ` WHERE topic = ?`
-	slideshowsWhereUser     = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
-	slideshowsWhereGallery  = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
-	slideshowsNotTopics   = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL` + slideshowOrderTitle
+	slideshowsWhereTopic     = slideshowSelect + ` WHERE topic = ?`
+	slideshowsWhereTopicUser = slideshowSelect + ` WHERE topic = ? AND user = ?`
+	slideshowsWhereUser      = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
+	slideshowsWhereGallery   = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
+	slideshowsNotTopics      = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL` + slideshowOrderTitle
 
 	slideshowWhereShared = slideshowSelect + ` WHERE shared = ?`
 
@@ -334,7 +334,20 @@ func (st *SlideshowStore) ForTopicSeq(topicId int64, seq int) *models.Slideshow 
 	return &r
 }
 
-// ForTopicUser returns a the slideshow for a topic and user, if it exists.
+// ForTopicUserAll returns all slideshows for a topic and user.
+func (st *SlideshowStore) ForTopicUserAll(topicId int64, userId int64) []*models.Slideshow {
+
+	var slideshows []*models.Slideshow
+
+	if err := st.DBX.Select(&slideshows, slideshowsWhereTopicUser, topicId, userId); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return slideshows
+}
+
+// ForTopicUserIf returns a the slideshow for a topic and user, if it exists.
 func (st *SlideshowStore) ForTopicUserIf(topicId int64, userId int64) *models.Slideshow {
 
 	var r models.Slideshow

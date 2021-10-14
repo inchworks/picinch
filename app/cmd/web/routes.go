@@ -37,6 +37,7 @@ func (app *Application) Routes() http.Handler {
 	// access to page
 	adminHs := dynHs.Append(app.requireAdmin)
 	authHs := dynHs.Append(app.requireAuthentication) // friend authenticated, may be further restriction by application logic
+	compHs := dynHs.Append(app.publicComp)
 	curatorHs := dynHs.Append(app.requireCurator)
 	ownerHs := dynHs.Append(app.requireOwner)
 	publicHs := dynHs.Append(app.public)
@@ -58,9 +59,9 @@ func (app *Application) Routes() http.Handler {
 	// public competition
 	if app.cfg.Options == "main-comp" {
 		router.Handler("GET", "/classes", publicHs.ThenFunc(app.classes))
-		router.Handler("GET", "/enter-comp/:nCategory", publicHs.ThenFunc(app.getFormEnterComp))
-		router.Handler("POST", "/enter-comp", publicHs.ThenFunc(app.postFormEnterComp))
-		router.Handler("GET", "/validate/:code", sharedHs.ThenFunc(app.validate))
+		router.Handler("GET", "/enter-comp/:nCategory", compHs.ThenFunc(app.getFormEnterComp))
+		router.Handler("POST", "/enter-comp", compHs.ThenFunc(app.postFormEnterComp))
+		router.Handler("GET", "/validate/:code", compHs.ThenFunc(app.validate))
 	}
 
 	// pages shared with an access code
@@ -110,11 +111,11 @@ func (app *Application) Routes() http.Handler {
 	// selections
 	router.Handler("GET", "/select-slideshow", authHs.ThenFunc(app.getFormSelectSlideshow))
 	router.Handler("POST", "/select-slideshow", authHs.ThenFunc(app.postFormSelectSlideshow))
-	router.Handler("GET", "/slideshows-tagged/:nTopic/:nRoot/:nTag/:nMax", authHs.ThenFunc(app.slideshowsTagged))
+	router.Handler("GET", "/slideshows-tagged/:nTopic/:nRoot/:nTag/:nUser/:nMax", authHs.ThenFunc(app.slideshowsTagged))
 	router.Handler("GET", "/user-tags", authHs.ThenFunc(app.userTags))
 
 	// set tags
-	router.Handler("GET", "/tag-slideshow/:nShow/:nRoot", authHs.ThenFunc(app.getFormTagSlideshow))
+	router.Handler("GET", "/tag-slideshow/:nShow/:nRoot/:nUser", authHs.ThenFunc(app.getFormTagSlideshow))
 	router.Handler("POST", "/tag-slideshow", authHs.ThenFunc(app.postFormTagSlideshow))
 
 	// user management

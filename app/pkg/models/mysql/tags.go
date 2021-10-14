@@ -57,6 +57,11 @@ const (
 		JOIN tag ON tag.id = tagref.tag
 		WHERE tagref.user = ? AND tagref.item IS NULL AND tag.parent = 0
 	`
+	tagsWhereRoot = `
+		SELECT tag.*, tagref.user AS userid
+		FROM tagref
+		JOIN tag on tag.id = tagref.tag
+		WHERE tag.gallery = ? AND tagref.item IS NULL AND parent = 0`  + tagOrderName
 
 	tagsWhereParent = tagSelect + ` WHERE parent = ?` + tagOrderName
 )
@@ -79,6 +84,20 @@ func NewTagStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *TagStore {
 		},
 	}
 }
+
+// AllRoot returns all root tags.
+func (st *TagStore) AllRoot() []*models.TagUser {
+
+	var tags []*models.TagUser
+
+	if err := st.DBX.Select(&tags, tagsWhereRoot, st.GalleryId); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return tags
+}
+
 
 // Count returns the number of tags.
 // (It is used just as a convenient way to check if the tag table exists.)

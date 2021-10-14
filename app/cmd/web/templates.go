@@ -137,6 +137,7 @@ type DataSlide struct {
 
 type DataTagged struct {
 	NRoot      int64
+	NUser      int64
 	Parent     string
 	Tag        string
 	Topic      string
@@ -152,6 +153,7 @@ type DataTags struct {
 type DataTag struct {
 	NRoot   int64
 	NTag    int64
+	ForUser int64
 	Name    string
 	Count   string
 	Disable string
@@ -179,6 +181,7 @@ type dataValidated struct {
 	Email    string
 	Category string
 	Title    string
+	Warn     string
 	DataCommon
 }
 

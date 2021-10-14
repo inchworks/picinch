@@ -21,8 +21,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
-	"html/template"
 	"net/http"
 	"strconv"
 
@@ -33,7 +31,6 @@ import (
 
 	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/models"
-	"inchworks.com/picinch/pkg/tags"
 )
 
 type RepUpload struct {
@@ -115,9 +112,9 @@ func (app *Application) getFormEnterComp(w http.ResponseWriter, r *http.Request)
 
 	// display form
 	app.render(w, r, "enter-comp-public.page.tmpl", &compFormData{
-		Form:     f,
-		Category: c,
-		Caption:  models.Nl2br(cap),
+		Form:      f,
+		Category:  c,
+		Caption:   models.Nl2br(cap),
 		MaxUpload: app.cfg.MaxUpload,
 	})
 }
@@ -159,7 +156,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if len(slides) != 1 {
-		app.log(errors.New("Wrong number of slide for competition."))
+		app.log(errors.New("Wrong number of slides for competition."))
 		app.clientError(w, http.StatusBadRequest)
 		return
 	}
@@ -182,8 +179,10 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	// redisplay form if data invalid
 	if !f.Valid() {
 		app.render(w, r, "enter-comp-public.page.tmpl", &compFormData{
-			Form:     f,
-			Category: show.Title,
+			Form:      f,
+			Category:  show.Title,
+			Caption:   models.Nl2br(show.Caption),
+			MaxUpload: app.cfg.MaxUpload,
 		})
 		return
 	}
@@ -200,7 +199,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 
 	if code == 0 {
 
-		app.session.Put(r, "flash", "Competition entry saved - please check your email to confirm your address: " + email + ".")
+		app.session.Put(r, "flash", "Competition entry saved - please check your email to confirm your address: "+email+".")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	} else if code > 0 {
@@ -498,135 +497,6 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 	} else {
 		app.clientError(w, http.StatusBadRequest)
 	}
-}
-
-// getFormTagSlideshow serves a form to change slideshow tags.
-func (app *Application) getFormTagSlideshow(w http.ResponseWriter, r *http.Request) {
-
-	ps := httprouter.ParamsFromContext(r.Context())
-	showId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
-	rootId, _ := strconv.ParseInt(ps.ByName("nRoot"), 10, 64)
-	userId := app.authenticatedUser(r)
-
-	// get slideshow tags for all users
-	f, t, users := app.galleryState.forEditSlideshowTags(showId, rootId, userId, nosurf.Token(r))
-	if f == nil {
-		app.clientError(w, http.StatusBadRequest)
-		return
-	}
-
-	// tag values and fields
-	var tus []*tagUser
-	for _, u := range users {
-		tu := &tagUser{
-			Name: u.name,
-			Tags: tagHTML(u.tags),
-		}
-		tus = append(tus, tu)
-	}
-
-	// display form
-	app.render(w, r, "edit-tags-slideshow.page.tmpl", &tagsFormData{
-		Form:  f,
-		Title: t,
-		Users: tus,
-	})
-}
-
-// tagChecks returns the template data for a set of tag checkboxes.
-func tagHTML(tags []*tags.ItemTag) []*tagData {
-
-	var tcs []*tagData
-	for _, t := range tags {
-		var html string
-
-		if t.Edit {
-
-			const inputHtml = `
-				<div class="form-check">
-				<input class="form-check-input" type="%s" name="%s" value="%s" id="F%s" %s>
-				<label class="form-check-label" for="F%s">%s</label>
-				</div>
-			`
-
-			// names for form input and element ID
-			radio := strconv.FormatInt(t.Parent, 36)
-			nm := strconv.FormatInt(t.Id, 36)
-
-			var checked string
-			if t.Set {
-				checked = "checked"
-			}
-
-			switch t.Format {
-			case "C":
-				html = fmt.Sprintf(inputHtml, "checkbox", nm, "on", nm, checked, nm, t.Name)
-
-			case "R":
-				html = fmt.Sprintf(inputHtml, "radio", radio, nm, nm, checked, nm, t.Name)
-
-			default:
-				html = fmt.Sprintf("<label>%s</label>", t.Name)
-			}
-		} else {
-			html = fmt.Sprintf("<label>%s</label>", t.Name)
-		}
-
-		tc := &tagData{
-			tagId:   t.Id,
-			TagHTML: template.HTML(html),
-			Tags:    tagHTML(t.Children),
-		}
-
-		tcs = append(tcs, tc)
-	}
-	return tcs
-}
-
-func (app *Application) postFormTagSlideshow(w http.ResponseWriter, r *http.Request) {
-
-	err := r.ParseForm()
-	if err != nil {
-		app.clientError(w, http.StatusBadRequest)
-		return
-	}
-
-	// process form data
-	// ## Validation needed?
-	f := multiforms.New(r.PostForm, nosurf.Token(r))
-	nShow, _ := strconv.ParseInt(f.Get("nShow"), 36, 64)
-	nRoot, _ := strconv.ParseInt(f.Get("nRoot"), 36, 64)
-
-	// save changes
-	if app.galleryState.onEditSlideshowTags(nShow, nRoot, app.authenticatedUser(r), f) {
-		app.session.Put(r, "flash", "Tag changes saved.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-
-	} else {
-		app.clientError(w, http.StatusBadRequest)
-	}
-
-}
-
-// getFormTags serves the form to edit tag definitions.
-func (app *Application) getFormTags(w http.ResponseWriter, r *http.Request) {
-
-	app.session.Put(r, "flash", "Not implemented yet.")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-// postFormTags handles submission of a form to edit tag definitions.
-func (app *Application) postFormTags(w http.ResponseWriter, r *http.Request) {
-
-	err := r.ParseForm()
-	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
-		return
-	}
-
-	app.session.Put(r, "flash", "Not implemented yet.")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // Form to set user's slides for topic

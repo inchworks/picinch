@@ -259,6 +259,14 @@ func (app *Application) public(next http.Handler) http.Handler {
 	})
 }
 
+// publicComp sets headers for user-specific competition pages
+func (app *Application) publicComp(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Recover from panic, set in httprouter
 func (app *Application) recoverPanic() func(http.ResponseWriter, *http.Request, interface{}) {
 

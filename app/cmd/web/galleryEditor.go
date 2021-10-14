@@ -374,77 +374,6 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 	return 0, userId
 }
 
-// forEditSlideshowTags returns a form, showing and editing relevant tags.
-func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, userId int64, tok string) (f *multiforms.Form, title string, usersTags []*userTags) {
-
-	// serialisation
-	defer s.updatesNone()()
-
-	// validate that user has permission for this tag
-	if !s.app.tagger.HasPermission(rootId, userId) {
-		return
-	}
-
-	// slideshow title
-	show := s.app.SlideshowStore.GetIf(slideshowId)
-	if show == nil {
-		return
-	}
-	title = show.Title
-
-	// all users holding the same tags as this user
-	users := s.app.userStore.ForTag(rootId)
-	for _, u := range users {
-		if u.Id != userId {
-
-			// include only users with referenced tags
-			cts := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, u.Id, false)
-			if len(cts) > 0 {
-				ut := &userTags{
-					id:   u.Id,
-					name: u.Name,
-					tags: cts,
-				}
-				usersTags = append(usersTags, ut)
-			}
-		}
-	}
-
-	// this user's tags, to edit
-	ets := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, userId, true)
-	if len(ets) > 0 {
-		et := &userTags{
-			id:   userId,
-			name: "Me",
-			tags: ets,
-		}
-		usersTags = append(usersTags, et)
-	}
-
-	// current data
-	var d = make(url.Values)
-	f = multiforms.New(d, tok)
-	f.Set("nShow", strconv.FormatInt(slideshowId, 36))
-	f.Set("nRoot", strconv.FormatInt(rootId, 36))
-	return
-}
-
-// onEditSlideshowTags processes a form of tag changes, and returns true for a valid request.
-func (s *GalleryState) onEditSlideshowTags(slideshowId int64, rootId int64, userId int64, f *multiforms.Form) bool {
-
-	// serialisation
-	defer s.updatesGallery()()
-
-	// validate that user has permission for this tag
-	if !s.app.tagger.HasPermission(rootId, userId) {
-		return false
-	}
-
-	// tags to be edited, as specified by the selected tag, same as form request
-	tags := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, userId, true)
-	return s.app.editTags(f, userId, slideshowId, tags)
-}
-
 // Get data to edit slideshows for a user
 
 func (s *GalleryState) ForEditSlideshows(userId int64, tok string) (f *form.SlideshowsForm, user *users.User) {
@@ -788,12 +717,14 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 	}
 
 	// create slideshow for entry
+	t := time.Now()
 	show := &models.Slideshow{
 		User:    sql.NullInt64{Int64: u.Id, Valid: true},
 		Visible: models.SlideshowClub, // ## Private would be better, but needs something else for judges to view.
 		Shared:  vc,
 		Topic:   categoryId,
-		Revised: time.Now(),
+		Created: t,
+		Revised: t,
 		Title:   s.sanitize(title, ""),
 		Caption: s.sanitize(location, ""),
 		Format:  "E",
@@ -918,6 +849,22 @@ func (s *GalleryState) validate(code int64) (string, *dataValidated) {
 		return "", nil
 	}
 
+	// remove any other entries for this topic
+	deleted := 0
+	warn := ""
+	rivals := s.app.SlideshowStore.ForTopicUserAll(show.Topic, show.User.Int64)
+	for _, r := range rivals {
+		if r.Id != show.Id {
+			s.app.SlideshowStore.DeleteId(r.Id)
+			deleted++
+		}
+	}
+	if deleted == 1 {
+		warn = "A duplicate entry has been cancelled"
+	} else if deleted > 1 {
+		warn = strconv.Itoa(deleted) + " duplicate entries have been cancelled"
+	}
+
 	// remove new tag, which triggers addition of successor tags
 	// (succeeds if the tag has already been removed)
 	if !s.app.tagger.DropTagRef(show.Id, 0, "new", 0) {
@@ -941,50 +888,11 @@ func (s *GalleryState) validate(code int64) (string, *dataValidated) {
 		Email:    u.Username,
 		Category: t.Title,
 		Title:    show.Title,
+		Warn:     warn,
 	}
 }
 
 // INTERNAL FUNCTIONS
-
-// dataTags returns all referenced tags, with child tags
-func (app *Application) dataTags(tags []*models.Tag, level int, rootId int64, userId int64) []*DataTag {
-
-	var dTags []*DataTag
-
-	for _, t := range tags {
-
-		// note the root tags (needed for selection of tags to be edited)
-		if level == 0 {
-			rootId = t.Id
-		}
-
-		// references
-		n := app.tagger.TagRefStore.CountItems(t.Id, userId)
-		children := app.dataTags(app.tagger.TagStore.ForParent(t.Id), level+1, rootId, userId)
-
-		// skip unreferenced tags
-		if n+len(children) > 0 {
-
-			var sCount, sDisable string
-			if n > 0 {
-				sCount = strconv.Itoa(n)
-			} else {
-				sDisable = "disabled"
-			}
-
-			dTags = append(dTags, &DataTag{
-				NRoot:   rootId,
-				NTag:    t.Id,
-				Name:    t.Name,
-				Count:   sCount,
-				Disable: sDisable,
-				Indent:  "offset-" + strconv.Itoa(level*2),
-			})
-			dTags = append(dTags, children...)
-		}
-	}
-	return dTags
-}
 
 // editTags recursively processes tag changes.
 func (app *Application) editTags(f *multiforms.Form, userId int64, slideshowId int64, tags []*tags.ItemTag) bool {

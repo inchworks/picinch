@@ -20,13 +20,98 @@ package main
 // Requests for gallery display pages
 
 import (
+	"fmt"
+	"html/template"
 	"net/http"
 	"strconv"
 
 	"github.com/inchworks/webparts/multiforms"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
+
+	"inchworks.com/picinch/pkg/tags"
 )
+
+// getFormTagSlideshow serves a form to change slideshow tags.
+func (app *Application) getFormTagSlideshow(w http.ResponseWriter, r *http.Request) {
+
+	ps := httprouter.ParamsFromContext(r.Context())
+	showId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	rootId, _ := strconv.ParseInt(ps.ByName("nRoot"), 10, 64)
+	forUserId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
+	byUserId := app.authenticatedUser(r)
+
+	// get slideshow tags for all users
+	f, t, users := app.galleryState.forEditSlideshowTags(showId, rootId, forUserId, byUserId, app.role(r), nosurf.Token(r))
+	if f == nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	// tag values and fields
+	var tus []*tagUser
+	for _, u := range users {
+		tu := &tagUser{
+			Name: u.name,
+			Tags: tagHTML(u.tags),
+		}
+		tus = append(tus, tu)
+	}
+
+	// display form
+	app.render(w, r, "edit-tags-slideshow.page.tmpl", &tagsFormData{
+		Form:  f,
+		Title: t,
+		Users: tus,
+	})
+}
+
+func (app *Application) postFormTagSlideshow(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	// process form data
+	// ## Validation needed?
+	f := multiforms.New(r.PostForm, nosurf.Token(r))
+	showId, _ := strconv.ParseInt(f.Get("nShow"), 36, 64)
+	rootId, _ := strconv.ParseInt(f.Get("nRoot"), 36, 64)
+	forUserId, _ := strconv.ParseInt(f.Get("nUser"), 36, 64)
+
+	// save changes
+	if app.galleryState.onEditSlideshowTags(showId, rootId, forUserId, app.authenticatedUser(r), app.role(r), f) {
+		app.session.Put(r, "flash", "Tag changes saved.")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+
+	} else {
+		app.clientError(w, http.StatusBadRequest)
+	}
+}
+
+// getFormTags serves the form to edit tag definitions.
+func (app *Application) getFormTags(w http.ResponseWriter, r *http.Request) {
+
+	app.session.Put(r, "flash", "Not implemented yet.")
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// postFormTags handles submission of a form to edit tag definitions.
+func (app *Application) postFormTags(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+	if err != nil {
+		app.log(err)
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	app.session.Put(r, "flash", "Not implemented yet.")
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
 
 // getFormSelectSlideshow displays a form to select a slideshow by ID.
 func (app *Application) getFormSelectSlideshow(w http.ResponseWriter, r *http.Request) {
@@ -82,12 +167,13 @@ func (app *Application) slideshowsTagged(w http.ResponseWriter, r *http.Request)
 	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
 	rootId, _ := strconv.ParseInt(ps.ByName("nRoot"), 10, 64)
 	tagId, _ := strconv.ParseInt(ps.ByName("nTag"), 10, 64)
-	nMax, _ := strconv.ParseInt(ps.ByName("nMax"), 10, 32)
-	userId := app.authenticatedUser(r)
+	forUserId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
+	nMax, _ := strconv.ParseInt(ps.ByName("nMax"), 10, 32)
+	byUserId := app.authenticatedUser(r)
 
 	// template and data for slides
-	data := app.galleryState.displayTagged(topicId, rootId, tagId, userId, int(nMax))
+	data := app.galleryState.displayTagged(topicId, rootId, tagId, forUserId, byUserId, app.role(r), int(nMax))
 	if data == nil {
 		app.clientError(w, http.StatusBadRequest)
 		return
@@ -102,8 +188,60 @@ func (app *Application) userTags(w http.ResponseWriter, r *http.Request) {
 
 	userId := app.authenticatedUser(r)
 			
-	data := app.galleryState.displayUserTags(userId)
+	data := app.galleryState.displayUserTags(userId, app.role(r))
 
 	// display page
 	app.render(w, r, "user-tags.page.tmpl", data)
+}
+
+// INTERNAL FUNCTIONS
+
+// tagChecks returns the template data for a set of tag checkboxes.
+func tagHTML(tags []*tags.ItemTag) []*tagData {
+
+	var tcs []*tagData
+	for _, t := range tags {
+		var html string
+
+		if t.Edit {
+
+			const inputHtml = `
+				<div class="form-check">
+				<input class="form-check-input" type="%s" name="%s" value="%s" id="F%s" %s>
+				<label class="form-check-label" for="F%s">%s</label>
+				</div>
+			`
+
+			// names for form input and element ID
+			radio := strconv.FormatInt(t.Parent, 36)
+			nm := strconv.FormatInt(t.Id, 36)
+
+			var checked string
+			if t.Set {
+				checked = "checked"
+			}
+
+			switch t.Format {
+			case "C":
+				html = fmt.Sprintf(inputHtml, "checkbox", nm, "on", nm, checked, nm, t.Name)
+
+			case "R":
+				html = fmt.Sprintf(inputHtml, "radio", radio, nm, nm, checked, nm, t.Name)
+
+			default:
+				html = fmt.Sprintf("<label>%s</label>", t.Name)
+			}
+		} else {
+			html = fmt.Sprintf("<label>%s</label>", t.Name)
+		}
+
+		tc := &tagData{
+			tagId:   t.Id,
+			TagHTML: template.HTML(html),
+			Tags:    tagHTML(t.Children),
+		}
+
+		tcs = append(tcs, tc)
+	}
+	return tcs
 }

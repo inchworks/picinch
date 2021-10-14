@@ -35,6 +35,7 @@
  			{{with .Form}}
 			    <input type='hidden' name='nShow' value='{{.Get "nShow"}}'>
 			    <input type='hidden' name='nRoot' value='{{.Get "nRoot"}}'>
+			    <input type='hidden' name='nUser' value='{{.Get "nUser"}}'>
 			{{end}}	
 			{{range .Users}}
 				<h4>{{.Name}}</h4>

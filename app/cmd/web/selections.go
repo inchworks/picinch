@@ -19,17 +19,19 @@ package main
 
 import (
 	"net/url"
+	"strconv"
 
 	"github.com/inchworks/webparts/multiforms"
+	"inchworks.com/picinch/pkg/models"
 )
 
 // displayTagged returns data for slideshows with user-specific tags.
-func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, userId int64, nMax int) *DataTagged {
+func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, forUserId int64, byUserId int64, role int, nMax int) *DataTagged {
 
 	defer s.updatesNone()()
 
 	// validate that user has permission for this tag
-	if !s.app.tagger.HasPermission(rootId, userId) {
+	if role < models.UserAdmin && !s.app.tagger.HasPermission(rootId, byUserId) {
 		return nil
 	}
 
@@ -38,7 +40,7 @@ func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, u
 	parentName, tagName := s.app.tagger.Names(tagId)
 
 	// get slideshows, tagged for user
-	slideshows := s.app.SlideshowStore.ForTagUser(tagId, userId, nMax)
+	slideshows := s.app.SlideshowStore.ForTagUser(tagId, forUserId, nMax)
 
 	// ## no support for topic-specific
 
@@ -56,6 +58,7 @@ func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, u
 
 	return &DataTagged{
 		NRoot:      rootId,
+		NUser:      forUserId,
 		Parent:     parentName,
 		Tag:        tagName,
 		Slideshows: dShows,
@@ -63,16 +66,115 @@ func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, u
 }
 
 // displayUserTags returns a tree of all tags assigned to the user, with reference counts.
-func (s *GalleryState) displayUserTags(userId int64) *DataTags {
+func (s *GalleryState) displayUserTags(userId int64, role int) *DataTags {
 
 	defer s.updatesNone()()
 
-	return &DataTags{
-		Tags: s.app.dataTags(s.app.tagger.TagStore.ForUser(userId), 0, 0, userId),
+	if role >= models.UserAdmin {
+		// root tags for all users
+		tus := s.app.tagger.TagStore.AllRoot()
+
+		var dts []*DataTag
+		for _, tu := range tus {
+			// prefix tag name with user ID
+			tu.Tag.Name = strconv.FormatInt(tu.UserId, 10) + ":" + tu.Tag.Name
+
+			// process the root tags one by one
+			tsUser := []*models.Tag{&tu.Tag}
+			dtsUser := s.app.dataTags(tsUser, 0, 0, tu.UserId)
+			dts = append(dts, dtsUser...)
+		}
+		return &DataTags{
+			Tags: dts,
+		}
+
+	} else {
+		// root tags for a normal user
+		tags := s.app.tagger.TagStore.ForUser(userId)
+		return &DataTags{
+			Tags: s.app.dataTags(tags, 0, 0, userId),
+		}
 	}
+
 }
 
-// ForSelectSlideshow returns a form to select a slideshow by its ID.
+// forEditSlideshowTags returns a form, showing and editing relevant tags.
+func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, forUserId int64, byUserId int64, role int, tok string) (f *multiforms.Form, title string, usersTags []*userTags) {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// validate that user has permission for this tag
+	if role < models.UserAdmin {
+		if !s.app.tagger.HasPermission(rootId, byUserId) || forUserId != byUserId {
+			return
+		}
+	}
+
+	// slideshow title
+	show := s.app.SlideshowStore.GetIf(slideshowId)
+	if show == nil {
+		return
+	}
+	title = show.Title
+
+	// all users holding the same tags as this user
+	users := s.app.userStore.ForTag(rootId)
+	for _, u := range users {
+		if u.Id != forUserId {
+
+			// include only users with referenced tags
+			cts := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, u.Id, false)
+			if len(cts) > 0 {
+				ut := &userTags{
+					id:   u.Id,
+					name: u.Name,
+					tags: cts,
+				}
+				usersTags = append(usersTags, ut)
+			}
+		}
+	}
+
+	// this user's tags, to edit
+	ets := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, forUserId, true)
+	if len(ets) > 0 {
+		et := &userTags{
+			id:   forUserId,
+			name: "Me",
+			tags: ets,
+		}
+		usersTags = append(usersTags, et)
+	}
+
+	// current data
+	var d = make(url.Values)
+	f = multiforms.New(d, tok)
+	f.Set("nShow", strconv.FormatInt(slideshowId, 36))
+	f.Set("nRoot", strconv.FormatInt(rootId, 36))
+	f.Set("nUser", strconv.FormatInt(forUserId, 36))
+	return
+}
+
+// onEditSlideshowTags processes a form of tag changes, and returns true for a valid request.
+func (s *GalleryState) onEditSlideshowTags(slideshowId int64, rootId int64, forUserId int64, byUserId int64, role int, f *multiforms.Form) bool {
+
+	// serialisation
+	defer s.updatesGallery()()
+
+	// validate that user has permission for this tag
+	if role < models.UserAdmin {
+		if !s.app.tagger.HasPermission(rootId, byUserId) || forUserId != byUserId {
+			return false
+		}
+	}
+	
+	// tags to be edited, as specified by the selected tag, same as form request
+	tags := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, forUserId, true)
+	return s.app.editTags(f, forUserId, slideshowId, tags)
+}
+
+// forSelectSlideshow returns a form to select a slideshow by its ID.
 func (s *GalleryState) forSelectSlideshow(tok string) (f *multiforms.Form) {
 
 	// serialisation
@@ -86,11 +188,54 @@ func (s *GalleryState) forSelectSlideshow(tok string) (f *multiforms.Form) {
 	return
 }
 
-// OnSelectSlideshow checks if the specified slideshow exists.
+// onSelectSlideshow checks if the specified slideshow exists.
 func (s *GalleryState) onSelectSlideshow(slideshowId int64) bool {
 
 	// serialisation
 	defer s.updatesNone()()
 
 	return s.app.SlideshowStore.GetIf(slideshowId) != nil
+}
+
+// INTERNAL FUNCTIONS
+
+// dataTags returns all referenced tags, with child tags
+func (app *Application) dataTags(tags []*models.Tag, level int, rootId int64, userId int64) []*DataTag {
+
+	var dTags []*DataTag
+
+	for _, t := range tags {
+
+		// note the root tags (needed for selection of tags to be edited)
+		if level == 0 {
+			rootId = t.Id
+		}
+
+		// references
+		n := app.tagger.TagRefStore.CountItems(t.Id, userId)
+		children := app.dataTags(app.tagger.TagStore.ForParent(t.Id), level+1, rootId, userId)
+
+		// skip unreferenced tags
+		if n+len(children) > 0 {
+
+			var sCount, sDisable string
+			if n > 0 {
+				sCount = strconv.Itoa(n)
+			} else {
+				sDisable = "disabled"
+			}
+
+			dTags = append(dTags, &DataTag{
+				NRoot:   rootId,
+				NTag:    t.Id,
+				ForUser: userId,
+				Name:    t.Name,
+				Count:   sCount,
+				Disable: sDisable,
+				Indent:  "offset-" + strconv.Itoa(level*2),
+			})
+			dTags = append(dTags, children...)
+		}
+	}
+	return dTags
 }
