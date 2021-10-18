@@ -196,14 +196,18 @@ func (app *Application) logRequest(next http.Handler) http.Handler {
 		// anonymise request
 		// ## could be more selective and include some IDs
 		request := strings.SplitN(r.URL.RequestURI(), "/", 3)
+		var req string
 		if len(request) < 2 {
-			request[1] = "nil"
+			req = "nil"
+		} else {
+			// remove any query parameter values, but keep first query name (e.g. fbclid)
+			req = strings.SplitN(request[1], "=", 2)[0]
 		}
 
 		// app.infoLog.Printf("%s %s /%s", r.Proto, r.Method, request[1])
 
 		// usage statistics
-		app.usage.Count(request[1], "page")
+		app.usage.Count(req, "page")
 		userId := app.authenticatedUser(r)
 		if userId != 0 {
 			app.usage.Seen(app.usage.FormatID("U", userId), "user")
@@ -222,9 +226,12 @@ func (app *Application) logRequest(next http.Handler) http.Handler {
 func (app *Application) noQuery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.RawQuery != "" {
-			app.threat("bad query", r)
-			http.Error(w, "Query parameters not accepted", http.StatusBadRequest)
-			return
+			qs := r.URL.Query()
+			if !qs.Has("fbclid") {
+				app.threat("bad query", r)
+				http.Error(w, "Query parameters not accepted", http.StatusBadRequest)
+				return
+			}
 		}
 		next.ServeHTTP(w, r)
 	})
