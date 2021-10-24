@@ -156,7 +156,7 @@ func (app *Application) postFormSelectSlideshow(w http.ResponseWriter, r *http.R
 	}
 
 	// display slideshow
-	http.Redirect(w, r, "/entry/"+strconv.FormatInt(nShow, 10)+"/1", http.StatusSeeOther)
+	http.Redirect(w, r, "/entry/"+strconv.FormatInt(nShow, 10), http.StatusSeeOther)
 }
 
 // slideshowsTagged handles a request to view tagged slideshows for a topic.

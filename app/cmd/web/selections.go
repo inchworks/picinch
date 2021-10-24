@@ -40,7 +40,13 @@ func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, f
 	parentName, tagName := s.app.tagger.Names(tagId)
 
 	// get slideshows, tagged for user
-	slideshows := s.app.SlideshowStore.ForTagUser(tagId, forUserId, nMax)
+	var slideshows []*models.SlideshowTagRef
+	if forUserId == 0 {
+		slideshows = s.app.SlideshowStore.ForTagSystem(tagId, nMax)
+
+	} else {
+		slideshows = s.app.SlideshowStore.ForTagUser(tagId, forUserId, nMax)
+	}
 
 	// ## no support for topic-specific
 
@@ -71,13 +77,17 @@ func (s *GalleryState) displayUserTags(userId int64, role int) *DataTags {
 	defer s.updatesNone()()
 
 	if role >= models.UserAdmin {
+
+		// root tags for system
+		ts := s.app.tagger.TagStore.ForSystem()
+		dts := s.app.dataTags(ts, 0, 0, 0)
+
 		// root tags for all users
 		tus := s.app.tagger.TagStore.AllRoot()
 
-		var dts []*DataTag
 		for _, tu := range tus {
 			// prefix tag name with user ID
-			tu.Tag.Name = strconv.FormatInt(tu.UserId, 10) + ":" + tu.Tag.Name
+			tu.Tag.Name = tu.UsersName + " : " + tu.Tag.Name
 
 			// process the root tags one by one
 			tsUser := []*models.Tag{&tu.Tag}
@@ -88,6 +98,34 @@ func (s *GalleryState) displayUserTags(userId int64, role int) *DataTags {
 			Tags: dts,
 		}
 
+	} else if role >= models.UserFriend {
+		// root tags for this user
+		ts := s.app.tagger.TagStore.ForUser(userId)
+		for _, t := range ts {
+			t.Name = "Own : " + t.Name
+		}
+		dts := s.app.dataTags(ts, 0, 0, userId)
+
+		for _, t := range ts {
+			// root tags for team members (sharing the root tag)
+			tus := s.app.tagger.TagStore.ForTeam(t.Id)
+			for _, tu := range tus {
+
+				if tu.UserId != userId {
+					// prefix tag name with user
+					tu.Tag.Name = tu.UsersName + " : " + tu.Tag.Name
+
+					// process the root tags one by one
+					tsUser := []*models.Tag{&tu.Tag}
+					dtsUser := s.app.dataTags(tsUser, 0, 0, tu.UserId)
+					dts = append(dts, dtsUser...)
+				}
+			}
+		}
+		return &DataTags{
+			Tags: dts,
+		}
+	
 	} else {
 		// root tags for a normal user
 		tags := s.app.tagger.TagStore.ForUser(userId)
@@ -106,9 +144,11 @@ func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, for
 
 	// validate that user has permission for this tag
 	if role < models.UserAdmin {
-		if !s.app.tagger.HasPermission(rootId, byUserId) || forUserId != byUserId {
+		if !s.app.tagger.HasPermission(rootId, byUserId) {
 			return
 		}
+		// edit as self, not as team member
+		forUserId = byUserId
 	}
 
 	// slideshow title

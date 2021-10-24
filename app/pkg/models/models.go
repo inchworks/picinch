@@ -155,6 +155,7 @@ type TagItem struct {
 type TagUser struct {
 	Tag
 	UserId int64
+	UsersName string
 }
 
 type TopicSlide struct {

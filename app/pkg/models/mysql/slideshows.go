@@ -83,6 +83,15 @@ const (
 		WHERE tag.gallery = ? AND tag.parent = ? AND tag.name = ? AND slideshow.revised < ?
 	`
 
+	slideshowsWhereTagSystem = `
+		SELECT slideshow.*, tagref.id AS tagrefid
+		FROM slideshow
+		JOIN tagref ON tagref.item = slideshow.id
+		WHERE tagref.tag = ? AND tagref.user IS NULL
+		ORDER BY tagref.added ASC
+		LIMIT ?
+	`
+
 	slideshowsWhereTagTopic = `
 		SELECT slideshow.* FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
@@ -257,6 +266,19 @@ func (st *SlideshowStore) ForTagOld(parent int64, tag string, before time.Time) 
 	}
 	return slideshows
 }
+
+// ForTagSystem returns slideshows tagged by the system.
+func (st *SlideshowStore) ForTagSystem(tagId int64, nLimit int) []*models.SlideshowTagRef {
+
+	var slideshows []*models.SlideshowTagRef
+
+	if err := st.DBX.Select(&slideshows, slideshowsWhereTagSystem, tagId, nLimit); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
+}
+
 
 // ForTagTopic returns tagged slideshows, for a topic.
 // ## not needed?

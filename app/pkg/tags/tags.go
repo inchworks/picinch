@@ -270,7 +270,7 @@ func (tgr *Tagger) addTagRef(item int64, tagId int64, user int64, detail string,
 	return true
 }
 
-// addTagRefAll adds a tags to a item. A negative user ID of selects all users having the root tag, except the specified user.
+// addTagRefAll adds a tags to a item. A zero user ID selects all users having the root tag, and negative specifies all except -user.
 // Errors are logged and ignored.
 func (tgr *Tagger) addTagRefAll(item int64, path []string, user int64, detail string) bool {
 
@@ -282,7 +282,7 @@ func (tgr *Tagger) addTagRefAll(item int64, path []string, user int64, detail st
 	}
 
 	ok := true
-	if user < 0 {
+	if user < 1 {
 		// all users holding the root tag, except this one
 		us := tgr.UserStore.ForTagName(path[0])
 		for _, u := range us {

@@ -145,6 +145,10 @@ var cmdsTags = [...]string{
 		CONSTRAINT FK_TAG_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 
+	`INSERT INTO tag (id, gallery, parent, name, action, format) VALUES
+		(1, 1, 0, 'new', '', ''),
+		(2, 1, 0, 'agreements', '', '');`,
+
 	`CREATE TABLE tagref (
 		id int(11) NOT NULL AUTO_INCREMENT,
 		item int(11) NULL,

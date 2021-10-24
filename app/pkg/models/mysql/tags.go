@@ -44,6 +44,7 @@ const (
 	tagSelect       = `SELECT * FROM tag`
 
 	tagOrderName = ` ORDER BY name`
+	tagOrderNameUser = ` ORDER BY name, usersname`
 
 	tagCount = `SELECT COUNT(*) FROM tag`
 
@@ -57,11 +58,26 @@ const (
 		JOIN tag ON tag.id = tagref.tag
 		WHERE tagref.user = ? AND tagref.item IS NULL AND tag.parent = 0
 	`
+
+	tagsWhereTeam = `
+		SELECT tag.*, tagref.user AS userid, user.name AS usersname
+		FROM tag
+		JOIN tagref on tagref.tag = tag.id
+		JOIN user on user.id = tagref.user
+		WHERE tag.id = ? AND tagref.item IS NULL`   + tagOrderNameUser
+
 	tagsWhereRoot = `
-		SELECT tag.*, tagref.user AS userid
+		SELECT tag.*, tagref.user AS userid, user.name AS usersname
 		FROM tagref
 		JOIN tag on tag.id = tagref.tag
-		WHERE tag.gallery = ? AND tagref.item IS NULL AND parent = 0`  + tagOrderName
+		JOIN user on user.id = tagref.user
+		WHERE tag.gallery = ? AND tagref.item IS NULL AND tag.parent = 0`  + tagOrderNameUser
+
+	tagsWhereSystem = `
+		SELECT DISTINCT tag.*
+		FROM tag
+		JOIN tagref on tag.id = tagref.tag
+		WHERE tag.gallery = ? AND tagref.item IS NOT NULL AND tag.parent = 0`  + tagOrderName
 
 	tagsWhereParent = tagSelect + ` WHERE parent = ?` + tagOrderName
 )
@@ -98,7 +114,6 @@ func (st *TagStore) AllRoot() []*models.TagUser {
 	return tags
 }
 
-
 // Count returns the number of tags.
 // (It is used just as a convenient way to check if the tag table exists.)
 func (st *TagStore) Count() (int, error) {
@@ -113,6 +128,32 @@ func (st *TagStore) ForParent(parent int64) []*models.Tag {
 	var tags []*models.Tag
 
 	if err := st.DBX.Select(&tags, tagsWhereParent, parent); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return tags
+}
+
+// ForSystem returns root tags assigned by system to slideshows.
+func (st *TagStore) ForSystem() []*models.Tag {
+
+	var tags []*models.Tag
+
+	if err := st.DBX.Select(&tags, tagsWhereSystem, st.GalleryId); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return tags
+}
+
+// ForTeam returns root tags for all users assigned a permission tag.
+func (st *TagStore) ForTeam(id int64) []*models.TagUser {
+
+	var tags []*models.TagUser
+
+	if err := st.DBX.Select(&tags, tagsWhereTeam, id); err != nil {
 		st.logError(err)
 		return nil
 	}
