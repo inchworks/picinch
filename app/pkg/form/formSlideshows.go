@@ -109,7 +109,7 @@ func (f *SlideshowsForm) GetSlideshows(withTopics bool) (items []*SlideshowFormD
 			IsShared: f.ChildBool("shared", ix),
 			NShow:    showId,
 			NTopic:   topicId,
-			Title:    f.ChildRequired("title", i, ix),
+			Title:    f.ChildText("title", i, ix, 1, models.MaxTitle),
 		})
 	}
 

@@ -50,6 +50,11 @@ const (
 	UserMember  = 2
 	UserCurator = 3
 	UserAdmin   = 4
+
+	// field sizes
+	MaxName = 60
+	MaxTitle = 128
+	MaxDetail = 512
 )
 
 var (

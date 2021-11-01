@@ -8,7 +8,7 @@ require (
 	github.com/golangcollege/sessions v1.2.0
 	github.com/ilyakaznacheev/cleanenv v1.2.5
 	github.com/inchworks/usage v0.2.0
-	github.com/inchworks/webparts v0.10.2
+	github.com/inchworks/webparts v0.11.1
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0
@@ -19,4 +19,4 @@ require (
 	gopkg.in/mail.v2 v2.3.1 // indirect
 )
 
-// replace github.com/inchworks/webparts v0.10.0 => /webparts
+//replace github.com/inchworks/webparts v0.11.0 => ../../webparts

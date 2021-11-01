@@ -21,6 +21,7 @@ import (
 	"net/url"
 
 	"github.com/inchworks/webparts/multiforms"
+	"inchworks.com/picinch/pkg/models"
 )
 
 type PublicCompForm struct {
@@ -106,9 +107,9 @@ func (f *PublicCompForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, er
 
 		items = append(items, &SlideFormData{
 			Child:     multiforms.Child{Parent: f.Form, ChildIndex: ix},
-			Title:     f.ChildRequired("title", i, ix),
+			Title:     f.ChildText("title", i, ix, 2, models.MaxTitle),
 			ImageName: f.ChildFile("imageName", i, ix, vt),
-			Caption:   f.ChildGet("caption", i),
+			Caption:   f.ChildText("caption", i, ix, 0, models.MaxDetail),
 		})
 
 		// require an image for every name
@@ -138,9 +139,9 @@ func (f *SlidesForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, err er
 		items = append(items, &SlideFormData{
 			Child:     multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			ShowOrder: f.ChildMin("showOrder", i, ix, 1),
-			Title:     f.ChildTrimmed("title", i),
+			Title:     f.ChildText("title", i, ix, 0, models.MaxDetail), // allow long titles for slides
 			ImageName: f.ChildFile("imageName", i, ix, vt),
-			Caption:   f.ChildGet("caption", i),
+			Caption:   f.ChildText("caption", i, ix, 0, models.MaxDetail),
 		})
 	}
 
