@@ -122,6 +122,12 @@
 			$(".custom-file-input").on("change", function() {
 				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
 			});
+
+			// Disable button on submit, in attempt to stop duplicate submissions
+			$("form").submit(function() {
+  				$(this).find("button[type='submit']").prop("disabled", true);
+			});
+
 		}
 
 		function childAdded($prototype, $newForm) {

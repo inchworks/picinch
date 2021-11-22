@@ -312,6 +312,10 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 
 	// template and data for slides
 	data := app.galleryState.DisplayTopicContributors(topicId)
+	if data == nil {
+		app.clientError(w, http.StatusBadRequest) // no such topic
+		return
+	}
 
 	// display page
 	app.render(w, r, "topic-contributors.page.tmpl", data)

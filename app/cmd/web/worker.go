@@ -198,7 +198,8 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) erro
 	})
 }
 
-// onPurge removes old unvalidate competition entries
+// onPurge removes old unvalidate competition entries.
+// It returns the ID of a following transaction to remove media files. 
 func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 
 	var nDelShows, nDelUsers int
@@ -206,12 +207,22 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 	defer s.updatesGallery()()
 	tx := s.app.tm.Begin()
 
+	// counts of remaining entries
+	entries := make(map[int64]int, 4)
+
 	// entries before cut-off time
 	before := t.Add(-s.app.cfg.MaxUnvalidatedAge)
 	shows := s.app.SlideshowStore.ForTagOld(0, "new", before)
 
 	for _, show := range shows {
 		uId := show.User.Int64
+
+		// no of entries for this competitor
+		if _, seen := entries[uId]; !seen {
+			entries[uId] = s.app.SlideshowStore.CountForUser(uId) - 1
+		} else {
+			entries[uId] = entries[uId] - 1
+		}
 
 		// remove competition slideshow
 		// (slides removed by on delete cascade)
@@ -226,22 +237,22 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 			Revised: false})
 
 		nDelShows++
+	}
 
-		// remove competitor with no other entries
-		user, err  := s.app.userStore.Get(uId)
-		if err != nil {
-			s.app.log(err)
-
-		} else if user.Status == models.UserUnknown {
-			n := s.app.SlideshowStore.CountForUser(uId)
-			if n == 1 {
-				if err := s.app.userStore.DeleteId(uId); err != nil {
-					s.app.log(err)
-				}
+	// remove competitors with no other entries
+	for uId, n := range entries {
+		if n == 0 {
+			user, err := s.app.userStore.Get(uId)
+			if err == nil && user.Status == models.UserUnknown {
+				err = s.app.userStore.DeleteId(uId)
+			}
+			if err == nil {
 				nDelUsers++
+			} else {
+				s.app.log(err)
 			}
 		}
-	}
+	}	
 
 	if nDelShows + nDelUsers > 0 {
 		s.app.infoLog.Printf("Removed %d unverified competition entries, and %d entrants", nDelShows, nDelUsers)
@@ -269,11 +280,8 @@ func (s *GalleryState) onRefresh() error {
 // onUpdateShow processes an updated or deleted slideshow.
 func (s *GalleryState) onUpdateShow(showId int64, topicId int64, tx etx.TxId, revised bool) error {
 
-	// upload manager
-	ul := s.app.uploader
-
 	// setup
-	bind := ul.StartBind(showId, tx)
+	bind := s.app.uploader.StartBind(showId, tx)
 
 	// set versioned images, and update slideshow
 	if err := s.updateSlides(showId, revised, bind); err != nil {
@@ -424,8 +432,8 @@ func (s *GalleryState) updateTopic(t *models.Slideshow, revised bool) error {
 
 	update := false
 
-	// exclude hidden topics and competition categories
-	if t.Visible >= models.SlideshowClub && t.Format != "C"{
+	// exclude hidden topics and fixed image competition categories
+	if t.Visible >= models.SlideshowClub && t.Format != "F" {
 		images := s.app.SlideStore.ImagesForTopic(t.Id)
 		nImages := len(images)
 

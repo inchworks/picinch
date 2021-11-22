@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.12.7"
+	version = "0.12.10"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -64,7 +64,7 @@ const (
 )
 
 // file locations on server
-const (
+var (
 	CertPath  = "../certs"  // cached certificates
 	ImagePath = "../photos" // pictures
 	SitePath  = "../site"   // site-specific resources
@@ -130,8 +130,8 @@ type Configuration struct {
 
 	// operational settings
 	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing files
-	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env-default:"8h"`                                 // maximum time for a slideshow update. Units m or h.
-	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition to be validated. Units h.
+	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env:"max-upload-age" env-default:"8h"`            // maximum time for a slideshow update. Units m or h.
+	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
 	SiteRefresh       time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`                             // refresh interval for topic thumbnails. Units m or h.
 	UsageAnonymised   usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 
@@ -228,6 +228,15 @@ func main() {
 	threatLog := log.New(os.Stdout, "THREAT\t", log.Ldate|log.Ltime)
 	infoLog.Printf("PicInch Gallery %s", version)
 	infoLog.Print(notice)
+
+	// redirect to test folders
+	test := os.Getenv("test")
+	if test != "" {
+		CertPath = filepath.Join(test, filepath.Base(CertPath))
+		ImagePath = filepath.Join(test, filepath.Base(ImagePath))
+		MiscPath = filepath.Join(test, filepath.Base(MiscPath))
+		SitePath = filepath.Join(test, filepath.Base(SitePath))
+	}
 
 	// site configuration
 	cfg := &Configuration{}

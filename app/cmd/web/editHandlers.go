@@ -73,9 +73,6 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 
 	// redisplay form if data invalid
 	if !f.Valid() {
-		app.errorLog.Print(f.Errors)
-		app.errorLog.Print(f.ChildErrors)
-
 		app.render(w, r, "assign-slideshows.page.tmpl", &slideshowsFormData{
 			Form: f,
 		})
@@ -189,28 +186,28 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 
 	// save changes
 	email := f.Get("email")
-	code := app.galleryState.onEnterComp(id, tx, f.Get("name"), email, f.Get("location"),
+	status, code := app.galleryState.onEnterComp(id, tx, f.Get("name"), email, f.Get("location"),
 		slides[0].Title, slides[0].Caption, slides[0].ImageName, nAgreed)
 
-	if code >= 0 {
+	if status == 0 {
 		// bind updated media, now that update is committed
 		app.uploader.DoNext(tx)
-	}
 
-	if code == 0 {
+		if code == 0 {
 
-		app.session.Put(r, "flash", "Competition entry saved - please check your email to confirm your address: "+email+".")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+			app.session.Put(r, "flash", "Competition entry saved - please check your email to confirm your address: "+email+".")
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 
-	} else if code > 0 {
-		// auto validation
-		app.galleryState.validate(code)
+		} else {
+			// auto validation
+			app.galleryState.validate(code)
 
-		app.session.Put(r, "flash", "Competition entry accepted.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+			app.session.Put(r, "flash", "Competition entry accepted.")
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+		}
 
 	} else {
-		app.clientError(w, http.StatusBadRequest)
+		app.clientError(w, status)
 	}
 }
 
@@ -298,8 +295,11 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 		app.clientError(w, http.StatusInternalServerError)
 	}
 
-	err, byUser := app.uploader.Save(fh, id)
 	var s string
+	app.reply(w, RepUpload{Error: s})
+
+	err, byUser := app.uploader.Save(fh, id)
+
 	if err != nil {
 		if byUser {
 			s = err.Error()
@@ -313,7 +313,6 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// return response
-	app.reply(w, RepUpload{Error: s})
 }
 
 // Form to set slides for slideshow
@@ -401,9 +400,6 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 
 	// redisplay form if data invalid
 	if !f.Valid() {
-		app.errorLog.Print(f.Errors)
-		app.errorLog.Print(f.ChildErrors)
-
 		t := app.galleryState.SlideshowTitle(nShow)
 		app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 			Form:      f,
@@ -473,9 +469,6 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 
 	// redisplay form if data invalid
 	if !f.Valid() {
-		app.errorLog.Print(f.Errors)
-		app.errorLog.Print(f.ChildErrors)
-
 		n := app.galleryState.UserDisplayName(userId)
 		app.render(w, r, "edit-slideshows.page.tmpl", &slideshowsFormData{
 			Form:  f,
@@ -556,9 +549,6 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 
 	// redisplay form if data invalid
 	if !f.Valid() {
-		app.errorLog.Print(f.Errors)
-		app.errorLog.Print(f.ChildErrors)
-
 		app.render(w, r, "edit-topics.page.tmpl", &slideshowsFormData{
 			Form:  f,
 			User:  "Topics",

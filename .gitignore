@@ -21,10 +21,10 @@ __debug_bin
 .vscode/
 
 # PicInch working folders
-/mysql*/
-misc/
-photos/
-site/
+misc*/
+photos*/
+site*/
+!site-example/
 
 # Ulysses
 *.plist

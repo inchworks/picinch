@@ -231,7 +231,10 @@ func (s *GalleryState) DisplayTopicContributors(id int64) *DataSlideshows {
 
 	defer s.updatesNone()()
 
-	topic, _ := s.app.SlideshowStore.Get(id)
+	topic, err := s.app.SlideshowStore.Get(id)
+	if err != nil {
+		return nil
+	}
 
 	// show latest highlights first, other topics in published order
 	latest := false

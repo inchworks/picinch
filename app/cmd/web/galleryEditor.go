@@ -198,7 +198,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (f *form.Slide
 	return
 }
 
-// OnEditSlideshow processes the modification of a slideshow. It returns 0 and the user ID on success, or an HTTP status code, .
+// OnEditSlideshow processes the modification of a slideshow. It returns 0 and the user ID on success, or an HTTP status code.
 // topicId and userId are needed only for a new slideshow for a topic. Otherwise we prefer to trust the database.
 func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId, userId int64, qsSrc []*form.SlideFormData) (int, int64) {
 
@@ -663,10 +663,10 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) etx.TxId {
 }
 
 // ForEditGallery returns a competition entry form.
-func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicCompForm, string, string, error) {
+func (s *GalleryState) forEnterComp(categoryId int64, tok string) (f *form.PublicCompForm, title string, caption string, err error) {
 
 	// serialisation
-	defer s.updatesNone()()
+	defer s.updatesGallery()()
 
 	// get the category topic
 	show, err := s.app.SlideshowStore.Get(categoryId)
@@ -674,28 +674,41 @@ func (s *GalleryState) forEnterComp(categoryId int64, tok string) (*form.PublicC
 		return nil, "", "", err
 	}
 
+	// start multi-step transaction for uploaded files
+	var ts string
+	ts, err = s.app.uploader.Begin()
+	if err != nil {
+		return
+	}
+
 	// initial data
 	var d = make(url.Values)
-	f := form.NewPublicComp(d, 1, tok)
+	f = form.NewPublicComp(d, 1, tok)
 	f.Set("category", strconv.FormatInt(show.Id, 36))
+	f.Set("timestamp", ts)
+	title = show.Title
+	caption = show.Caption
 
-	// generate request timestamp for uploaded images (we don't have a user ID yet)
-	f.Set("timestamp", strconv.FormatInt(time.Now().UnixNano(), 36))
-
-	return f, show.Title, show.Caption, nil
+	return
 }
 
-// onEnterComp processes a competition entry and returns a validation code.
-// The code is 0 for auto-validation and -1 for a bad entry.
-func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, email string, location string, title string, caption string, image string, nAgreed int) int64 {
+// onEnterComp processes a competition entry.
+// It returns 0 and a validation code on success, or an HTTP status code.
+// The validation code is non-zero for auto-validation, 0 for validation by email.
+func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, email string, location string, title string, caption string, image string, nAgreed int) (status int, vc int64)  {
 
 	// serialisation
 	defer s.updatesGallery()()
 
+		// check for a request that has been running so long that we have discarded the uploads
+		if !s.app.uploader.ValidCode(tx) {
+			return http.StatusRequestTimeout, -1
+		}
+	
 	// create user for entry
 	u, err := s.app.userStore.GetNamed(email)
 	if err != nil && !s.app.userStore.IsNoRecord(err) {
-		return -1
+		return http.StatusInternalServerError, -1
 	}
 	if u == nil {
 		u = &users.User{
@@ -705,15 +718,15 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 			Created:  time.Now(),
 		}
 		if err = s.app.userStore.Update(u); err != nil {
-			return -1
+			return http.StatusInternalServerError, -1
 		}
 	}
 
 	// generate validation code for public entry
-	vc, err := picinch.SecureCode(8)
+	vc, err = picinch.SecureCode(8)
 	if err != nil {
 		s.app.errorLog.Print(err)
-		return -1
+		return http.StatusInternalServerError, -1
 	}
 
 	// create slideshow for entry
@@ -730,7 +743,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 		Format:  "E",
 	}
 	if err = s.app.SlideshowStore.Update(show); err != nil {
-		return -1
+		return http.StatusBadRequest, -1
 	}
 
 	// must be an acceptable file type
@@ -738,7 +751,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 	image = uploader.CleanName(image)
 	sf := slideMedia(s.app.uploader.MediaType(image))
 	if sf == 0 {
-		return -1
+		return http.StatusBadRequest, -1
 	}
 	if caption != "" {
 		sf += models.SlideCaption
@@ -755,7 +768,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 	}
 
 	if err = s.app.SlideStore.Update(slide); err != nil {
-		return -1
+		return http.StatusInternalServerError, -1
 	}
 
 	// tag entry as unvalidated
@@ -768,14 +781,14 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 
 	// request worker to generate media version, remove unused images, and send validation email
 	if err := s.txShow(&OpUpdateShow{ShowId: show.Id, tx: tx, Revised: false}, OpComp); err != nil {
-		return -1
+		return http.StatusInternalServerError, -1
 	}
 
-	// auto validation is not needed if we can send emails.
+	// auto validation is not needed if we can send emails
 	if s.app.cfg.EmailHost != "" {
 		vc = 0
 	}
-	return vc
+	return 0, vc
 }
 
 // OnRemoveUser removes a user's media files from the system.
