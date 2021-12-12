@@ -503,12 +503,12 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 
 // Get data to edit a user's contribution to a topic
 
-func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (f *form.SlidesForm, title string) {
+func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (status int, f *form.SlidesForm, title string) {
 
 	var slides []*models.Slide
 
 	// serialisation
-	defer s.updatesNone()()
+	defer s.updatesGallery()()
 
 	// user's show for topic
 	var showId int64
@@ -527,13 +527,19 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (f 
 		slides = s.app.SlideStore.ForSlideshow(showId, 100)
 	}
 
+	// start multi-step transaction for uploaded files
+	ts, err := s.app.uploader.Begin()
+	if err != nil {
+		status = s.rollback(http.StatusInternalServerError, err); return
+	}
+	
 	// form
 	var d = make(url.Values)
 	f = form.NewSlides(d, len(slides), tok)
 	f.Set("nShow", strconv.FormatInt(showId, 36))
 	f.Set("nTopic", strconv.FormatInt(topicId, 36))
 	f.Set("nUser", strconv.FormatInt(userId, 36))
-	f.Set("timestamp", strconv.FormatInt(time.Now().UnixNano(), 36))
+	f.Set("timestamp", ts)
 
 	// template for new slide form
 	f.AddTemplate(len(slides))

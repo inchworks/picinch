@@ -493,9 +493,10 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 	topicId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
-	f, title := app.galleryState.ForEditTopic(topicId, userId, nosurf.Token(r))
-	if f == nil {
-		httpNotFound(w)
+	st, f, title := app.galleryState.ForEditTopic(topicId, userId, nosurf.Token(r))
+	if st != 0 {
+		http.Error(w, http.StatusText(st), st)
+		return
 	}
 
 	// display form
