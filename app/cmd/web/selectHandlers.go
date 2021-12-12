@@ -42,9 +42,9 @@ func (app *Application) getFormTagSlideshow(w http.ResponseWriter, r *http.Reque
 	byUserId := app.authenticatedUser(r)
 
 	// get slideshow tags for all users
-	f, t, users := app.galleryState.forEditSlideshowTags(showId, rootId, forUserId, byUserId, app.role(r), nosurf.Token(r))
-	if f == nil {
-		app.clientError(w, http.StatusBadRequest)
+	st, f, t, users := app.galleryState.forEditSlideshowTags(showId, rootId, forUserId, byUserId, app.role(r), nosurf.Token(r))
+	if st != 0 {
+		http.Error(w, http.StatusText(st), st)
 		return
 	}
 
@@ -70,7 +70,7 @@ func (app *Application) postFormTagSlideshow(w http.ResponseWriter, r *http.Requ
 
 	err := r.ParseForm()
 	if err != nil {
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -82,12 +82,13 @@ func (app *Application) postFormTagSlideshow(w http.ResponseWriter, r *http.Requ
 	forUserId, _ := strconv.ParseInt(f.Get("nUser"), 36, 64)
 
 	// save changes
-	if app.galleryState.onEditSlideshowTags(showId, rootId, forUserId, app.authenticatedUser(r), app.role(r), f) {
+	status := app.galleryState.onEditSlideshowTags(showId, rootId, forUserId, app.authenticatedUser(r), app.role(r), f)
+	if status == 0 {
 		app.session.Put(r, "flash", "Tag changes saved.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	} else {
-		app.clientError(w, http.StatusBadRequest)
+		http.Error(w, http.StatusText(status), status)
 	}
 }
 
@@ -103,15 +104,13 @@ func (app *Application) postFormTags(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
 	app.session.Put(r, "flash", "Not implemented yet.")
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
-
 
 // getFormSelectSlideshow displays a form to select a slideshow by ID.
 func (app *Application) getFormSelectSlideshow(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +128,7 @@ func (app *Application) postFormSelectSlideshow(w http.ResponseWriter, r *http.R
 
 	err := r.ParseForm()
 	if err != nil {
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -173,9 +172,9 @@ func (app *Application) slideshowsTagged(w http.ResponseWriter, r *http.Request)
 	byUserId := app.authenticatedUser(r)
 
 	// template and data for slides
-	data := app.galleryState.displayTagged(topicId, rootId, tagId, forUserId, byUserId, app.role(r), int(nMax))
-	if data == nil {
-		app.clientError(w, http.StatusBadRequest)
+	st, data := app.galleryState.displayTagged(topicId, rootId, tagId, forUserId, byUserId, app.role(r), int(nMax))
+	if st == 0 {
+		http.Error(w, http.StatusText(st), st)
 		return
 	}
 
@@ -187,7 +186,7 @@ func (app *Application) slideshowsTagged(w http.ResponseWriter, r *http.Request)
 func (app *Application) userTags(w http.ResponseWriter, r *http.Request) {
 
 	userId := app.authenticatedUser(r)
-			
+
 	data := app.galleryState.displayUserTags(userId, app.role(r))
 
 	// display page

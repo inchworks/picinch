@@ -7,8 +7,8 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golangcollege/sessions v1.2.0
 	github.com/ilyakaznacheev/cleanenv v1.2.5
-	github.com/inchworks/usage v0.2.0
-	github.com/inchworks/webparts v0.11.3
+	github.com/inchworks/usage v0.2.1
+	github.com/inchworks/webparts v0.12.0
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0
@@ -19,4 +19,5 @@ require (
 	gopkg.in/mail.v2 v2.3.1 // indirect
 )
 
-// replace github.com/inchworks/webparts v0.11.2 => ../../webparts
+// replace github.com/inchworks/usage v0.2.1 => ../../usage
+// replace github.com/inchworks/webparts v0.12.0 => ../../webparts

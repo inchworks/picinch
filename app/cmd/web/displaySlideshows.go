@@ -41,7 +41,7 @@ func (s *GalleryState) displayClasses(member bool) *dataCompetition {
 
 	// ## restrict to published categories
 	dShows := s.dataShowsPublished(
-		a.SlideshowStore.AllEditableTopics(), a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
+		a.SlideshowStore.AllTopicsFormatted("C%"), a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
 
 	// template and its data
 	return &dataCompetition{
@@ -56,9 +56,8 @@ func (s *GalleryState) DisplayContributor(userId int64) *DataHome {
 	defer s.updatesNone()()
 
 	// user
-	user, err := s.app.userStore.Get(userId)
-	if err != nil {
-		s.app.log(err)
+	user := s.app.getUserIf(userId)
+	if user == nil {
 		return nil
 	}
 
@@ -196,8 +195,8 @@ func (s *GalleryState) DisplaySlideshow(id int64, forRole int, from string) *Dat
 	defer s.updatesNone()()
 
 	// get slideshow ..
-	show, err := s.app.SlideshowStore.Get(id)
-	if err != nil {
+	show := s.app.SlideshowStore.GetIf(id)
+	if show == nil {
 		return nil
 	}
 
@@ -211,7 +210,7 @@ func (s *GalleryState) DisplayTopicHome(id int64, seq int, from string) (string,
 	defer s.updatesNone()()
 
 	// check if topic ID is valid
-	topic, _ := s.app.SlideshowStore.Get(id)
+	topic := s.app.SlideshowStore.GetIf(id)
 	if topic == nil {
 		return "", nil
 	}
@@ -231,8 +230,8 @@ func (s *GalleryState) DisplayTopicContributors(id int64) *DataSlideshows {
 
 	defer s.updatesNone()()
 
-	topic, err := s.app.SlideshowStore.Get(id)
-	if err != nil {
+	topic := s.app.SlideshowStore.GetIf(id)
+	if topic == nil {
 		return nil
 	}
 
@@ -285,7 +284,10 @@ func (s *GalleryState) ForMyGallery(userId int64) *DataMyGallery {
 	defer s.updatesNone()()
 
 	// get user
-	user, _ := s.app.userStore.Get(userId)
+	user := s.app.getUserIf(userId)
+	if user == nil {
+		return nil
+	}
 
 	// get slideshows
 	slideshows := s.app.SlideshowStore.ForUser(userId, models.SlideshowPrivate)
@@ -392,7 +394,10 @@ func (s *GalleryState) SlideshowTitle(showId int64) string {
 	// serialisation
 	defer s.updatesNone()()
 
-	r, _ := s.app.SlideshowStore.Get(showId)
+	r := s.app.SlideshowStore.GetIf(showId)
+	if r == nil {
+		return ""
+	}
 
 	return r.Title
 }
@@ -446,7 +451,6 @@ func (s *GalleryState) dataSlides(showId int64, max int) []*DataSlide {
 // It is also called for competition classes.
 func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int, maxTotal int) []*DataPublished {
 
-	a := s.app
 	count := make(map[int64]int, 16) // count slideshows per-user
 
 	var data []*DataPublished
@@ -461,12 +465,11 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 			if count[userId] < maxUser {
 
 				// contributor of slideshow
-				user, err := a.userStore.Get(userId)
-				if err != nil {
-					a.log(err)
+				user := s.app.getUserIf(userId)
+				if user == nil {
 					return nil
 				}
-
+			
 				// data for display
 				data = append(data, &DataPublished{
 					Id:          show.Id,
@@ -533,8 +536,8 @@ func (s *GalleryState) displayHighlights(topic *models.Slideshow, from string, p
 func (s *GalleryState) displaySlides(show *models.Slideshow, forRole int, from string, max int) *DataSlideshow {
 
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, err := s.app.userStore.Get(show.User.Int64)
-	if err != nil {
+	user := s.app.getUserIf(show.User.Int64)
+	if user == nil {
 		return nil
 	}
 
@@ -577,8 +580,8 @@ func (s *GalleryState) displaySlides(show *models.Slideshow, forRole int, from s
 
 	// use topic title for a topic contribution
 	if show.Topic != 0 {
-		topic, err := s.app.SlideshowStore.Get(show.Topic)
-		if err != nil {
+		topic := s.app.SlideshowStore.GetIf(show.Topic)
+		if topic == nil {
 			return nil
 		}
 		data.Topic = topic.Title
@@ -608,7 +611,10 @@ func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq in
 
 	// slides and user
 	slides := s.app.SlideStore.ForSlideshow(show.Id, max)
-	user, _ := s.app.userStore.Get(show.User.Int64)
+	user := s.app.getUserIf(show.User.Int64)
+	if user == nil {
+		return "", nil
+	}
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide

@@ -114,19 +114,19 @@ func execute(templates map[string]*template.Template, templateName string, data 
 	}
 
 	subject := new(bytes.Buffer)
-	err = ts.ExecuteTemplate(subject, "subject", data)
+	err = ts.ExecuteTemplate(subject, "emailSubject", data)
 	if err != nil {
 		return nil, err
 	}
 
 	plainBody := new(bytes.Buffer)
-	err = ts.ExecuteTemplate(plainBody, "plainBody", data)
+	err = ts.ExecuteTemplate(plainBody, "emailPlain", data)
 	if err != nil {
 		return nil, err
 	}
 
 	htmlBody := new(bytes.Buffer)
-	err = ts.ExecuteTemplate(htmlBody, "htmlBody", data)
+	err = ts.ExecuteTemplate(htmlBody, "emailHtml", data)
 	if err != nil {
 		return nil, err
 	}

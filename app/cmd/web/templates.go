@@ -177,11 +177,11 @@ type DataUsers struct {
 }
 
 type dataValidated struct {
-	Name     string
-	Email    string
-	Category string
-	Title    string
-	Warn     string
+	Name  string
+	Email string
+	Class string
+	Title string
+	Warn  string
 	DataCommon
 }
 
@@ -189,7 +189,7 @@ type dataValidated struct {
 
 type compFormData struct {
 	Form      *form.PublicCompForm
-	Category  string
+	Class     string
 	Caption   template.HTML
 	MaxUpload int // in MB
 	DataCommon

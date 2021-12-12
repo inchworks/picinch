@@ -18,6 +18,7 @@
 package main
 
 import (
+	"net/http"
 	"net/url"
 	"strconv"
 
@@ -26,13 +27,13 @@ import (
 )
 
 // displayTagged returns data for slideshows with user-specific tags.
-func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, forUserId int64, byUserId int64, role int, nMax int) *DataTagged {
+func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, forUserId int64, byUserId int64, role int, nMax int) (status int, dt *DataTagged) {
 
 	defer s.updatesNone()()
 
 	// validate that user has permission for this tag
 	if role < models.UserAdmin && !s.app.tagger.HasPermission(rootId, byUserId) {
-		return nil
+		status = http.StatusUnauthorized; return
 	}
 
 	// ## should validate that tag is a child of the root
@@ -62,13 +63,14 @@ func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, f
 		})
 	}
 
-	return &DataTagged{
+	dt = &DataTagged{
 		NRoot:      rootId,
 		NUser:      forUserId,
 		Parent:     parentName,
 		Tag:        tagName,
 		Slideshows: dShows,
 	}
+	return
 }
 
 // displayUserTags returns a tree of all tags assigned to the user, with reference counts.
@@ -137,7 +139,7 @@ func (s *GalleryState) displayUserTags(userId int64, role int) *DataTags {
 }
 
 // forEditSlideshowTags returns a form, showing and editing relevant tags.
-func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, forUserId int64, byUserId int64, role int, tok string) (f *multiforms.Form, title string, usersTags []*userTags) {
+func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, forUserId int64, byUserId int64, role int, tok string) (status int, f *multiforms.Form, title string, usersTags []*userTags) {
 
 	// serialisation
 	defer s.updatesNone()()
@@ -145,7 +147,7 @@ func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, for
 	// validate that user has permission for this tag
 	if role < models.UserAdmin {
 		if !s.app.tagger.HasPermission(rootId, byUserId) {
-			return
+			status = http.StatusUnauthorized; return
 		}
 		// edit as self, not as team member
 		forUserId = byUserId
@@ -154,7 +156,7 @@ func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, for
 	// slideshow title
 	show := s.app.SlideshowStore.GetIf(slideshowId)
 	if show == nil {
-		return
+		status = http.StatusNotFound; return
 	}
 	title = show.Title
 
@@ -196,8 +198,8 @@ func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, for
 	return
 }
 
-// onEditSlideshowTags processes a form of tag changes, and returns true for a valid request.
-func (s *GalleryState) onEditSlideshowTags(slideshowId int64, rootId int64, forUserId int64, byUserId int64, role int, f *multiforms.Form) bool {
+// onEditSlideshowTags processes a form of tag changes, and returns an HHTP status (0 for a valid request).
+func (s *GalleryState) onEditSlideshowTags(slideshowId int64, rootId int64, forUserId int64, byUserId int64, role int, f *multiforms.Form) int {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -205,13 +207,17 @@ func (s *GalleryState) onEditSlideshowTags(slideshowId int64, rootId int64, forU
 	// validate that user has permission for this tag
 	if role < models.UserAdmin {
 		if !s.app.tagger.HasPermission(rootId, byUserId) || forUserId != byUserId {
-			return false
+			return s.rollback(http.StatusBadRequest, nil)
 		}
 	}
 	
 	// tags to be edited, as specified by the selected tag, same as form request
 	tags := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, forUserId, true)
-	return s.app.editTags(f, forUserId, slideshowId, tags)
+	if s.app.editTags(f, forUserId, slideshowId, tags) {
+		return 0
+	} else {
+		return s.rollback(http.StatusInternalServerError, nil)
+	}
 }
 
 // forSelectSlideshow returns a form to select a slideshow by its ID.

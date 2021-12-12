@@ -30,7 +30,7 @@
 	<div class="container">
 
 		<div class="d-flex">
-			<h3 class="comp-category">{{ .Category }}</h3>
+			<h3 class="comp-class">{{ .Class }}</h3>
 			<div class="comp-caption ml-4">{{ .Caption }}</div>
 		</div>
 
@@ -41,7 +41,7 @@
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
 
  			{{with .Form}}
-   	        	<input type='hidden' name='category' value='{{.Get "category"}}'>
+   	        	<input type='hidden' name='class' value='{{.Get "class"}}'>
    	        	<input type='hidden' name='timestamp' value='{{.Get "timestamp"}}'>
 
 				<div class="form-group col-md-6">
@@ -76,9 +76,9 @@
 								<input type='number' name='index' value='{{ .ChildIndex }}'>								
 							</div>
 							<div class="form-group col-md-6">
-								<label>{{block "compTitleLabel" .}}Pet's name{{end}}</label>
+								<label>{{block "compTitleLabel" .}}Title{{end}}</label>
 								<input type='text' class='form-control {{.ChildValid "title"}}' name='title' value='{{ .Title }}'>
-								<small class="form-text text-muted">{{block "compTitle" .}}A name for your entry.{{end}}</small>
+								<small class="form-text text-muted">{{block "compTitle" .}}A title for your entry.{{end}}</small>
 								<div class='invalid-feedback'>{{ .ChildError "title"}}</div>
 							</div>
 							<div class="form-group col-md-10">
@@ -98,7 +98,7 @@
 									</div>
 								</div>
 								<div class='invalid-feedback bad-file'></div>
-								<small class="form-text text-muted">{{block "compPhoto" .}}A photo or short video, taken within the last three months.{{end}}</small>
+								<small class="form-text text-muted">{{block "compPhoto" .}}A photo or short video.{{end}}</small>
 							</div>
 							<div class="form-group row upload" style='display:none'>
 								<div class="col-md-5 progress">

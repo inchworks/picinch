@@ -1,9 +1,9 @@
 {{/* "Bomb-proof" button for email copied from http://www.emaildesignreview.com/email-code/bombproof-html-css-email-button-3487/,
 as modified by https://www.coyoteholmberg.com/2019/04/bombproof-vs-bulletproof-buttons-in-email/.
 I don't have any experience of this faffing, so check it yourself to see if it meets your needs. */}}
-{{define "subject"}}Confirm your competition email address{{end}}
+{{define "emailSubject"}}Confirm your competition email address{{end}}
 
-{{define "plainBody"}}
+{{define "emailPlain"}}
 Dear {{.Name}},
 
 Thank you for your competition entry - {{.Entry}}.
@@ -18,10 +18,10 @@ You can ignore this email and we will delete the competition entry after 48 hour
 We will not send you any further emails unless there is a problem with your entry, or you are a winner!
 
 Kind regards,
-The PicInch team
+The Competition team
 {{end}}
 
-{{define "htmlBody"}}
+{{define "emailHtml"}}
 <!doctype html>
 <html>
   <head>
@@ -78,7 +78,7 @@ The PicInch team
     You can ignore this email and we will delete the competition entry after 48 hours.</p>
     <p>We will not send you any further emails, unless there is a problem with your entry or you are a winner!</p>
     <p>Kind regards,<br>
-    The PicInch team</p>
+    The Competition team</p>
   </body>
 </html>
 {{end}}

@@ -145,9 +145,9 @@ func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
 
 // Processing when gallery is modified.
 //
-// Returns true if no client errors.
+// Returns HTTP status or 0.
 
-func (s *GalleryState) OnEditGallery(organiser string, nMaxSlides int, nShowcased int) bool {
+func (s *GalleryState) OnEditGallery(organiser string, nMaxSlides int, nShowcased int) int {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -156,26 +156,31 @@ func (s *GalleryState) OnEditGallery(organiser string, nMaxSlides int, nShowcase
 	s.gallery.Organiser = organiser
 	s.gallery.NMaxSlides = nMaxSlides
 	s.gallery.NShowcased = nShowcased
-	s.app.GalleryStore.Update(s.gallery)
+	if err := s.app.GalleryStore.Update(s.gallery); err != nil {
+		return s.rollback(http.StatusBadRequest, err)
+	}
 
-	return true
+	return 0
 }
 
 // Get data to edit a slideshow
 
-func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (f *form.SlidesForm, show *models.Slideshow) {
+func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (status int, f *form.SlidesForm, show *models.Slideshow) {
 
 	// serialisation
 	defer s.updatesGallery()()
 
 	// title and slides
-	show, _ = s.app.SlideshowStore.Get(showId)
+	show = s.app.SlideshowStore.GetIf(showId)
+	if show == nil {
+		status = s.rollback(http.StatusNotFound, nil); return
+	}
 	slides := s.app.SlideStore.ForSlideshow(show.Id, 100)
 
 	// start multi-step transaction for uploaded files
 	ts, err := s.app.uploader.Begin()
 	if err != nil {
-		return
+		status = s.rollback(http.StatusInternalServerError, err); return
 	}
 
 	// form
@@ -207,7 +212,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 	// check for a request that has been running so long that we have discarded the uploads
 	if !s.app.uploader.ValidCode(tx) {
-		return http.StatusRequestTimeout, 0
+		return s.rollback(http.StatusRequestTimeout, nil), 0
 	}
 
 	now := time.Now()
@@ -216,18 +221,18 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 	if showId != 0 {
 		// slideshow already exists
-		show, err := s.app.SlideshowStore.Get(showId)
-		if err != nil {
-			return http.StatusBadRequest, 0
+		show := s.app.SlideshowStore.GetIf(showId)
+		if show == nil {
+			return s.rollback(http.StatusBadRequest, nil), 0
 		}
 		topicId = show.Topic
 		userId = show.User.Int64
 
 	} else if nSrc > 0 {
 		// no slideshow specified - these must be slides for a topic
-		topic, err := s.app.SlideshowStore.Get(topicId)
-		if err != nil {
-			return http.StatusBadRequest, 0
+		topic := s.app.SlideshowStore.GetIf(topicId)
+		if topic == nil {
+			return s.rollback(http.StatusBadRequest, nil), 0
 		}
 
 		// It might already exist, if the user is attempting an edit on two devices at the same time,
@@ -328,7 +333,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 			} else {
 				// out of sequence question index
-				return http.StatusBadRequest, 0
+				return s.rollback(http.StatusBadRequest, nil), 0
 			}
 		}
 	}
@@ -367,7 +372,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				Revised: revised,
 			},
 			OpShow); err != nil {
-			return http.StatusInternalServerError, 0
+			return s.rollback(http.StatusInternalServerError, err), 0
 		}
 	}
 
@@ -382,8 +387,11 @@ func (s *GalleryState) ForEditSlideshows(userId int64, tok string) (f *form.Slid
 	defer s.updatesNone()()
 
 	// get user
-	user, _ = s.app.userStore.Get(userId)
-
+	user = s.app.getUserIf(userId)
+	if user == nil {
+		return
+	}
+	
 	// get slideshows
 	slideshows := s.app.SlideshowStore.ForUser(userId, models.SlideshowPrivate)
 
@@ -402,7 +410,7 @@ func (s *GalleryState) ForEditSlideshows(userId int64, tok string) (f *form.Slid
 
 // OnEditSlideshows processes updates when slideshows are modified.
 // It returns an extended transaction ID if there are no client errors.
-func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFormData) etx.TxId {
+func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFormData) (int, etx.TxId) {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -427,8 +435,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 		if iSrc == nSrc {
 			// no more source slideshows - delete from destination
 			if err := s.onRemoveSlideshow(tx, rsDest[iDest]); err != nil {
-				s.app.Log(err)
-				return 0
+				return s.rollback(http.StatusBadRequest, err), 0
 			}
 			iDest++
 
@@ -458,8 +465,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 			if ix > iDest {
 				// source slideshow removed - delete from destination
 				if err := s.onRemoveSlideshow(tx, rsDest[iDest]); err != nil {
-					s.app.Log(err)
-					return 0
+					return s.rollback(http.StatusBadRequest, err), 0
 				}
 				iDest++
 
@@ -487,12 +493,12 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 
 			} else {
 				// out of sequence round index
-				return 0
+				return s.rollback(http.StatusBadRequest, nil), 0
 			}
 		}
 	}
 
-	return tx
+	return 0, tx
 }
 
 // Get data to edit a user's contribution to a topic
@@ -508,7 +514,10 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (f 
 	var showId int64
 	show := s.app.SlideshowStore.ForTopicUserIf(topicId, userId)
 	if show == nil {
-		topic, _ := s.app.SlideshowStore.Get(topicId)
+		topic := s.app.SlideshowStore.GetIf(topicId)
+		if topic == nil {
+			return
+		}
 		title = topic.Title
 
 	} else {
@@ -546,7 +555,7 @@ func (s *GalleryState) ForEditTopics(tok string) (f *form.SlideshowsForm) {
 	defer s.updatesNone()()
 
 	// get topics
-	topics := s.app.SlideshowStore.AllEditableTopics()
+	topics := s.app.SlideshowStore.AllTopicsEditable()
 
 	// form
 	var d = make(url.Values)
@@ -563,7 +572,7 @@ func (s *GalleryState) ForEditTopics(tok string) (f *form.SlideshowsForm) {
 
 // OnEditTopics processes changes when topics are modified.
 // It returns an extended transaction ID if there are no errors.
-func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) etx.TxId {
+func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) (int, etx.TxId) {
 
 	// ## should combine with OnEditSlideshows, since they are so similar. Or even all of the multi-item forms?
 
@@ -576,7 +585,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) etx.TxId {
 	now := time.Now()
 
 	// compare modified slideshows against current ones, and update
-	rsDest := s.app.SlideshowStore.AllEditableTopics()
+	rsDest := s.app.SlideshowStore.AllTopicsEditable()
 
 	nSrc := len(rsSrc)
 	nDest := len(rsDest)
@@ -643,7 +652,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) etx.TxId {
 							TopicId: rDest.Id,
 							Revised: false,
 						}); err != nil {
-							return 0
+							return s.rollback(http.StatusInternalServerError, err), 0
 						}
 					}
 
@@ -654,37 +663,40 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) etx.TxId {
 
 			} else {
 				// out of sequence index
-				return 0
+				return s.rollback(http.StatusBadRequest, nil), 0
+
 			}
 		}
 	}
 
-	return tx
+	return 0, tx
 }
 
 // ForEditGallery returns a competition entry form.
-func (s *GalleryState) forEnterComp(categoryId int64, tok string) (f *form.PublicCompForm, title string, caption string, err error) {
+func (s *GalleryState) forEnterComp(classId int64, tok string) (status int, f *form.PublicCompForm, title string, caption string) {
 
 	// serialisation
 	defer s.updatesGallery()()
 
-	// get the category topic
-	show, err := s.app.SlideshowStore.Get(categoryId)
+	// get the class topic
+	show, err := s.app.SlideshowStore.Get(classId)
 	if err != nil {
-		return nil, "", "", err
+		status = s.rollback(http.StatusInternalServerError, err); return
+	} else if show == nil {
+		status = s.rollback(http.StatusNotFound, nil); return
 	}
 
 	// start multi-step transaction for uploaded files
 	var ts string
 	ts, err = s.app.uploader.Begin()
 	if err != nil {
-		return
+		return s.rollback(http.StatusInternalServerError, err), nil, "", ""
 	}
 
 	// initial data
 	var d = make(url.Values)
 	f = form.NewPublicComp(d, 1, tok)
-	f.Set("category", strconv.FormatInt(show.Id, 36))
+	f.Set("class", strconv.FormatInt(show.Id, 36))
 	f.Set("timestamp", ts)
 	title = show.Title
 	caption = show.Caption
@@ -695,20 +707,20 @@ func (s *GalleryState) forEnterComp(categoryId int64, tok string) (f *form.Publi
 // onEnterComp processes a competition entry.
 // It returns 0 and a validation code on success, or an HTTP status code.
 // The validation code is non-zero for auto-validation, 0 for validation by email.
-func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, email string, location string, title string, caption string, image string, nAgreed int) (status int, vc int64)  {
+func (s *GalleryState) onEnterComp(classId int64, tx etx.TxId, name string, email string, location string, title string, caption string, image string, nAgreed int) (status int, vc int64) {
 
 	// serialisation
 	defer s.updatesGallery()()
 
-		// check for a request that has been running so long that we have discarded the uploads
-		if !s.app.uploader.ValidCode(tx) {
-			return http.StatusRequestTimeout, -1
-		}
-	
+	// check for a request that has been running so long that we have discarded the uploads
+	if !s.app.uploader.ValidCode(tx) {
+		return s.rollback(http.StatusRequestTimeout, nil), -1
+	}
+
 	// create user for entry
 	u, err := s.app.userStore.GetNamed(email)
 	if err != nil && !s.app.userStore.IsNoRecord(err) {
-		return http.StatusInternalServerError, -1
+		return s.rollback(http.StatusInternalServerError, err), -1
 	}
 	if u == nil {
 		u = &users.User{
@@ -718,15 +730,14 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 			Created:  time.Now(),
 		}
 		if err = s.app.userStore.Update(u); err != nil {
-			return http.StatusInternalServerError, -1
+			return s.rollback(http.StatusInternalServerError, err), -1
 		}
 	}
 
 	// generate validation code for public entry
 	vc, err = picinch.SecureCode(8)
 	if err != nil {
-		s.app.errorLog.Print(err)
-		return http.StatusInternalServerError, -1
+		return s.rollback(http.StatusInternalServerError, err), -1
 	}
 
 	// create slideshow for entry
@@ -735,7 +746,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 		User:    sql.NullInt64{Int64: u.Id, Valid: true},
 		Visible: models.SlideshowClub, // ## Private would be better, but needs something else for judges to view.
 		Shared:  vc,
-		Topic:   categoryId,
+		Topic:   classId,
 		Created: t,
 		Revised: t,
 		Title:   s.sanitize(title, ""),
@@ -743,7 +754,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 		Format:  "E",
 	}
 	if err = s.app.SlideshowStore.Update(show); err != nil {
-		return http.StatusBadRequest, -1
+		return s.rollback(http.StatusBadRequest, err), -1
 	}
 
 	// must be an acceptable file type
@@ -751,7 +762,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 	image = uploader.CleanName(image)
 	sf := slideMedia(s.app.uploader.MediaType(image))
 	if sf == 0 {
-		return http.StatusBadRequest, -1
+		return s.rollback(http.StatusBadRequest, err), -1
 	}
 	if caption != "" {
 		sf += models.SlideCaption
@@ -768,11 +779,11 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 	}
 
 	if err = s.app.SlideStore.Update(slide); err != nil {
-		return http.StatusInternalServerError, -1
+		return s.rollback(http.StatusInternalServerError, err), -1
 	}
 
 	// tag entry as unvalidated
-	s.app.tagger.SetTagRef(show.Id, 0, "new", 0, "")
+	s.app.tagger.SetTagRef(show.Id, 0, "validate", 0, "")
 
 	// tag agreements (This is a legal requirement, so we make the logic as explicit as possible.)
 	if nAgreed > 0 {
@@ -781,7 +792,7 @@ func (s *GalleryState) onEnterComp(categoryId int64, tx etx.TxId, name string, e
 
 	// request worker to generate media version, remove unused images, and send validation email
 	if err := s.txShow(&OpUpdateShow{ShowId: show.Id, tx: tx, Revised: false}, OpComp); err != nil {
-		return http.StatusInternalServerError, -1
+		return s.rollback(http.StatusInternalServerError, err), -1
 	}
 
 	// auto validation is not needed if we can send emails
@@ -813,9 +824,12 @@ func (s *GalleryState) UserDisplayName(userId int64) string {
 	// serialisation
 	defer s.updatesNone()()
 
-	r, _ := s.app.userStore.Get(userId)
+	u := s.app.getUserIf(userId)
+	if u == nil {
+		return ""
+	}
 
-	return r.Name
+	return u.Name
 }
 
 // onRemoveSlideshow does cleanup when a slideshow is removed.
@@ -835,31 +849,15 @@ func (s *GalleryState) onRemoveSlideshow(tx etx.TxId, slideshow *models.Slidesho
 	)
 }
 
-// onRemoveTopic releases the contributing slideshows back to the users, and deletes the topic.
-func (s *GalleryState) onRemoveTopic(t *models.Slideshow) {
-
-	// give the users back their own slideshows
-	store := s.app.SlideshowStore
-	slideshows := store.ForTopic(t.Id)
-	for _, s := range slideshows {
-		s.Topic = 0
-		s.Title = t.Title // with current topic title
-		s.Visible = models.SlideshowPrivate
-		store.Update(s)
-	}
-
-	s.app.SlideshowStore.DeleteId(t.Id)
-}
-
-// Validate tags an entry as validated and returns a template and data to confirm a validated entry.
-func (s *GalleryState) validate(code int64) (string, *dataValidated) {
+// validate tags an entry as validated and returns 0, a template and data to confirm a validated entry on success.
+func (s *GalleryState) validate(code int64) (int, string, *dataValidated) {
 
 	defer s.updatesGallery()()
 
 	// check if code is valid
 	show := s.app.SlideshowStore.GetIfShared(code)
 	if show == nil {
-		return "", nil
+		return s.rollback(http.StatusBadRequest, nil), "", nil
 	}
 
 	// remove any other entries for this topic
@@ -878,30 +876,31 @@ func (s *GalleryState) validate(code int64) (string, *dataValidated) {
 		warn = strconv.Itoa(deleted) + " duplicate entries have been cancelled"
 	}
 
-	// remove new tag, which triggers addition of successor tags
+	// remove validate tag, which triggers addition of successor tags
 	// (succeeds if the tag has already been removed)
-	if !s.app.tagger.DropTagRef(show.Id, 0, "new", 0) {
-		return "", nil
+	if !s.app.tagger.DropTagRef(show.Id, 0, "validate", 0) {
+		return s.rollback(http.StatusInternalServerError, nil), "", nil
 	}
 
 	// get confirmation details
-	u, err := s.app.userStore.Get(show.User.Int64)
-	if err != nil {
-		return "", nil
+	u := s.app.getUserIf(show.User.Int64)
+	if u == nil {
+		return s.rollback(http.StatusInternalServerError, nil), "", nil
 	}
-	t, err := s.app.SlideshowStore.Get(show.Topic)
-	if err != nil {
-		return "", nil
+
+	t := s.app.SlideshowStore.GetIf(show.Topic)
+	if t == nil {
+		return s.rollback(http.StatusInternalServerError, nil), "", nil
 	}
 
 	// validated
-	return "validated.page.tmpl", &dataValidated{
+	return 0, "validated.page.tmpl", &dataValidated{
 
-		Name:     u.Name,
-		Email:    u.Username,
-		Category: t.Title,
-		Title:    show.Title,
-		Warn:     warn,
+		Name:  u.Name,
+		Email: u.Username,
+		Class: t.Title,
+		Title: show.Title,
+		Warn:  warn,
 	}
 }
 
@@ -954,6 +953,22 @@ func (app *Application) editTags(f *multiforms.Form, userId int64, slideshowId i
 		}
 	}
 	return true
+}
+
+// onRemoveTopic releases the contributing slideshows back to the users, and deletes the topic.
+func (s *GalleryState) onRemoveTopic(t *models.Slideshow) {
+
+	// give the users back their own slideshows
+	store := s.app.SlideshowStore
+	slideshows := store.ForTopic(t.Id)
+	for _, s := range slideshows {
+		s.Topic = 0
+		s.Title = t.Title // with current topic title
+		s.Visible = models.SlideshowPrivate
+		store.Update(s)
+	}
+
+	s.app.SlideshowStore.DeleteId(t.Id)
 }
 
 // Sanitize HTML for reuse

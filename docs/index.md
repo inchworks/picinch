@@ -1,7 +1,8 @@
 # PicInch Gallery
 This web server application provides a simple way for a group of members, such as a photography club, to display their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
 
-_This is in use at one photo club. I would like to work with another club, ideally in Scotland or the UK, to adapt it as needed for more general use. Contact support@picinch.com._
+_This is in use at my photo club. I haven't seen any sign of more general use, so I am reducing the care I take
+over documentation and testing. If you are thinking of using it, I suggest you contact me at support@picinch.com._
 
 ## Features
 Contributors create simple slideshows. Each slide has a selection of title, photo and caption. Slides adjust in layout to match the content. There is a basic facility to edit and reorder slides.
@@ -24,8 +25,11 @@ Other features include: Static pages can be added using Go templates.
 Basic usage statistics are recorded daily and aggregated by month.
 A `misc` directory is provided to serve miscellaneous content such as videos.
 A topic can be shared with a URL containing an access code.
+Slideshows can include short video clips. Apple MOV files are converted to MP4 automatically.
 
-**New** Slideshows can include short video clips. Apple MOV files are converted to MP4 automatically.
+**New** PicInch can be configured as a standalone host for a public photo competition.
+It provides multiple classes, a competition entry form and email address verification.
+Judging and entry management is supported by tagging entries and a simple workflow management system.
 
 ## Appearance
 Display layout is responsive to device size (PC, tablet or phone).
@@ -61,7 +65,8 @@ Security features:
 
 ## Limitations
 The following may be addressed in future updates:
-- Support for competitions and judging is a work in progress.
+- Support for competitions and judging requires the ability to edit the SQL database, as no forms have been implemented yet to setup tags and edit topic specifications.
+- There is no provision to integrate competition mode into the normal operation as a photo gallery.
 - HEIC images and HEVC videos are not supported.
 
 The following are unlikely to change:

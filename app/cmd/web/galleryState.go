@@ -32,7 +32,7 @@ import (
 type GalleryState struct {
 	app       *Application
 	muGallery sync.RWMutex
-	rollback  bool
+	rollbackTx  bool
 
 	// cached state
 	gallery    *models.Gallery
@@ -82,6 +82,18 @@ func respPath(route string, display string, nRound int, index int) string {
 	return path
 }
 
+// rollback must be called on all error returns from any function that calls updatesGallery.
+// It returns an HTTP status that indicates whether the error is thought to be a fault on the client or server side. 
+func (s *GalleryState) rollback(httpStatus int, err error) int {
+
+	s.rollbackTx = true
+	if err != nil {
+		s.app.log(err)
+	}
+
+	return httpStatus
+}
+
 // Commit changes and start new transaction
 
 func (s *GalleryState) save() {
@@ -112,12 +124,12 @@ func (q *GalleryState) updatesGallery() func() {
 
 	// start transaction
 	q.app.tx = q.app.db.MustBegin()
-	q.rollback = false
+	q.rollbackTx = false
 
 	return func() {
 
 		// end transaction
-		if q.rollback {
+		if q.rollbackTx {
 			q.app.tx.Rollback()
 		} else {
 			q.app.tx.Commit()
@@ -136,7 +148,7 @@ func (q *GalleryState) updatesNone() func() {
 
 	// acquire shared locks
 	q.muGallery.RLock()
-	q.rollback = false
+	q.rollbackTx = false
 
 	return func() {
 

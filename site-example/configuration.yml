@@ -5,7 +5,7 @@
 
 db-password: test-only
 
-admin-name: admin@picinch.com
+admin-name: admin@example.com
 admin-password: admin-test-only
 
 # The following is needed for certificate registration with Let's Encrypt

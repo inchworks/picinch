@@ -59,7 +59,7 @@ func (app *Application) Routes() http.Handler {
 	// public competition
 	if app.cfg.Options == "main-comp" {
 		router.Handler("GET", "/classes", publicHs.ThenFunc(app.classes))
-		router.Handler("GET", "/enter-comp/:nCategory", compHs.ThenFunc(app.getFormEnterComp))
+		router.Handler("GET", "/enter-comp/:nClass", compHs.ThenFunc(app.getFormEnterComp))
 		router.Handler("POST", "/enter-comp", compHs.ThenFunc(app.postFormEnterComp))
 		router.Handler("GET", "/validate/:code", compHs.ThenFunc(app.validate))
 	}

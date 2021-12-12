@@ -35,7 +35,7 @@ func (app *Application) classes(w http.ResponseWriter, r *http.Request) {
 
 	data := app.galleryState.displayClasses(app.isAuthenticated(r, models.UserFriend))
 	if data == nil {
-		app.clientError(w, http.StatusInternalServerError)
+		httpServerError(w)
 		return
 	}
 
@@ -52,8 +52,7 @@ func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
 	// template and data for contributor
 	data := app.galleryState.DisplayContributor(userId)
 	if data == nil {
-		// ## better to show "unknown contributor" nicely
-		app.clientError(w, http.StatusBadRequest)
+		httpNotFound(w)
 		return
 	}
 
@@ -84,14 +83,14 @@ func (app *Application) entry(w http.ResponseWriter, r *http.Request) {
 	isVisible, _ := app.allowViewShow(r, id)
 
 	if !isVisible {
-		app.clientError(w, http.StatusUnauthorized)
+		httpUnauthorized(w)
 		return
 	}
 
 	// template and data for slides
 	data := app.galleryState.DisplaySlideshow(id, app.role(r), r.Referer())
 	if data == nil {
-		app.clientError(w, http.StatusBadRequest)
+		httpServerError(w)
 		return
 	}
 
@@ -114,7 +113,7 @@ func (app *Application) highlight(w http.ResponseWriter, r *http.Request) {
 	if image != "" {
 		picinch.ServeFile(w, r, http.FS(fs), image)
 	} else {
-		app.notFound(w)
+		httpNotFound(w)
 	}
 }
 
@@ -134,15 +133,15 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 func (app *Application) home(w http.ResponseWriter, r *http.Request) {
 
 	hs := app.cfg.HomeSwitch
-	if  hs != "" {
-		app.render(w, r, hs + ".page.tmpl", nil)
+	if hs != "" {
+		app.render(w, r, hs+".page.tmpl", nil)
 		return
 	}
 
 	// default home page
 	data := app.galleryState.DisplayHome(app.isAuthenticated(r, models.UserFriend))
 	if data == nil {
-		app.clientError(w, http.StatusInternalServerError)
+		httpServerError(w)
 		return
 	}
 
@@ -159,7 +158,7 @@ func (app *Application) info(w http.ResponseWriter, r *http.Request) {
 	// check if page exists
 	_, ok := app.templateCache[page]
 	if !ok {
-		app.clientError(w, http.StatusNotFound)
+		httpNotFound(w)
 		return
 	}
 
@@ -192,7 +191,7 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 	isVisible, isTopic := app.allowViewShow(r, id)
 
 	if !isVisible {
-		app.clientError(w, http.StatusUnauthorized)
+		httpUnauthorized(w)
 		return
 	}
 
@@ -211,7 +210,7 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 		template = "carousel-default.page.tmpl"
 		data = app.galleryState.DisplaySlideshow(id, 0, r.Referer())
 		if data == nil {
-			app.clientError(w, http.StatusBadRequest)
+			httpServerError(w)
 			return
 		}
 
@@ -231,11 +230,14 @@ func (app *Application) slideshowsOwn(w http.ResponseWriter, r *http.Request) {
 	// user
 	userId := app.authenticatedUser(r)
 	if !app.isAuthenticated(r, models.UserMember) {
-		app.clientError(w, http.StatusBadRequest)
+		httpUnauthorized(w)
 		return
 	}
 
 	data := app.galleryState.ForMyGallery(userId)
+	if data == nil {
+		httpServerError(w)
+	}
 
 	app.render(w, r, "my-gallery.page.tmpl", data)
 }
@@ -246,6 +248,9 @@ func (app *Application) slideshowsUser(w http.ResponseWriter, r *http.Request) {
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
 	data := app.galleryState.ForMyGallery(userId)
+	if data == nil {
+		httpNotFound(w)
+	}
 
 	app.render(w, r, "my-gallery.page.tmpl", data)
 }
@@ -313,7 +318,7 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 	// template and data for slides
 	data := app.galleryState.DisplayTopicContributors(topicId)
 	if data == nil {
-		app.clientError(w, http.StatusBadRequest) // no such topic
+		httpNotFound(w) // no such topic
 		return
 	}
 

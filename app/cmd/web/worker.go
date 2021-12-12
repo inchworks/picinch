@@ -49,6 +49,9 @@ const (
 	OpTopic
 )
 
+// We need an arbitary status code for rollback(). This one is ideal!
+const statusTeapot = 418
+
 func (s *GalleryState) Name() string {
 	return "gallery"
 }
@@ -105,40 +108,30 @@ func (s *GalleryState) worker(
 		case req := <-chComp:
 
 			// a competition entry has been added
-			if err := s.onCompEntry(req.ShowId, req.tx, req.Revised); err != nil {
-				s.app.errorLog.Print(err.Error())
-			}
+			s.onCompEntry(req.ShowId, req.tx, req.Revised)
 
 		case req := <-chShow:
 
 			// a slideshow has been updated or removed
-			if err := s.onUpdateShow(req.ShowId, req.TopicId, req.tx, req.Revised); err != nil {
-				s.app.errorLog.Print(err.Error())
-			}
+			s.onUpdateShow(req.ShowId, req.TopicId, req.tx, req.Revised)
 
 		case reqs := <-chShows:
 
 			// a set of slideshows have been updated (e.g. user removed)
 			for _, req := range reqs {
-				if err := s.onUpdateShow(req.ShowId, req.TopicId, req.tx, req.Revised); err != nil {
-					s.app.errorLog.Print(err.Error())
-				}
+				s.onUpdateShow(req.ShowId, req.TopicId, req.tx, req.Revised)
 				runtime.Gosched()
 			}
 
 		case req := <-chTopic:
 
 			// a topic slideshow has been updated or removed
-			if err := s.onUpdateTopic(req.TopicId, req.tx, req.Revised); err != nil {
-				s.app.errorLog.Print(err.Error())
-			}
+			s.onUpdateTopic(req.TopicId, req.tx, req.Revised)
 
 		case <-chRefresh:
 
 			// refresh topic thumbnails
-			if err := s.onRefresh(); err != nil {
-				s.app.errorLog.Print(err.Error())
-			}
+			s.onRefresh()
 
 		case t := <-chPurge:
 
@@ -154,31 +147,35 @@ func (s *GalleryState) worker(
 }
 
 // onCompEntry processes a competition entry.
-func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) error {
+func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) int {
 
 	app := s.app
 
 	// slideshow for competition
-	if err := s.onUpdateShow(showId, 0, tx, revised); err != nil {
-		return err
+	if st := s.onUpdateShow(showId, 0, tx, revised); st != 0 {
+		return st
 	}
 
 	// email configured?
 	if s.app.emailer == nil {
-		return nil
+		return 0
 	}
 
 	// entry and user
 	defer s.updatesGallery()()
+
 	show, err := app.SlideshowStore.Get(showId)
 	if err != nil {
-		return err
+		return s.rollback(statusTeapot, err)
+	} else if show == nil {
+		return s.rollback(statusTeapot, errors.New("Unknown slideshow for validation"))
 	}
+	
 	user, err := app.userStore.Get(show.User.Int64)
 	if err != nil {
-		return err
+		return s.rollback(statusTeapot, err)
 	} else if user == nil {
-		return errors.New("Unknown user for validation")
+		return s.rollback(statusTeapot, errors.New("Unknown user for validation"))
 	}
 
 	// validation link
@@ -191,11 +188,16 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) erro
 
 	// send validation request
 	// (page.tmpl name is confusing. Actually it means top-level template file.)
-	return s.app.emailer.Send(user.Username, "validation-request.page.tmpl", &validationData{
+	err = s.app.emailer.Send(user.Username, "validation-request.page.tmpl", &validationData{
 		Name:  user.Name,
 		Entry: show.Title,
 		Link:  link,
 	})
+	if err != nil {
+		// #### Should we do more than rollback the processing if email has failed?
+		return s.rollback(statusTeapot, err)
+	}
+	return 0
 }
 
 // onPurge removes old unvalidate competition entries.
@@ -212,7 +214,7 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 
 	// entries before cut-off time
 	before := t.Add(-s.app.cfg.MaxUnvalidatedAge)
-	shows := s.app.SlideshowStore.ForTagOld(0, "new", before)
+	shows := s.app.SlideshowStore.ForTagOld(0, "validate", before)
 
 	for _, show := range shows {
 		uId := show.User.Int64
@@ -242,7 +244,11 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 	// remove competitors with no other entries
 	for uId, n := range entries {
 		if n == 0 {
+		
 			user, err := s.app.userStore.Get(uId)
+			if err == nil && user == nil {
+				err = fmt.Errorf("Lost competitor %d during purge.", uId)
+			}
 			if err == nil && user.Status == models.UserUnknown {
 				err = s.app.userStore.DeleteId(uId)
 			}
@@ -262,7 +268,7 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 
 // Change topic(s) thumbnails
 
-func (s *GalleryState) onRefresh() error {
+func (s *GalleryState) onRefresh() int {
 
 	defer s.updatesGallery()()
 
@@ -270,64 +276,73 @@ func (s *GalleryState) onRefresh() error {
 
 	for _, topic := range topics {
 		if err := s.updateTopic(topic, false); err != nil {
-			return err
+			return s.rollback(statusTeapot, err)
 		}
 	}
 
-	return nil
+	return 0
 }
 
 // onUpdateShow processes an updated or deleted slideshow.
-func (s *GalleryState) onUpdateShow(showId int64, topicId int64, tx etx.TxId, revised bool) error {
+func (s *GalleryState) onUpdateShow(showId int64, topicId int64, tx etx.TxId, revised bool) int {
 
 	// setup
 	bind := s.app.uploader.StartBind(showId, tx)
 
 	// set versioned images, and update slideshow
-	if err := s.updateSlides(showId, revised, bind); err != nil {
-		return err
+	if st := s.updateSlides(showId, revised, bind); st != 0 {
+		return st
 	}
 
 	// update topic, before we remove any thumbnails it might use
 	if topicId != 0 {
-		if err := s.onUpdateTopic(topicId, 0, revised); err != nil {
-			return err
+		if st := s.onUpdateTopic(topicId, 0, revised); st != 0 {
+			return st
 		}
 	}
 
 	// update highlighted images
 	if err := s.updateHighlights(showId); err != nil {
-		return err		
+		s.app.log(err)
+		return statusTeapot	
 	}
 
 	// remove unused versions
 	if err := bind.End(); err != nil {
-		return err
+		s.app.log(err)
+		return statusTeapot
 	}
 
 	// terminate the extended transaction
 	defer s.updatesGallery()()
-	return s.app.tm.End(tx)
+	if err := s.app.tm.End(tx); err != nil {
+		return s.rollback(statusTeapot, err)
+	} else {
+		return 0
+	}
 }
 
 // onUpdateTopic processes a topic with an updated or deleted slideshow.
 // A TxId is specified if the extended transaction should be ended as part of the database transaction.
-func (s *GalleryState) onUpdateTopic(topicId int64, tx etx.TxId, revised bool) error {
+func (s *GalleryState) onUpdateTopic(topicId int64, tx etx.TxId, revised bool) int {
 	defer s.updatesGallery()()
 
 	if tx != 0 {
 		// this is the end of the aynchronous operation
 		if err := s.app.tm.End(tx); err != nil {
-			return err
+			return s.rollback(statusTeapot, err)
 		}
 	}
 
 	topic := s.app.SlideshowStore.GetIf(topicId)
 	if topic == nil {
-		return nil
+		return 0
 	}
 
-	return s.updateTopic(topic, revised)
+	if err := s.updateTopic(topic, revised); err != nil {
+		return s.rollback(statusTeapot, err)
+	}
+	return 0
 }
 
 // updateHighlights changes the cached images when a highlight slideshow is changed.
@@ -349,7 +364,7 @@ func (s *GalleryState) updateHighlights(id int64) error {
 }
 
 // updateSlides changes media versions for a slideshow. It also sets the slideshow revision time.
-func (s *GalleryState) updateSlides(showId int64, revised bool, bind *uploader.Bind) error {
+func (s *GalleryState) updateSlides(showId int64, revised bool, bind *uploader.Bind) int {
 
 	// serialise display state while slides are changing
 	defer s.updatesGallery()()
@@ -358,7 +373,7 @@ func (s *GalleryState) updateSlides(showId int64, revised bool, bind *uploader.B
 	show := s.app.SlideshowStore.GetIf(showId)
 	if show == nil {
 		// No slides to be updated. A following call to imager.RemoveVersions will delete all images.
-		return nil
+		return 0
 	}
 
 	thumbnail := ""
@@ -424,7 +439,7 @@ func (s *GalleryState) updateSlides(showId int64, revised bool, bind *uploader.B
 		s.app.SlideshowStore.Update(show)
 	}
 
-	return nil
+	return 0
 }
 
 // updateTopic changes the topic thumbnail, and if required updates the revision date

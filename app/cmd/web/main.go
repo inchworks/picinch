@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.12.10"
+	version = "0.12.11"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -342,6 +342,11 @@ func (app *Application) OnRemoveUser(tx etx.TxId, user *users.User) {
 // Render writes an HTTP response using the specified template and field (embedded as Users).
 func (app *Application) Render(w http.ResponseWriter, r *http.Request, template string, usersField interface{}) {
 	app.render(w, r, template, &usersFormData{Users: usersField})
+}
+
+// Rollback specifies that the transaction started by Serialse be cancelled.
+func (app *Application) Rollback() {
+	app.galleryState.rollbackTx = true
 }
 
 // Serialise optionally requests application-level serialisation.

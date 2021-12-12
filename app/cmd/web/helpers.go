@@ -23,9 +23,10 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/inchworks/webparts/users"
 
 	"inchworks.com/picinch/pkg/form"
 	"inchworks.com/picinch/pkg/models"
@@ -44,11 +45,11 @@ func (app *Application) allowAccessUser(r *http.Request, userId int64) bool {
 	return auth.id == userId || auth.role >= models.UserCurator
 }
 
-// allowEnterCategory checks that a slideshow is a genuine category, available to the user, and returns the slideshow.
-func (app *Application) allowEnterCategory(r *http.Request, showId int64) *models.Slideshow {
+// allowEnterClass checks that a slideshow is a genuine competition class, available to the user, and returns the slideshow.
+func (app *Application) allowEnterClass(r *http.Request, showId int64) *models.Slideshow {
 
-	show, err := app.SlideshowStore.Get(showId)
-	if err != nil {
+	show := app.SlideshowStore.GetIf(showId)
+	if show == nil {
 		return nil
 	}
 
@@ -74,8 +75,8 @@ func (app *Application) allowEnterCategory(r *http.Request, showId int64) *model
 func (app *Application) allowUpdateShow(r *http.Request, showId int64) bool {
 
 	// get user for show
-	s, err := app.SlideshowStore.Get(showId)
-	if err != nil {
+	s := app.SlideshowStore.GetIf(showId)
+	if s == nil {
 		return false
 	}
 
@@ -107,8 +108,8 @@ func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bo
 
 	case models.SlideshowTopic:
 		// depends on topic visibility
-		t, err := app.SlideshowStore.Get(s.Topic)
-		if err != nil {
+		t := app.SlideshowStore.GetIf(s.Topic)
+		if t == nil {
 			canView = false; return
 		}
 
@@ -148,12 +149,51 @@ func (app *Application) authenticatedUser(r *http.Request) int64 {
 	}
 }
 
-// Send a specific status code and corresponding description to the user
+// getUserIf returns the data for a user if it exists.
+func (app *Application) getUserIf(id int64) *users.User {
 
-func (app *Application) clientError(w http.ResponseWriter, status int) {
+	// This function exists to fix a mess. Most stores have a GetIf function that log database errors,
+	// so that the caller needn't care why the data is missing. But I defined the webparts/users
+	// package with a slightly different interface to the store :-(.
 
-	app.galleryState.rollback = true
-	http.Error(w, http.StatusText(status), status)
+	u, err := app.userStore.Get(id)
+	if err != nil {
+		app.log(err)
+	}
+	return u
+}
+
+// The following functions return status code and corresponding description HTTP client.
+// They just make the code a bit easier to read.
+// BadRequest and ServerError indicate faults with the PicInch software,
+// on the client and server sides respectively, and so should be logged.
+// The other errors should be detected and reported nicely when they are genuine user errors,
+// but can occur from e.g. old URLs being re-requested and then a direct HTTP error is good enough.
+
+func (app *Application) httpBadRequest(w http.ResponseWriter, err error) {
+
+	app.log(err)
+	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+}
+
+func httpNotFound(w http.ResponseWriter) {
+
+	http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+}
+
+func httpServerError(w http.ResponseWriter) {
+
+	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+}
+
+func httpTooLarge(w http.ResponseWriter) {
+
+	http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
+}
+
+func httpUnauthorized(w http.ResponseWriter) {
+
+	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 }
 
 // Date in user-friendly format
@@ -164,23 +204,6 @@ func humanDate(t time.Time) string {
 	}
 
 	return t.UTC().Format("02 Jan 2006 at 15:04")
-}
-
-
-
-// Get integer value of form parameter
-// ## Not used - is it useful?
-
-func (app *Application) intParam(w http.ResponseWriter, r *http.Request, s string) (int, bool) {
-
-	i, err := strconv.Atoi(r.FormValue(s))
-	if err != nil {
-		app.log(fmt.Errorf("bad param %s : %v", s, err))
-		app.clientError(w, http.StatusBadRequest)
-		return 0, false
-	}
-
-	return i, true
 }
 
 // isAuthenticated checks if the request is by an authenticated active user (saved in context from session),
@@ -201,13 +224,6 @@ func (app *Application) log(err error) {
 	app.errorLog.Output(2, trace)
 }
 
-// Send 404 Not Found response to the user
-
-func (app *Application) notFound(w http.ResponseWriter) {
-
-	app.clientError(w, http.StatusNotFound)
-}
-
 // End transaction, release mutexes, and render template from cache.
 //
 // Note unspecified type of template data.
@@ -224,7 +240,8 @@ func (app *Application) render(w http.ResponseWriter, r *http.Request, name stri
 	// (like `home.page.tmpl`).
 	ts, ok := app.templateCache[name]
 	if !ok {
-		app.serverError(w, fmt.Errorf("The template %s does not exist", name))
+		app.log(fmt.Errorf("The template %s does not exist", name))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -235,7 +252,8 @@ func (app *Application) render(w http.ResponseWriter, r *http.Request, name stri
 	// Note type assertion that td will be a pointer to DataCommon at runtime.
 	err := ts.Execute(buf, td)
 	if err != nil {
-		app.serverError(w, err)
+		app.log(err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -265,22 +283,6 @@ func (app *Application) role(r *http.Request) int {
 		return auth.role
 	} else {
 		return 0
-	}
-}
-
-// Write error message and stack trace to the errorLog. If possible, send 500 Internal Server Error response to the user
-
-func (app *Application) serverError(w http.ResponseWriter, err error) {
-
-	app.galleryState.rollback = true
-
-	trace := fmt.Sprintf("%s\n%s", err.Error(), debug.Stack())
-
-	// trace from caller
-	app.errorLog.Output(2, trace)
-
-	if w != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 

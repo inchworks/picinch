@@ -43,7 +43,7 @@ func (app *Application) getFormAssignShows(w http.ResponseWriter, r *http.Reques
 
 	f := app.galleryState.ForAssignShows(nosurf.Token(r))
 	if f == nil {
-		app.clientError(w, http.StatusInternalServerError)
+		httpServerError(w)
 		return
 	}
 
@@ -57,8 +57,7 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 
 	err := r.ParseForm()
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -66,8 +65,7 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
 	slideshows, err := f.GetSlideshows(true)
 	if err != nil {
-		app.errorLog.Print(err.Error())
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -95,22 +93,22 @@ func (app *Application) getFormEnterComp(w http.ResponseWriter, r *http.Request)
 	ps := httprouter.ParamsFromContext(r.Context())
 
 	// allow entry?
-	id, _ := strconv.ParseInt(ps.ByName("nCategory"), 10, 64)
-	if app.allowEnterCategory(r, id) == nil {
-		app.clientError(w, http.StatusUnauthorized)
+	id, _ := strconv.ParseInt(ps.ByName("nClass"), 10, 64)
+	if app.allowEnterClass(r, id) == nil {
+		httpUnauthorized(w)
 		return
 	}
 
-	f, c, cap, err := app.galleryState.forEnterComp(id, nosurf.Token(r))
-	if err != nil {
-		app.serverError(w, err)
+	status, f, c, cap := app.galleryState.forEnterComp(id, nosurf.Token(r))
+	if status != 0 {
+		http.Error(w, http.StatusText(status), status)
 		return
 	}
 
 	// display form
 	app.render(w, r, "enter-comp-public.page.tmpl", &compFormData{
 		Form:      f,
-		Category:  c,
+		Class:     c,
 		Caption:   models.Nl2br(cap),
 		MaxUpload: app.cfg.MaxUpload,
 	})
@@ -122,13 +120,13 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 
 	err := r.ParseForm()
 	if err != nil {
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
 	// process form data
 	f := form.NewPublicComp(r.PostForm, 1, nosurf.Token(r))
-	f.Required("category", "timestamp", "name", "email", "location")
+	f.Required("class", "timestamp", "name", "email", "location")
 	f.MaxLength("name", 60)
 	f.MaxLength("email", 60)
 	f.MaxLength("location", 60)
@@ -148,36 +146,33 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	// expect one slide with a media file
 	slides, err := f.GetSlides(app.validTypeCheck())
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 	if len(slides) != 1 {
-		app.log(errors.New("Wrong number of slides for competition."))
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, errors.New("Wrong number of slides for competition."))
 		return
 	}
 
 	// allow entry?
-	id, _ := strconv.ParseInt(f.Get("category"), 10, 64)
-	show := app.allowEnterCategory(r, id)
+	id, _ := strconv.ParseInt(f.Get("class"), 10, 64)
+	show := app.allowEnterClass(r, id)
 	if show == nil {
-		app.clientError(w, http.StatusUnauthorized)
+		httpUnauthorized(w)
 		return
 	}
 
 	// transaction Id, to associate uploaded images
 	tx, err := etx.Id(f.Get("timestamp"))
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, errors.New("Wrong number of slides for competition."))
 	}
 
 	// redisplay form if data invalid
 	if !f.Valid() {
 		app.render(w, r, "enter-comp-public.page.tmpl", &compFormData{
 			Form:      f,
-			Category:  show.Title,
+			Class:     show.Title,
 			Caption:   models.Nl2br(show.Caption),
 			MaxUpload: app.cfg.MaxUpload,
 		})
@@ -200,14 +195,16 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 
 		} else {
 			// auto validation
-			app.galleryState.validate(code)
+			if status, _, _ = app.galleryState.validate(code); status ==0 {
 
-			app.session.Put(r, "flash", "Competition entry accepted.")
-			http.Redirect(w, r, "/", http.StatusSeeOther)
+				app.session.Put(r, "flash", "Competition entry accepted.")
+				http.Redirect(w, r, "/", http.StatusSeeOther)
+			}
 		}
+	}
 
-	} else {
-		app.clientError(w, status)
+	if status != 0 {
+		http.Error(w, http.StatusText(status), status)
 	}
 }
 
@@ -227,7 +224,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 
 	err := r.ParseForm()
 	if err != nil {
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -248,12 +245,13 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 
 	// save changes
 	// // ## could save organiser from MaxLength
-	if app.galleryState.OnEditGallery(f.Get("organiser"), nMaxSlides, nShowcased) {
+	status := app.galleryState.OnEditGallery(f.Get("organiser"), nMaxSlides, nShowcased)
+	if status != 0 {
 		app.session.Put(r, "flash", "Gallery settings saved.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	} else {
-		app.clientError(w, http.StatusBadRequest)
+		http.Error(w, http.StatusText(status), status)
 	}
 }
 
@@ -267,8 +265,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	// (The limit, 10 MB, is just for memory use, not the size of the upload)
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -276,7 +273,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	f := r.MultipartForm.File["image"]
 	if f == nil || len(f) == 0 {
 		// ## don't know how we can get a form without a file, but we do
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, errors.New("Upload received without image."))
 		return
 	}
 
@@ -285,14 +282,15 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	fh := f[0]
 	sz := (fh.Size + (1 << 19)) >> 20
 	if sz > int64(app.cfg.MaxUpload) {
-		app.clientError(w, http.StatusRequestEntityTooLarge)
+		httpTooLarge(w)
 		return
 	}
 
 	// schedule upload to be saved as a file
 	id, err := etx.Id(timestamp)
 	if err != nil {
-		app.clientError(w, http.StatusInternalServerError)
+		app.log(err)
+		httpServerError(w)
 	}
 
 	var s string
@@ -307,7 +305,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// server error
 			app.log(err)
-			app.clientError(w, http.StatusInternalServerError)
+			httpServerError(w)
 			return
 		}
 	}
@@ -324,13 +322,13 @@ func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
 
 	// allow access to show?
 	if !app.allowUpdateShow(r, showId) {
-		app.clientError(w, http.StatusUnauthorized)
+		httpUnauthorized(w)
 		return
 	}
 
-	f, slideshow := app.galleryState.ForEditSlideshow(showId, nosurf.Token(r))
-	if f == nil {
-		app.clientError(w, http.StatusInternalServerError)
+	status, f, slideshow := app.galleryState.ForEditSlideshow(showId, nosurf.Token(r))
+	if status != 0 {
+		http.Error(w, http.StatusText(status), status)
 		return
 	}
 
@@ -346,8 +344,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -355,30 +352,26 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	f := form.NewSlides(r.PostForm, 10, nosurf.Token(r))
 	slides, err := f.GetSlides(app.validTypeCheck())
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
 	nShow, err := strconv.ParseInt(f.Get("nShow"), 36, 64)
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 	}
 	nUser, err := strconv.ParseInt(f.Get("nUser"), 36, 64)
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 	}
 	tx, err := etx.Id(f.Get("timestamp"))
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 	}
 
 	// allow access to slideshow?
 	if nShow != 0 && !app.allowUpdateShow(r, nShow) {
-		app.clientError(w, http.StatusUnauthorized)
+		httpUnauthorized(w)
 		return
 	}
 
@@ -388,13 +381,13 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		nTopic, _ = strconv.ParseInt(f.Get("nTopic"), 36, 64)
 
 		if nTopic == 0 {
-			app.clientError(w, http.StatusBadRequest)
+			httpNotFound(w)
 			return
 		}
 
 		// allow access for user?
 		if !app.allowAccessUser(r, nUser) {
-			app.clientError(w, http.StatusUnauthorized)
+			httpUnauthorized(w)
 		}
 	}
 
@@ -419,7 +412,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
 
 	} else {
-		app.clientError(w, status)
+		http.Error(w, http.StatusText(status), status)
 	}
 }
 
@@ -433,7 +426,7 @@ func (app *Application) getFormSlideshows(w http.ResponseWriter, r *http.Request
 
 	f, user := app.galleryState.ForEditSlideshows(userId, nosurf.Token(r))
 	if f == nil || user == nil {
-		app.clientError(w, http.StatusInternalServerError)
+		httpNotFound(w)
 		return
 	}
 
@@ -453,8 +446,7 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 
 	err := r.ParseForm()
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -462,8 +454,7 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
 	slideshows, err := f.GetSlideshows(false)
 	if err != nil {
-		app.errorLog.Print(err.Error())
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -479,7 +470,8 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 	}
 
 	// save changes
-	if tx := app.galleryState.OnEditSlideshows(userId, slideshows); tx != 0 {
+	status, tx := app.galleryState.OnEditSlideshows(userId, slideshows)
+	if status == 0 {
 
 		// bind updated media, now that update is committed
 		app.tm.DoNext(tx)
@@ -488,7 +480,7 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
 
 	} else {
-		app.clientError(w, http.StatusBadRequest)
+		http.Error(w, http.StatusText(status), status)
 	}
 }
 
@@ -502,6 +494,9 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
 	f, title := app.galleryState.ForEditTopic(topicId, userId, nosurf.Token(r))
+	if f == nil {
+		httpNotFound(w)
+	}
 
 	// display form
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
@@ -517,7 +512,7 @@ func (app *Application) getFormTopics(w http.ResponseWriter, r *http.Request) {
 
 	f := app.galleryState.ForEditTopics(nosurf.Token(r))
 	if f == nil {
-		app.clientError(w, http.StatusInternalServerError)
+		httpServerError(w)
 		return
 	}
 
@@ -533,8 +528,7 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 	if err != nil {
-		app.log(err)
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -542,8 +536,7 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
 	slideshows, err := f.GetSlideshows(false)
 	if err != nil {
-		app.errorLog.Print(err.Error())
-		app.clientError(w, http.StatusBadRequest)
+		app.httpBadRequest(w, err)
 		return
 	}
 
@@ -558,13 +551,14 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save changes
-	if tx := app.galleryState.OnEditTopics(slideshows); tx != 0 {
+	status, tx := app.galleryState.OnEditTopics(slideshows)
+	if status == 0 {
 		app.tm.DoNext(tx)
 		app.session.Put(r, "flash", "Topic changes saved.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	} else {
-		app.clientError(w, http.StatusBadRequest)
+		http.Error(w, http.StatusText(status), status)
 	}
 }
 
@@ -582,12 +576,15 @@ func (app *Application) validate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// validate entry, get template and data for response
-	template, data := app.galleryState.validate(code)
-	if template == "" {
+	status, template, data := app.galleryState.validate(code)
+	if status == http.StatusBadRequest {
 		app.wrongCode.ServeHTTP(w, r)
-		return
-	}
 
-	// display page
-	app.render(w, r, template, data)
+	} else if status != 0 {
+		http.Error(w, http.StatusText(status), status)
+
+	} else {
+		// display page
+		app.render(w, r, template, data)
+	}
 }

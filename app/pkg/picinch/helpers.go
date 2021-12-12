@@ -92,7 +92,7 @@ func ServeFile(w http.ResponseWriter, r *http.Request, fs http.FileSystem, name 
 }
 
 // toHTTPError converts OS errors to HTTP errors.
-// This implementation is identical to http.tpHTTPError.
+// This implementation is identical to http.toHTTPError.
 func toHTTPError(err error) (msg string, httpStatus int) {
 	if os.IsNotExist(err) {
 		return "404 page not found", http.StatusNotFound

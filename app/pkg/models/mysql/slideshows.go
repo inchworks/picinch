@@ -119,6 +119,7 @@ const (
 	`
 
 	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ?` + slideshowOrderTitle
+	topicsWhereFormat = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ?` + slideshowOrderTitle
 	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderRevised
 
 	// most recent visible topics and slideshows, with a per-user limit
@@ -177,19 +178,6 @@ func (st *SlideshowStore) All() []*models.Slideshow {
 	return slideshows
 }
 
-// All editable topics
-
-func (st *SlideshowStore) AllEditableTopics() []*models.Slideshow {
-
-	var topics []*models.Slideshow
-
-	if err := st.DBX.Select(&topics, topicsWhereEditable, st.GalleryId, st.HighlightsId); err != nil {
-		st.logError(err)
-		return nil
-	}
-	return topics
-}
-
 // AllForUsers returns all slideshows except topics.
 func (st *SlideshowStore) AllForUsers() []*models.Slideshow {
 
@@ -209,6 +197,30 @@ func (st *SlideshowStore) AllTopics() []*models.Slideshow {
 	var topics []*models.Slideshow
 
 	if err := st.DBX.Select(&topics, topicsWhereGallery, st.GalleryId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return topics
+}
+
+// AllTopicsEditable returns topics with editable definitions.
+func (st *SlideshowStore) AllTopicsEditable() []*models.Slideshow {
+
+	var topics []*models.Slideshow
+
+	if err := st.DBX.Select(&topics, topicsWhereEditable, st.GalleryId, st.HighlightsId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return topics
+}
+
+// AllTopicsFormatted returns topics matching a format specification.
+func (st *SlideshowStore) AllTopicsFormatted(like string) []*models.Slideshow {
+
+	var topics []*models.Slideshow
+
+	if err := st.DBX.Select(&topics, topicsWhereFormat, st.GalleryId, like); err != nil {
 		st.logError(err)
 		return nil
 	}

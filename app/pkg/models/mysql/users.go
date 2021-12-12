@@ -248,10 +248,8 @@ func (st *UserStore) Name(id int64) string {
 	}
 }
 
-// Rollback transaction
-
+// Redundant function, never used.
 func (st *UserStore) Rollback() {
-	// ## implement!
 }
 
 // Users that can set tags.

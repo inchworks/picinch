@@ -38,4 +38,8 @@ These instructions assume a Ubuntu Server host with Docker installed. Other Linu
 1. Review the data privacy of your system.
 [&#8658; Privacy]({{ site.baseurl }}{% link install-10-privacy.md %})
 
+## Public competition setup
+PicInch has an alternative use as a website for a public competition.
+See [Competition Setup]({{ site.baseurl }}{% link competition.md %})
+
 [1]:	https://marketplace.digitalocean.com/apps/docker

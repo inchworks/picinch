@@ -82,7 +82,8 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		} else if err != nil {
-			app.serverError(w, err)
+			app.log(err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 
@@ -279,7 +280,8 @@ func (app *Application) recoverPanic() func(http.ResponseWriter, *http.Request, 
 
 	return func(w http.ResponseWriter, r *http.Request, err interface{}) {
 		w.Header().Set("Connection", "close")
-		app.serverError(w, fmt.Errorf("%s", err))
+		app.log(fmt.Errorf("%s", err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 

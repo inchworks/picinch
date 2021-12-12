@@ -59,6 +59,7 @@ const (
 
 type StatisticStore struct {
 	GalleryId int64
+	rollbackTx bool
 	store
 }
 
@@ -166,12 +167,17 @@ func (st *StatisticStore) Transaction() func() {
 
 	// start transaction
 	*st.ptx = st.DBX.MustBegin()
+	st.rollbackTx = false
 
 	return func() {
 
 		// end transaction
 		tx := *st.ptx
-		tx.Commit()
+		if st.rollbackTx {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
 
 		*st.ptx = nil
 	}
@@ -181,5 +187,10 @@ func (st *StatisticStore) Transaction() func() {
 
 func (st *StatisticStore) Update(s *usage.Statistic) error {
 
-	return st.updateData(&s.Id, s)
+	err := st.updateData(&s.Id, s)
+	if err != nil {
+		st.rollbackTx = true
+		st.logError(err)
+	}
+	return err
 }
