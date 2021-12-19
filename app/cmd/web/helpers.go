@@ -224,10 +224,7 @@ func (app *Application) log(err error) {
 	app.errorLog.Output(2, trace)
 }
 
-// End transaction, release mutexes, and render template from cache.
-//
-// Note unspecified type of template data.
-
+// render fetches a template from the cache and writes the result as an HTTP response.
 func (app *Application) render(w http.ResponseWriter, r *http.Request, name string, td TemplateData) {
 
 	if td == nil {
@@ -261,18 +258,15 @@ func (app *Application) render(w http.ResponseWriter, r *http.Request, name stri
 	buf.WriteTo(w)
 }
 
-// Send JSON reply
-// ## Not used.
-
+// Send JSON reply.
 func (app *Application) reply(w http.ResponseWriter, v interface{}) {
 
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(v); err != nil {
+		// ## Need to send JSON response with error, not a normal HTTP error, instead of panic
 		panic(err)
 	}
-
-	// ## Need to send JSON response with error, not a normal HTTP error, instead of panic
 }
 
 // role returns the authenticated role of the active user (saved in context from session).

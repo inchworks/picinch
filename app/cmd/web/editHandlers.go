@@ -294,10 +294,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var s string
-	app.reply(w, RepUpload{Error: s})
-
 	err, byUser := app.uploader.Save(fh, id)
-
 	if err != nil {
 		if byUser {
 			s = err.Error()
@@ -311,6 +308,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// return response
+	app.reply(w, RepUpload{Error: s})
 }
 
 // Form to set slides for slideshow

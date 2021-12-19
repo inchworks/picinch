@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.12.11"
+	version = "0.12.12"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -344,7 +344,7 @@ func (app *Application) Render(w http.ResponseWriter, r *http.Request, template 
 	app.render(w, r, template, &usersFormData{Users: usersField})
 }
 
-// Rollback specifies that the transaction started by Serialse be cancelled.
+// Rollback specifies that the transaction started by Serialise be cancelled.
 func (app *Application) Rollback() {
 	app.galleryState.rollbackTx = true
 }
