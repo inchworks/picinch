@@ -88,7 +88,9 @@ Photos uploaded are resized to fit these dimensions.
 **slideshows-public** `1` public slideshows on home page
 
 ## Operational settings
-**ban-bad-files** `false` apply IP ban to requests for missing files
+**allowed-queries** `fbclid` ignored query names in URL. Other queries trigger an IP ban.
+
+**ban-bad-files** `false` apply IP ban to requests for missing files.
 
 **max-upload-age** `8h` time limit to save a slideshow update, after uploading images. Units m(inutes) or h(ours).
 

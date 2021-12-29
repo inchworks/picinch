@@ -1,5 +1,5 @@
 FROM golang:1.17 AS builder
-LABEL maintainer="support@picinch.com>"
+LABEL maintainer="<support@picinch.com>"
 WORKDIR /picinch
 COPY go.mod go.sum ./
 RUN go mod download

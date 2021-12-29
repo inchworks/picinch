@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.12.12"
+	version = "0.12.13"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -129,6 +129,7 @@ type Configuration struct {
 	MaxSlideshowsPublic int `yaml:"slideshows-public" env-default:"1"` // public slideshows on home page, per user
 
 	// operational settings
+	AllowedQueries	  []string        `yaml:"allowed-queries" env-default:"fbclid"`							   // URL query names allowed
 	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing files
 	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env:"max-upload-age" env-default:"8h"`            // maximum time for a slideshow update. Units m or h.
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
@@ -470,7 +471,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.tagger.UserStore = app.userStore
 
 	// initialise rate limiters
-	app.lhs = limithandler.Start(8*time.Hour, 24*time.Hour)
+	app.lhs = limithandler.Start(6*time.Hour, 24*time.Hour)
 
 	// handlers for HTTP threats detected by application logic
 	app.wrongCode = app.codeNotFound()

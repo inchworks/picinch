@@ -20,4 +20,4 @@ require (
 )
 
 // replace github.com/inchworks/usage v0.2.1 => ../../usage
-// replace github.com/inchworks/webparts v0.12.0 => ../../webparts
+replace github.com/inchworks/webparts v0.12.0 => ../../webparts

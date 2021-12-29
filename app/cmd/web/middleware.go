@@ -37,31 +37,16 @@ import (
 	"inchworks.com/picinch/pkg/models"
 )
 
-// HANDLERS.
+// HTTP REQUEST HANDLERS.
 
-// codeNotFound returns a handler that logs and rate limits HTTP requests to non-existent codes.
-// Typically these are intrusion attempts. Not called for non-existent files :-).
-func (app *Application) codeNotFound() http.Handler {
+//
+const (
+	// Ignore user mistakes at less than one in 10 minutes. This should hold back probes to guess even easy passwords.
+	mistakeRate = 10 * time.Minute
 
-	// allow 1 every 10 minutes, burst of 10, banned after 1 rejection,
-	// (typically probing for vulnerable PHP files).
-	lim := app.lhs.New("S", 10*time.Minute, 10, 1, "P", nil)
-
-	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
-
-		app.threatLog.Printf("%s - %s for bad code requests, after %s", addr, status, r.RequestURI)
-	})
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ok, status := lim.Allow(r)
-		if ok {
-			app.threat("bad access code", r)
-			http.NotFound(w, r)
-		} else {
-			http.Error(w, "Intrusion attempt suspected", status)
-		}
-	})
-}
+	// Ignore threats at less than one every 4 hours. Most baddies seem to try more often than this.
+	threatRate = 4 * time.Hour
+)
 
 // authenticate returns a handler to check if this is an authenticated user or not.
 // It checks any ID against the database, to see if this is still a valid user since the last login.
@@ -97,6 +82,29 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 	})
 }
 
+// codeNotFound returns a handler that logs and rate limits HTTP requests to non-existent codes.
+// Typically these are intrusion attempts.
+func (app *Application) codeNotFound() http.Handler {
+
+	// allow an initial burst of 10, banned after 5 rejections
+	lim := app.lhs.New("S", mistakeRate, 10, 5, "", nil)
+
+	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+
+		app.threatLog.Printf("%s - %s for bad code requests, after %s", addr, status, r.RequestURI)
+	})
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ok, status := lim.Allow(r)
+		if ok {
+			app.threat("bad access code", r)
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Too many wrong access codes - wait an hour", status)
+		}
+	})
+}
+
 // fileServer returns a handler that serves files.
 // It wraps http.File server with a limit on the number of bad requests accepted.
 // (Thanks https://stackoverflow.com/questions/34017342/log-404-on-http-fileserver.)
@@ -106,14 +114,14 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 
 	var ban int
 	if banBad {
-		ban = 1  // banned after 2 rejections
+		ban = 1  // banned after rejection
 	} else {
 		ban = math.MaxInt32  // never ban
 	}
 
-	// limit bad file requests to one per second, burst of 5
+	// limit bad file requests to bursts of 10
 	// (probably probing to guess file names, but we should allow for a few missing files that are our fault).
-	lim := app.lhs.New("N", time.Second, 10, ban, "F,P", nil)
+	lim := app.lhs.New("N", threatRate, 10, ban, "F,P", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -153,12 +161,12 @@ func (app *Application) limitFile(next http.Handler) http.Handler {
 // limitLogin returns a handler to restrict user login (and signup) rates, per-user.
 func (app *Application) limitLogin(next http.Handler) http.Handler {
 
-	// 1 minute per attempt, with an initial burst of 5, banned after 15 rejects (20 attempts, total)
-	lh := app.lhs.New("L", time.Minute, 5, 15, "", next)
+	// allow an initial burst of 10, banned after 5 rejects (15 attempts, total)
+	lh := app.lhs.New("L", mistakeRate, 10, 5, "", next)
 
 	lh.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		http.Error(w, "Too many failed attempts - wait a few minutes", http.StatusTooManyRequests)
+		http.Error(w, "Too many login requests - wait an hour", http.StatusTooManyRequests)
 	}))
 
 	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
@@ -223,18 +231,49 @@ func (app *Application) logRequest(next http.Handler) http.Handler {
 }
 
 // noQuery returns a handler that blocks probes with random query parameters
-// (mainly so we don't count them as valid visitors).
 func (app *Application) noQuery(next http.Handler) http.Handler {
+
+	// banned after 1 rejection
+	// (typically probing for well-known PHP vulnerabilities).
+	lim := app.lhs.New("Q", threatRate, 1, 1, "F,P", nil)
+
+	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+
+		app.threatLog.Printf("%s - %s for bad queries, after %s", addr, status, r.RequestURI)
+	})
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.RawQuery != "" {
-			qs := r.URL.Query()
-			if !qs.Has("fbclid") {
-				app.threat("bad query", r)
-				http.Error(w, "Query parameters not accepted", http.StatusBadRequest)
-				return
-			}
+		if r.URL.RawQuery == "" {
+			next.ServeHTTP(w, r) // ok, no query
+			return
 		}
-		next.ServeHTTP(w, r)
+
+		// allow some single query names, such as "fbclid" from Facebook
+		qs := r.URL.Query()
+		nOK := 0
+		for q := range qs {
+			for _, nm := range app.cfg.AllowedQueries {
+				if q == nm {
+					nOK++ // query name allowed
+					break
+				}
+			}
+			break // just the first one allowed
+		}
+
+		if nOK == len(qs) {
+			next.ServeHTTP(w, r) // allowed query name
+			return
+		}
+		
+		// limit the rate of bad queries 
+		ok, status := lim.Allow(r)
+		if ok {
+			app.threat("bad query", r)
+			http.Error(w, "Query parameters not accepted", http.StatusBadRequest)
+		} else {
+			http.Error(w, "Intrusion attempt suspected", status)
+		}
 	})
 }
 
@@ -331,7 +370,6 @@ func (app *Application) requireAdmin(next http.Handler) http.Handler {
 	return app.reqAuth(models.UserAdmin, 0, next)
 }
 
-
 // requireAuthentication specifies that minimum authentication is needed, for access to a page,
 // or to log out.
 func (app *Application) requireAuthentication(next http.Handler) http.Handler {
@@ -352,12 +390,12 @@ func (app *Application) requireOwner(next http.Handler) http.Handler {
 }
 
 // routeNotFound returns a handler that logs and rate limits HTTP requests to non-existent routes.
-// Typically these are intrusion attempts. Not called for non-existent files :-).
+// Typically these are intrusion attempts. Not called for non-existent files.
 func (app *Application) routeNotFound() http.Handler {
 
-	// allow 1 every 10 minutes, burst of 3, banned after 1 rejection,
+	// burst of 3, in case it is a user mistyping, banned after 1 rejection,
 	// (typically probing for vulnerable PHP files).
-	lim := app.lhs.New("R", 10*time.Minute, 3, 1, "F,P", nil)
+	lim := app.lhs.New("R", threatRate, 3, 1, "F,P", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -371,11 +409,6 @@ func (app *Application) routeNotFound() http.Handler {
 		if d =="/" && path.Ext(f) == ".png" { 
 			app.threat("no favicon", r)
 			http.NotFound(w, r)  // possibly a favicon for an ancient mobile device
-			return
-
-		} else if d == "/shared/" {
-			app.threat("old slideshow", r)
-			http.NotFound(w, r)  // ## temporary - had these on the home page, picked up by search engines
 			return
 		}
 
