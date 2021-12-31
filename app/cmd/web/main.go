@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.12.13"
+	version = "0.12.14"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -281,7 +281,6 @@ func main() {
 	go app.galleryState.worker(app.chComp, app.chShow, app.chShows, app.chTopic, tr.C, tp.C, chDone)
 
 	// redo any pending operations
-
 	infoLog.Print("Starting operation recovery")
 	if err := app.tm.Recover(&app.galleryState, app.uploader); err != nil {
 		errorLog.Fatal(err)

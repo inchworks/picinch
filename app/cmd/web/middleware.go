@@ -39,7 +39,6 @@ import (
 
 // HTTP REQUEST HANDLERS.
 
-//
 const (
 	// Ignore user mistakes at less than one in 10 minutes. This should hold back probes to guess even easy passwords.
 	mistakeRate = 10 * time.Minute
@@ -47,6 +46,15 @@ const (
 	// Ignore threats at less than one every 4 hours. Most baddies seem to try more often than this.
 	threatRate = 4 * time.Hour
 )
+
+// These rate limiters are used:
+// B - extended escalating ban on all accesses.
+// F - file requests.
+// L - login requests.
+// N - non-existent file accesses.
+// P - page requests.
+// Q - bad query URLs.
+// S - wrong shared access codes. 
 
 // authenticate returns a handler to check if this is an authenticated user or not.
 // It checks any ID against the database, to see if this is still a valid user since the last login.
@@ -87,22 +95,19 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 func (app *Application) codeNotFound() http.Handler {
 
 	// allow an initial burst of 10, banned after 5 rejections
-	lim := app.lhs.New("S", mistakeRate, 10, 5, "", nil)
+	lim := app.lhs.New("S", mistakeRate, 10, 5, "B", nil)
+
+	lim.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		http.Error(w, "Too many wrong access codes - wait an hour", http.StatusTooManyRequests)
+	}))
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
 		app.threatLog.Printf("%s - %s for bad code requests, after %s", addr, status, r.RequestURI)
 	})
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ok, status := lim.Allow(r)
-		if ok {
-			app.threat("bad access code", r)
-			http.NotFound(w, r)
-		} else {
-			http.Error(w, "Too many wrong access codes - wait an hour", status)
-		}
-	})
+	return lim
 }
 
 // fileServer returns a handler that serves files.
@@ -121,7 +126,7 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 
 	// limit bad file requests to bursts of 10
 	// (probably probing to guess file names, but we should allow for a few missing files that are our fault).
-	lim := app.lhs.New("N", threatRate, 10, ban, "F,P", nil)
+	lim := app.lhs.New("N", threatRate, 10, ban, "B", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -147,8 +152,13 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 // limitFile returns a handler to limit file requests, per user.
 func (app *Application) limitFile(next http.Handler) http.Handler {
 
-	// no limit - but can be set to block all file requests after other bad requests
-	lh := app.lhs.New("F", 0, 0, 20, "", next)
+	// allow 10/second with a burst of 100, banned after 100 rejects
+	lh := app.lhs.New("F", 100*time.Millisecond, 100, 100, "", next)
+
+	lh.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		http.Error(w, "Too many file requests - wait a minute", http.StatusTooManyRequests)
+	}))
 
 	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -230,12 +240,26 @@ func (app *Application) logRequest(next http.Handler) http.Handler {
 	})
 }
 
+// noBanned returns a handler to reject banned IP addresses.
+func (app *Application) noBanned(next http.Handler) http.Handler {
+
+	// no limit - but set to escalate blocking of repeated offenders.
+	lh := app.lhs.NewUnlimited("B", "B", next)
+
+	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
+
+		app.threatLog.Print(addr, " - ", status, " on ", r.RequestURI)
+	})
+
+	return lh
+}
+
 // noQuery returns a handler that blocks probes with random query parameters
 func (app *Application) noQuery(next http.Handler) http.Handler {
 
 	// banned after 1 rejection
 	// (typically probing for well-known PHP vulnerabilities).
-	lim := app.lhs.New("Q", threatRate, 1, 1, "F,P", nil)
+	lim := app.lhs.New("Q", threatRate, 1, 1, "B", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -395,7 +419,7 @@ func (app *Application) routeNotFound() http.Handler {
 
 	// burst of 3, in case it is a user mistyping, banned after 1 rejection,
 	// (typically probing for vulnerable PHP files).
-	lim := app.lhs.New("R", threatRate, 3, 1, "F,P", nil)
+	lim := app.lhs.New("R", threatRate, 3, 1, "B", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 

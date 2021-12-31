@@ -35,6 +35,8 @@ github.com/inchworks/webparts v0.11.3 h1:jrIgz14WW5+zFfTVZ85WcODzcDx5XDSfR59jypZ
 github.com/inchworks/webparts v0.11.3/go.mod h1:LDI/1qraLoG+aHvsGy+Xz6HJ7530VURUU17XdI95iFU=
 github.com/inchworks/webparts v0.12.0 h1:ld+50T1DcoEw/RQx/HZcxdYwJtbm6RXbvx7PBanBhB0=
 github.com/inchworks/webparts v0.12.0/go.mod h1:LDI/1qraLoG+aHvsGy+Xz6HJ7530VURUU17XdI95iFU=
+github.com/inchworks/webparts v0.13.0 h1:q01/Oc3VYpX1nuiLwPoPeF1XD2ErQg/DbHK87N8gEjs=
+github.com/inchworks/webparts v0.13.0/go.mod h1:LDI/1qraLoG+aHvsGy+Xz6HJ7530VURUU17XdI95iFU=
 github.com/jmoiron/sqlx v1.3.4 h1:wv+0IJZfL5z0uZoUjlpKgHkgaFSYD+r9CfrXjEXsO7w=
 github.com/jmoiron/sqlx v1.3.4/go.mod h1:2BljVx/86SuTyjE+aPYlHCTNvZrnJXghYGpNiXLBMCQ=
 github.com/joho/godotenv v1.3.0 h1:Zjp+RcGpHhGlrMbJzXTrZZPrWj+1vfm90La1wgB6Bhc=
