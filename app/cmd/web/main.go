@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.12.14"
+	version = "0.12.15"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -473,7 +473,9 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.lhs = limithandler.Start(6*time.Hour, 24*time.Hour)
 
 	// handlers for HTTP threats detected by application logic
-	app.wrongCode = app.codeNotFound()
+	app.wrongCode = app.codeNotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Access code not found", http.StatusNotFound)
+	}))
 
 	// setup usage, with defaults
 	if app.usage, err = usage.New(app.statisticStore, cfg.UsageAnonymised, 0, 0, 0, 0, 0); err != nil {

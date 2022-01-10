@@ -92,10 +92,10 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 
 // codeNotFound returns a handler that logs and rate limits HTTP requests to non-existent codes.
 // Typically these are intrusion attempts.
-func (app *Application) codeNotFound() http.Handler {
+func (app *Application) codeNotFound(next http.Handler) http.Handler {
 
 	// allow an initial burst of 10, banned after 5 rejections
-	lim := app.lhs.New("S", mistakeRate, 10, 5, "B", nil)
+	lim := app.lhs.New("S", mistakeRate, 10, 5, "B", next)
 
 	lim.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -259,7 +259,7 @@ func (app *Application) noQuery(next http.Handler) http.Handler {
 
 	// banned after 1 rejection
 	// (typically probing for well-known PHP vulnerabilities).
-	lim := app.lhs.New("Q", threatRate, 1, 1, "B", nil)
+	lim := app.lhs.New("Q", threatRate, 1, 0, "B", nil)
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
@@ -531,6 +531,5 @@ func (app *Application) threat(event string, r *http.Request) {
 	app.threatLog.Printf("%s - %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
 
 	rec := app.usage
-	rec.Count(event, "threat")
 	rec.Seen(usage.FormatIP(r.RemoteAddr), "suspect")
 }
