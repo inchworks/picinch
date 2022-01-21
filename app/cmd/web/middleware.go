@@ -272,22 +272,27 @@ func (app *Application) noQuery(next http.Handler) http.Handler {
 			return
 		}
 
-		// allow some single query names, such as "fbclid" from Facebook
-		qs := r.URL.Query()
-		nOK := 0
-		for q := range qs {
-			for _, nm := range app.cfg.AllowedQueries {
-				if q == nm {
-					nOK++ // query name allowed
-					break
+		// reject queries with semicolon separators, just so that we don't log a server error
+		// (see golang.org/issue/25192 - it's a mess)
+		if !strings.Contains(r.URL.RawQuery, ";") {
+			
+			// allow some single query names, such as "fbclid" from Facebook
+			qs := r.URL.Query()
+			nOK := 0
+			for q := range qs {
+				for _, nm := range app.cfg.AllowedQueries {
+					if q == nm {
+						nOK++ // query name allowed
+						break
+					}
 				}
+				break // just the first one allowed
 			}
-			break // just the first one allowed
-		}
 
-		if nOK == len(qs) {
-			next.ServeHTTP(w, r) // allowed query name
-			return
+			if nOK == len(qs) {
+				next.ServeHTTP(w, r) // allowed query name
+				return
+			}
 		}
 		
 		// limit the rate of bad queries 
