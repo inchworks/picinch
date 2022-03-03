@@ -15,6 +15,7 @@ require (
 	github.com/justinas/nosurf v1.1.1
 	github.com/mailgun/mailgun-go/v4 v4.6.0
 	github.com/microcosm-cc/bluemonday v1.0.17
+	github.com/oschwald/maxminddb-golang v1.8.0
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/mail.v2 v2.3.1 // indirect
 )

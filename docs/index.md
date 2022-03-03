@@ -62,6 +62,7 @@ Security features:
 - Directory listing of photos and other directories is disabled. (But photos can be accessed by guessing names.)
 - Isolation between host OS, Go application and database is implicit in Docker-based operation.
 - Statistics record the number of attempts to probe the site with bad URLs and query parameters. Details are recorded in a log.
+- Geo-blocking can be set for specified countries.
 
 ## Limitations
 The following may be addressed in future updates:

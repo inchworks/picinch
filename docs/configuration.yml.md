@@ -92,6 +92,8 @@ Photos uploaded are resized to fit these dimensions.
 
 **ban-bad-files** `false` apply IP ban to requests for missing files.
 
+**geo-block** ` ` blocked countries, specified by ISO 3166-1 alpha-2 codes, such as `KP, RU`.
+
 **max-upload-age** `8h` time limit to save a slideshow update, after uploading images. Units m(inutes) or h(ours).
 
 **thumbnail-refresh** `1h` refresh interval for topic thumbnails. Units m(inutes) or h(ours).

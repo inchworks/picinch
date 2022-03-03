@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -43,6 +44,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/justinas/nosurf"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/oschwald/maxminddb-golang"
 
 	"inchworks.com/picinch/pkg/emailer"
 	"inchworks.com/picinch/pkg/models"
@@ -54,7 +56,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.12.16"
+	version = "0.12.17"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -78,9 +80,10 @@ const (
 
 // put context key in its own type,
 // to avoid collision with any 3rd-party packages using request context
-type contextKey string
+type contextKey int
 
-const contextKeyUser = contextKey("authenticatedUser")
+const contextKeyCountry = contextKey(0)
+const contextKeyUser = contextKey(1)
 
 type AuthenticatedUser struct {
 	id   int64
@@ -131,6 +134,7 @@ type Configuration struct {
 	// operational settings
 	AllowedQueries	  []string        `yaml:"allowed-queries" env-default:"fbclid"`							   // URL query names allowed
 	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing files
+	GeoBlock          []string        `yaml:"geo-block" env:"geo-block" env-default:""`                    	   // blocked countries (ISO 3166-1 alpha-2 codes)
 	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env:"max-upload-age" env-default:"8h"`            // maximum time for a slideshow update. Units m or h.
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
 	SiteRefresh       time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`                             // refresh interval for topic thumbnails. Units m or h.
@@ -153,7 +157,7 @@ type Configuration struct {
 	ReplyTo       string `yaml:"reply-to" env:"reply-to" env-default:""`
 }
 
-// Poeration to update slideshow images.
+// Operation to update slideshow images.
 type OpUpdateShow struct {
 	ShowId  int64
 	TopicId int64
@@ -178,6 +182,7 @@ type Application struct {
 	session       *sessions.Session
 	templateCache map[string]*template.Template
 
+	// database
 	db      *sqlx.DB
 	tx      *sqlx.Tx
 	statsTx *sqlx.Tx
@@ -188,6 +193,10 @@ type Application struct {
 	SlideshowStore *mysql.SlideshowStore
 	statisticStore *mysql.StatisticStore
 	userStore      *mysql.UserStore
+
+	// geoBlocking database
+	geoDB *maxminddb.Reader
+	geoBlocked map[string]bool
 
 	// common components
 	lhs      *limithandler.Handlers
@@ -488,6 +497,16 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		Roles: []string{"unknown", "friend", "member", "curator", "admin"},
 		Store: app.userStore,
 		TM:    app.tm,
+	}
+
+	// geo-blocking
+	app.geoBlocked = make(map[string]bool)
+	for _, c := range cfg.GeoBlock {
+		app.geoBlocked[strings.ToUpper(c)] = true
+	}
+	app.geoDB, err = maxminddb.Open(filepath.Join(SitePath, "geodb/GeoLite2-Country.mmdb"))
+	if err != nil {
+		errorLog.Print("No geo-location database:", err) // continue operation without geo-blocking
 	}
 
 	// create worker channels

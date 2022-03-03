@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -104,7 +105,7 @@ func (app *Application) codeNotFound(next http.Handler) http.Handler {
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.threatLog.Printf("%s - %s for bad code requests, after %s", addr, status, r.RequestURI)
+		app.blocked(r, addr, status, "for bad code requests, after " + r.RequestURI)
 	})
 
 	return lim
@@ -130,7 +131,7 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.threatLog.Printf("%s - %s for bad file names", addr, status)
+		app.blocked(r, addr, status, "for bad file names" + r.RequestURI)
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -149,6 +150,57 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 	})
 }
 
+// geoBlock returns a handler to block IPs for some locations.
+func (app *Application) geoBlock(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		var blocked bool
+		var loc string
+
+		if app.geoDB != nil {
+
+			// strip port from address
+			var ip net.IP
+			ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
+			if err == nil {
+				ip = net.ParseIP(ipStr)
+			}			
+			if ip != nil {
+
+				// get location for IP address
+				var geo struct {
+					Country struct {
+						ISOCode string `maxminddb:"iso_code"`
+					} `maxminddb:"registered_country"`
+				}
+
+				err := app.geoDB.Lookup(ip, &geo)
+				if err != nil {
+					app.log(err)
+				} else {
+					loc = geo.Country.ISOCode
+					blocked = app.geoBlocked[loc]
+				}
+			}
+		}
+
+		if blocked {
+			// count geo-blocked requests, per country
+			app.usage.Count(loc, "geo-block")
+
+
+			http.Error(w, "Access from " + loc + " not allowed", http.StatusForbidden)
+		} else {
+			// save location for threat reporting
+			ctx := context.WithValue(r.Context(), contextKeyCountry, loc)
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+	})
+}
+
 // limitFile returns a handler to limit file requests, per user.
 func (app *Application) limitFile(next http.Handler) http.Handler {
 
@@ -162,7 +214,7 @@ func (app *Application) limitFile(next http.Handler) http.Handler {
 
 	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.threatLog.Printf("%s - %s file requests, too many after %s", addr, status, r.RequestURI)
+		app.blocked(r, addr, status, "file requests, too many after" + r.RequestURI)
 	})
 
 	return lh
@@ -187,7 +239,7 @@ func (app *Application) limitLogin(next http.Handler) http.Handler {
 			username = r.PostForm.Get("username")
 		}
 
-		app.threatLog.Printf("%s - %s login, too many for user \"%s\"", addr, status, username)
+		app.blocked(r, addr, status, "login, too many for user \"" + username + "\"")
 	})
 
 	return lh
@@ -202,7 +254,7 @@ func (app *Application) limitPage(next http.Handler) http.Handler {
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.threatLog.Printf("%s - %s page requests, too many after %s", addr, status, r.RequestURI)
+		app.blocked(r, addr, status, "page requests, too many after" + r.RequestURI)
 	})
 
 	return lim
@@ -248,7 +300,7 @@ func (app *Application) noBanned(next http.Handler) http.Handler {
 
 	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.threatLog.Print(addr, " - ", status, " on ", r.RequestURI)
+		app.blocked(r, addr, status, "on" + r.RequestURI)
 	})
 
 	return lh
@@ -263,7 +315,7 @@ func (app *Application) noQuery(next http.Handler) http.Handler {
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.threatLog.Printf("%s - %s for bad queries, after %s", addr, status, r.RequestURI)
+		app.blocked(r, addr, status, "for bad queries, after " + r.RequestURI)
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -428,7 +480,7 @@ func (app *Application) routeNotFound() http.Handler {
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.threatLog.Printf("%s - %s for bad requests, after %s", addr, status, r.RequestURI)
+		app.blocked(r, addr, status, "for bad requests, after " + r.RequestURI)
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -486,6 +538,13 @@ func wwwRedirect(h http.Handler) http.Handler {
 
 // HELPER FUNCTIONS.
 
+// blocked records the blocking or banning of an IP address
+func (app *Application) blocked(r *http.Request, addr string, status string, reason string) {
+	
+	loc := r.Context().Value(contextKeyCountry)
+	app.threatLog.Printf("%s %s - %s %s", loc, addr, status, reason)
+}
+
 // A noDirFileSystem blocks browsing of directories.
 // It avoids the need to install copies of index.html but allows index.html to be served if there is one.
 // From https://www.alexedwards.net/blog/disable-http-fileserver-directory-listings.
@@ -520,6 +579,22 @@ func (nfs noDirFileSystem) Open(path string) (http.File, error) {
 	return f, nil
 }
 
+// threat records a suspected intrusion attempt
+func (app *Application) threat(event string, r *http.Request) {
+	
+	loc := r.Context().Value(contextKeyCountry).(string)
+	app.threatLog.Printf("%s %s - %s %s %s", loc, r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
+
+	// count suspects
+	rec := app.usage
+	rec.Seen(usage.FormatIP(r.RemoteAddr), "suspect")
+
+	// count threat locations, if known
+	if loc != "" {
+		rec.Count(loc, "threats")
+	}
+}
+
 // A statusWriter is a ResponseWriter that saves the response status.
 type statusWriter struct {
 	http.ResponseWriter
@@ -529,12 +604,4 @@ type statusWriter struct {
 func (w *statusWriter) WriteHeader(status int) {
     w.status = status
     w.ResponseWriter.WriteHeader(status)
-}
-
-// threat records an attempted intrusion
-func (app *Application) threat(event string, r *http.Request) {
-	app.threatLog.Printf("%s - %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
-
-	rec := app.usage
-	rec.Seen(usage.FormatIP(r.RemoteAddr), "suspect")
 }
