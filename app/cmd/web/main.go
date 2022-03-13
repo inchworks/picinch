@@ -27,7 +27,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -44,7 +43,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/justinas/nosurf"
 	"github.com/microcosm-cc/bluemonday"
-	"github.com/oschwald/maxminddb-golang"
 
 	"inchworks.com/picinch/pkg/emailer"
 	"inchworks.com/picinch/pkg/models"
@@ -56,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.12.17"
+	version = "0.12.19"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -68,6 +66,7 @@ const (
 // file locations on server
 var (
 	CertPath  = "../certs"  // cached certificates
+	GeoDBPath = "../geodb"  // geo database
 	ImagePath = "../photos" // pictures
 	SitePath  = "../site"   // site-specific resources
 	MiscPath  = "../misc"   // misc
@@ -82,7 +81,6 @@ const (
 // to avoid collision with any 3rd-party packages using request context
 type contextKey int
 
-const contextKeyCountry = contextKey(0)
 const contextKeyUser = contextKey(1)
 
 type AuthenticatedUser struct {
@@ -132,9 +130,9 @@ type Configuration struct {
 	MaxSlideshowsPublic int `yaml:"slideshows-public" env-default:"1"` // public slideshows on home page, per user
 
 	// operational settings
-	AllowedQueries	  []string        `yaml:"allowed-queries" env-default:"fbclid"`							   // URL query names allowed
+	AllowedQueries    []string        `yaml:"allowed-queries" env-default:"fbclid"`                            // URL query names allowed
 	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing files
-	GeoBlock          []string        `yaml:"geo-block" env:"geo-block" env-default:""`                    	   // blocked countries (ISO 3166-1 alpha-2 codes)
+	GeoBlock          []string        `yaml:"geo-block" env:"geo-block" env-default:""`                        // blocked countries (ISO 3166-1 alpha-2 codes)
 	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env:"max-upload-age" env-default:"8h"`            // maximum time for a slideshow update. Units m or h.
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
 	SiteRefresh       time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`                             // refresh interval for topic thumbnails. Units m or h.
@@ -194,11 +192,8 @@ type Application struct {
 	statisticStore *mysql.StatisticStore
 	userStore      *mysql.UserStore
 
-	// geoBlocking database
-	geoDB *maxminddb.Reader
-	geoBlocked map[string]bool
-
 	// common components
+	geoblocker *server.GeoBlocker
 	lhs      *limithandler.Handlers
 	tm       *etx.TM
 	uploader *uploader.Uploader
@@ -243,6 +238,7 @@ func main() {
 	test := os.Getenv("test")
 	if test != "" {
 		CertPath = filepath.Join(test, filepath.Base(CertPath))
+		GeoDBPath = filepath.Join(test, filepath.Base(GeoDBPath))
 		ImagePath = filepath.Join(test, filepath.Base(ImagePath))
 		MiscPath = filepath.Join(test, filepath.Base(MiscPath))
 		SitePath = filepath.Join(test, filepath.Base(SitePath))
@@ -274,6 +270,7 @@ func main() {
 	// initialise application
 	app := initialise(cfg, errorLog, infoLog, threatLog, db)
 
+	defer app.geoblocker.Stop()
 	defer app.lhs.Stop()
 	defer app.uploader.Stop()
 	defer app.usage.Stop()
@@ -284,9 +281,11 @@ func main() {
 	tp := time.NewTicker(app.cfg.MaxUnvalidatedAge / 8)
 	defer tp.Stop()
 
-	// start background worker
-	// ## how can we shutdown cleanly?
+	// closing this channel signals worker goroutines to return
 	chDone := make(chan bool, 1)
+	defer close(chDone) 
+
+	// start background worker
 	go app.galleryState.worker(app.chComp, app.chShow, app.chShows, app.chTopic, tr.C, tp.C, chDone)
 
 	// redo any pending operations
@@ -500,14 +499,14 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// geo-blocking
-	app.geoBlocked = make(map[string]bool)
-	for _, c := range cfg.GeoBlock {
-		app.geoBlocked[strings.ToUpper(c)] = true
+	app.geoblocker = &server.GeoBlocker{
+		ErrorLog: errorLog,
+		Reporter: func(_ *http.Request, location string, _ net.IP) string {
+			app.usage.Count(location, "geo-block")
+			return ""},
+		Store: GeoDBPath,
 	}
-	app.geoDB, err = maxminddb.Open(filepath.Join(SitePath, "geodb/GeoLite2-Country.mmdb"))
-	if err != nil {
-		errorLog.Print("No geo-location database:", err) // continue operation without geo-blocking
-	}
+	app.geoblocker.Start(cfg.GeoBlock)
 
 	// create worker channels
 	app.chComp = make(chan OpUpdateShow, 10)
@@ -575,37 +574,6 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	return g
 }
 
-// Make HTTP server
-
-func newServer(addr string, handler http.Handler, log *log.Logger, main bool) *http.Server {
-
-	// common server parameters for HTTP/HTTPS
-	s := &http.Server{
-		Addr:     addr,
-		ErrorLog: log,
-		Handler:  handler,
-	}
-
-	// set timeouts so that a slow or malicious client doesn't hold resources forever
-	if main {
-
-		// These are lax ones, but suggested in
-		//   https://medium.com/@simonfrey/go-as-in-golang-standard-net-http-config-will-break-your-production-environment-1360871cb72b
-		s.ReadHeaderTimeout = 20 * time.Second // this is the one that matters for SlowLoris?
-		// ReadTimeout:  1 * time.Minute, // remove if variable timeouts in handlers
-		s.WriteTimeout = 2 * time.Minute // starts after reading of request headers
-		s.IdleTimeout = 2 * time.Minute
-
-	} else {
-		// tighter limits for HTTP certificate renewal and redirection to HTTPS
-		s.ReadTimeout = 5 * time.Second   // remove if variable timeouts in handlers
-		s.WriteTimeout = 10 * time.Second // starts after reading of request headers
-		s.IdleTimeout = 1 * time.Minute
-	}
-
-	return s
-}
-
 // NewServerLogger returns a logger that filter common events cause by background noise from internet idiots.
 // (Typically probes using unsupported TLS versions or attempting HTTPS connection without a domain name.
 // Also continuing access attempts with the domain of a previous holder of the server's IP address.)
@@ -670,3 +638,4 @@ func stripPort(hostport string) string {
 	}
 	return net.JoinHostPort(host, "443")
 }
+

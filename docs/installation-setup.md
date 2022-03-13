@@ -9,10 +9,7 @@ These instructions assume a Ubuntu Server host with Docker installed. Other Linu
 1. Add `/srv/picinch/docker-compose.yml`. This Docker Compose file specifies the PicInch and MariaDB containers to be downloaded from Docker Hub, the settings to run them on the host system, and essential application parameters.
 [&#8658; Docker Setup]({{ site.baseurl }}{% link install-1-docker-compose.md %})
 
-1. Add  `/etc/systemd/system/picinch.service` This file defines PicInch as a service in the host system.
-[&#8658; System Service Setup]({{ site.baseurl }}{% link install-2-system-service.md %})
-
-1. Run `systemctl start picinch.service` When issued the first time, this fetches PicInch and MariaDB containers from Docker Hub, and starts PicInch. Then PicInch sets up the database, creates the directories to hold images and certificates (in`/srv/picinch/`), On later invocations, PicInch starts immediately.
+1. In `/srv/picinch` run `docker compose up -d` When issued the first time, this fetches PicInch and MariaDB containers from Docker Hub, and starts PicInch. Then PicInch sets up the database, creates the directories to hold images and certificates (in`/srv/picinch/`). PicInch will be restarted automatically when the host system is rebooted.
 [&#8658; Commands]({{ site.baseurl }}{% link install-3-commands.md %})
 
 1. Connect to your server by domain name using a web browser and see that you can log in.

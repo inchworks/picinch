@@ -25,6 +25,20 @@ services:
         max-size: "2m"
         max-file: "5"
 
+  geoipupdate:
+    container_name: geoipupdate
+    image: maxmindinc/geoipupdate
+    restart: unless-stopped
+    environment:
+      GEOIPUPDATE_ACCOUNT_ID: "<MaxMind-account>"
+      GEOIPUPDATE_LICENSE_KEY: "<MaxMind-licence>"
+      GEOIPUPDATE_EDITION_IDS: GeoLite2-Country
+      GEOIPUPDATE_FREQUENCY: 72
+    networks:
+      - geoipupdate
+    volumes:
+      - geodb:/usr/share/GeoIP
+
   gallery:
     image: inchworks/picinch:0.12
     ports:
@@ -38,8 +52,10 @@ services:
       session-secret: Hk4TEiDgq8JaCNR?WaPeWBf4QQYNUjMR
       admin-name: "admin@example.com"
       admin-password: "<your-password>"
+      geo-block: "<blocked-countries>"
     volumes:
-      - certs:/certs 
+      - certs:/certs
+      - geodb:/geodb:ro
       - ./photos:/photos
       - ./site:/site:ro
       - ./misc:/misc:ro
@@ -53,6 +69,7 @@ services:
 
 volumes:
   certs:
+  geodb:
   mysql:
 ```
 
@@ -67,4 +84,12 @@ Edit the example to change the following items. (Take care to keep indentation u
 
 If you intend to change other PicInch configuration settings, you may prefer to omit the environment settings here, and set them in a site/configuration.yml file instead.
 
+Geo-blocking requires an account for [free geo-location data from MaxMind][1]. Change these items:
+- `GEOIPUPDATE_ACCOUNT_ID` Supplied by registration with MaxMind.
+- `GEOIPUPDATE_LICENSE_KEY` Issued by MaxMind after registration.
+- `geo-block` The countries to be blocked.
+If you do not want geo-blocking, remove all the lines for the service `geoipupdate`, and don't set `geo-block`.
+
 Run `docker-compose up` to fetch PicInch and MariaDB from Docker Hub and start them.
+
+[1]:  https://dev.maxmind.com/geoip/geolite2-free-geolocation-data

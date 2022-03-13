@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -31,6 +30,7 @@ import (
 	"time"
 
 	"github.com/inchworks/usage"
+	"github.com/inchworks/webparts/server"
 	"github.com/inchworks/webparts/users"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
@@ -129,7 +129,7 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 	// (probably probing to guess file names, but we should allow for a few missing files that are our fault).
 	lim := app.lhs.New("N", threatRate, 10, ban, "B", nil)
 
-	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
 		app.blocked(r, addr, status, "for bad file names" + r.RequestURI)
 	})
@@ -153,52 +153,7 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 // geoBlock returns a handler to block IPs for some locations.
 func (app *Application) geoBlock(next http.Handler) http.Handler {
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		var blocked bool
-		var loc string
-
-		if app.geoDB != nil {
-
-			// strip port from address
-			var ip net.IP
-			ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err == nil {
-				ip = net.ParseIP(ipStr)
-			}			
-			if ip != nil {
-
-				// get location for IP address
-				var geo struct {
-					Country struct {
-						ISOCode string `maxminddb:"iso_code"`
-					} `maxminddb:"registered_country"`
-				}
-
-				err := app.geoDB.Lookup(ip, &geo)
-				if err != nil {
-					app.log(err)
-				} else {
-					loc = geo.Country.ISOCode
-					blocked = app.geoBlocked[loc]
-				}
-			}
-		}
-
-		if blocked {
-			// count geo-blocked requests, per country
-			app.usage.Count(loc, "geo-block")
-
-
-			http.Error(w, "Access from " + loc + " not allowed", http.StatusForbidden)
-		} else {
-			// save location for threat reporting
-			ctx := context.WithValue(r.Context(), contextKeyCountry, loc)
-
-			next.ServeHTTP(w, r.WithContext(ctx))
-			return
-		}
-	})
+	return app.geoblocker.GeoBlock(next)
 }
 
 // limitFile returns a handler to limit file requests, per user.
@@ -252,7 +207,7 @@ func (app *Application) limitPage(next http.Handler) http.Handler {
 	// (This is too restrictive to be applied to file requests.)
 	lim := app.lhs.New("P", time.Second, 5, 20, "", next)
 
-	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
 		app.blocked(r, addr, status, "page requests, too many after" + r.RequestURI)
 	})
@@ -298,9 +253,9 @@ func (app *Application) noBanned(next http.Handler) http.Handler {
 	// no limit - but set to escalate blocking of repeated offenders.
 	lh := app.lhs.NewUnlimited("B", "B", next)
 
-	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lh.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "on" + r.RequestURI)
+		app.blocked(r, addr, status, "on " + r.RequestURI)
 	})
 
 	return lh
@@ -478,7 +433,7 @@ func (app *Application) routeNotFound() http.Handler {
 	// (typically probing for vulnerable PHP files).
 	lim := app.lhs.New("R", threatRate, 3, 1, "B", nil)
 
-	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
 		app.blocked(r, addr, status, "for bad requests, after " + r.RequestURI)
 	})
@@ -541,8 +496,12 @@ func wwwRedirect(h http.Handler) http.Handler {
 // blocked records the blocking or banning of an IP address
 func (app *Application) blocked(r *http.Request, addr string, status string, reason string) {
 	
-	loc := r.Context().Value(contextKeyCountry)
-	app.threatLog.Printf("%s %s - %s %s", loc, addr, status, reason)
+	loc :=server.Country(r)
+	if status != "" {
+		// report changes in status
+		app.threatLog.Printf("%s %s - %s %s", loc, addr, status, reason)
+	}
+	app.usage.Count(loc, "threats")
 }
 
 // A noDirFileSystem blocks browsing of directories.
@@ -582,7 +541,7 @@ func (nfs noDirFileSystem) Open(path string) (http.File, error) {
 // threat records a suspected intrusion attempt
 func (app *Application) threat(event string, r *http.Request) {
 	
-	loc := r.Context().Value(contextKeyCountry).(string)
+	loc := server.Country(r)
 	app.threatLog.Printf("%s %s - %s %s %s", loc, r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
 
 	// count suspects

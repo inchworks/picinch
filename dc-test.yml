@@ -41,6 +41,7 @@ services:
       admin-name: admin@picinch.com
       admin-password: admin-test-only
     volumes:
+      - ./geodb:/geodb
       - ./photos:/photos
       - ./site:/site:ro
       - ./misc:/misc:ro
