@@ -40,7 +40,7 @@ services:
       - geodb:/usr/share/GeoIP
 
   gallery:
-    image: inchworks/picinch:0.12
+    image: inchworks/picinch:0.13
     ports:
       - 443:4000:
       - 80:8000
@@ -66,6 +66,9 @@ services:
         max-file: "5"
     depends_on:
       - db
+
+networks:
+  geoipupdate:
 
 volumes:
   certs:
