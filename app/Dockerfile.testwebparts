@@ -1,4 +1,4 @@
-FROM golang:1.17 AS builder
+FROM golang:1.18 AS builder
 LABEL maintainer="<support@picinch.com>"
 WORKDIR /picinch
 COPY webparts /webparts
