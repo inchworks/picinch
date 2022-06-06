@@ -19,7 +19,7 @@
 {{define "highlightsContent"}}
 
 	<div class="photo-gallery">
-		<div class="container">
+		<div class="container lightbox2">
 			<div class="row photos ">
 			{{range .Slides}}
 				{{ if eq .Format 2 }}
@@ -42,5 +42,6 @@
 	{{template "bootstrapScript" .}}
 	{{template "lightboxScript" .}}
 	{{block "pagescripts" .}}
+		<script type="text/javascript" src='/static/js/lightbox-01.js'></script>
 	{{end}}
 {{end}}

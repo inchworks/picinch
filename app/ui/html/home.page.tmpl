@@ -30,7 +30,7 @@
 		<h3>Highlights</h3>
 	</div>
 
-	<div class="container photo-thumbnails rounded">
+	<div class="container lightbox2 photo-thumbnails rounded">
 		<div class="row photos ">
 		{{range .Highlights}}
 			{{ if eq .Format 2 }}
@@ -92,4 +92,5 @@
 
 {{ define "pagescripts" }}
    <script type="text/javascript" src='/static/js/card-01.js'></script>
+   <script type="text/javascript" src='/static/js/lightbox-01.js'></script>
 {{end}}

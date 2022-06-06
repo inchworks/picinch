@@ -39,7 +39,7 @@
 					<div class="card text-white bg-dark h-100">
 						<div class="card-body">
 							<a class="card-link text-light" href="/slideshow/{{ .Id }}/0">
-								<img class="card-img-top" src="{{thumbnail .Image }}">
+								<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
 								<h5 class="card-title">{{ .DisplayName }}</h5>
 							</a>
 						</div>
@@ -48,4 +48,8 @@
 			{{end}}
 		</div>
 	</div>
+{{end}}
+
+{{ define "pagescripts" }}
+   <script type="text/javascript" src='/static/js/card-01.js'></script>
 {{end}}

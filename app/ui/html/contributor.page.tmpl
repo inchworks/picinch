@@ -31,7 +31,7 @@
 		<h2>{{ .DisplayName }}</h2>
 	</div>
 
-	<div class="container photo-thumbnails rounded">
+	<div class="container lightbox2 photo-thumbnails rounded">
 
 		<div class="row photos ">
 		{{range .Highlights}}
@@ -56,7 +56,7 @@
 					<div class="card text-white bg-dark mb-4 h-100">
 						<div class="card-body">
 							<a class="card-link text-light" href="/slideshow/{{ .Id }}/0">
-								<img class="card-img-top" src="{{thumbnail .Image }}">
+								<img class=" ie-image" src="{{thumbnail .Image }}">
 								<h5 class="card-title">{{ .Title }}</h5>
 							</a>
 						</div>
@@ -65,4 +65,9 @@
 			{{end}}
 		</div>
 	</div>
+{{end}}
+
+{{ define "pagescripts" }}
+   <script type="text/javascript" src='/static/js/card-01.js'></script>
+   <script type="text/javascript" src='/static/js/lightbox-01.js'></script>
 {{end}}

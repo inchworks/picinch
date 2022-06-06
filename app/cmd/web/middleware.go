@@ -450,7 +450,7 @@ func (app *Application) routeNotFound() http.Handler {
 
 		ok, status := lim.Allow(r)
 		if ok {
-			app.threat("bad URL", r)
+			app.threat("bad path", r)
 			http.NotFound(w, r)
 		} else {
 			http.Error(w, "Intrusion attempt suspected", status)
@@ -496,7 +496,7 @@ func wwwRedirect(h http.Handler) http.Handler {
 // blocked records the blocking or banning of an IP address
 func (app *Application) blocked(r *http.Request, addr string, status string, reason string) {
 	
-	loc :=server.Country(r)
+	loc := server.Location(r)
 	if status != "" {
 		// report changes in status
 		app.threatLog.Printf("%s %s - %s %s", loc, addr, status, reason)
@@ -541,7 +541,8 @@ func (nfs noDirFileSystem) Open(path string) (http.File, error) {
 // threat records a suspected intrusion attempt
 func (app *Application) threat(event string, r *http.Request) {
 	
-	loc := server.Country(r)
+	loc := server.Location(r)
+
 	app.threatLog.Printf("%s %s - %s %s %s", loc, r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
 
 	// count suspects
