@@ -169,7 +169,7 @@ func (app *Application) limitFile(next http.Handler) http.Handler {
 
 	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "file requests, too many after" + r.RequestURI)
+		app.blocked(r, addr, status, "file requests, too many after " + r.RequestURI)
 	})
 
 	return lh
@@ -209,7 +209,7 @@ func (app *Application) limitPage(next http.Handler) http.Handler {
 
 	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "page requests, too many after" + r.RequestURI)
+		app.blocked(r, addr, status, "page requests, too many after " + r.RequestURI)
 	})
 
 	return lim
@@ -501,7 +501,11 @@ func (app *Application) blocked(r *http.Request, addr string, status string, rea
 		// report changes in status
 		app.threatLog.Printf("%s %s - %s %s", loc, addr, status, reason)
 	}
-	app.usage.Count(loc, "threats")
+
+	// count threat locations, if known
+	if loc != "" {
+		app.usage.Count(loc, "threats")
+	}
 }
 
 // A noDirFileSystem blocks browsing of directories.
@@ -543,7 +547,7 @@ func (app *Application) threat(event string, r *http.Request) {
 	
 	loc := server.Location(r)
 
-	app.threatLog.Printf("%s %s - %s %s %s", loc, r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
+	app.threatLog.Printf("%s %s - %s %s %s %s", loc, r.RemoteAddr, event, r.Proto, r.Method, r.URL.RequestURI())
 
 	// count suspects
 	rec := app.usage

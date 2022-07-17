@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "0.13.2"
+	version = "1.0.0"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -194,11 +194,11 @@ type Application struct {
 
 	// common components
 	geoblocker *server.GeoBlocker
-	lhs      *limithandler.Handlers
-	tm       *etx.TM
-	uploader *uploader.Uploader
-	usage    *usage.Recorder
-	users    users.Users
+	lhs        *limithandler.Handlers
+	tm         *etx.TM
+	uploader   *uploader.Uploader
+	usage      *usage.Recorder
+	users      users.Users
 
 	// HTML sanitizer for titles and captions
 	sanitizer *bluemonday.Policy
@@ -283,7 +283,7 @@ func main() {
 
 	// closing this channel signals worker goroutines to return
 	chDone := make(chan bool, 1)
-	defer close(chDone) 
+	defer close(chDone)
 
 	// start background worker
 	go app.galleryState.worker(app.chComp, app.chShow, app.chShows, app.chTopic, tr.C, tp.C, chDone)
@@ -503,7 +503,8 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		ErrorLog: errorLog,
 		Reporter: func(_ *http.Request, location string, _ net.IP) string {
 			app.usage.Count(location, "geo-block")
-			return ""},
+			return ""
+		},
 		Store: GeoDBPath,
 	}
 	app.geoblocker.Start(cfg.GeoBlock)
@@ -638,4 +639,3 @@ func stripPort(hostport string) string {
 	}
 	return net.JoinHostPort(host, "443")
 }
-
