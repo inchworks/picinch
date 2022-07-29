@@ -29,8 +29,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 
-	"inchworks.com/picinch/pkg/form"
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/form"
+	"inchworks.com/picinch/internal/models"
 )
 
 type RepUpload struct {
@@ -195,7 +195,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 
 		} else {
 			// auto validation
-			if status, _, _ = app.galleryState.validate(code); status ==0 {
+			if status, _, _ = app.galleryState.validate(code); status == 0 {
 
 				app.session.Put(r, "flash", "Competition entry accepted.")
 				http.Redirect(w, r, "/", http.StatusSeeOther)

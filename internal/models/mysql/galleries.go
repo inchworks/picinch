@@ -22,7 +22,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 const (

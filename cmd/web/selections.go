@@ -23,7 +23,7 @@ import (
 	"strconv"
 
 	"github.com/inchworks/webparts/multiforms"
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 // displayTagged returns data for slideshows with user-specific tags.
@@ -33,7 +33,8 @@ func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, f
 
 	// validate that user has permission for this tag
 	if role < models.UserAdmin && !s.app.tagger.HasPermission(rootId, byUserId) {
-		status = http.StatusUnauthorized; return
+		status = http.StatusUnauthorized
+		return
 	}
 
 	// ## should validate that tag is a child of the root
@@ -127,7 +128,7 @@ func (s *GalleryState) displayUserTags(userId int64, role int) *DataTags {
 		return &DataTags{
 			Tags: dts,
 		}
-	
+
 	} else {
 		// root tags for a normal user
 		tags := s.app.tagger.TagStore.ForUser(userId)
@@ -147,7 +148,8 @@ func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, for
 	// validate that user has permission for this tag
 	if role < models.UserAdmin {
 		if !s.app.tagger.HasPermission(rootId, byUserId) {
-			status = http.StatusUnauthorized; return
+			status = http.StatusUnauthorized
+			return
 		}
 		// edit as self, not as team member
 		forUserId = byUserId
@@ -156,7 +158,8 @@ func (s *GalleryState) forEditSlideshowTags(slideshowId int64, rootId int64, for
 	// slideshow title
 	show := s.app.SlideshowStore.GetIf(slideshowId)
 	if show == nil {
-		status = http.StatusNotFound; return
+		status = http.StatusNotFound
+		return
 	}
 	title = show.Title
 
@@ -210,7 +213,7 @@ func (s *GalleryState) onEditSlideshowTags(slideshowId int64, rootId int64, forU
 			return s.rollback(http.StatusBadRequest, nil)
 		}
 	}
-	
+
 	// tags to be edited, as specified by the selected tag, same as form request
 	tags := s.app.tagger.ChildSlideshowTags(slideshowId, rootId, forUserId, true)
 	if s.app.editTags(f, forUserId, slideshowId, tags) {

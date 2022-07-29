@@ -22,10 +22,10 @@ package mysql
 import (
 	"log"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/inchworks/webparts/users"
+	"github.com/jmoiron/sqlx"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 const (
@@ -65,7 +65,6 @@ const (
 		SELECT * FROM user
 		WHERE EXISTS ( SELECT * FROM tag WHERE tag.gallery = ? AND tag.user = user.id )
 	`
-
 
 	// Users ordered by most recent published slideshow.
 	// This is tricky. First get all slideshows, partition them by user and sort within users by date.

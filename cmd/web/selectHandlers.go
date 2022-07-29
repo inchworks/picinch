@@ -29,7 +29,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 
-	"inchworks.com/picinch/pkg/tags"
+	"inchworks.com/picinch/internal/tags"
 )
 
 // getFormTagSlideshow serves a form to change slideshow tags.

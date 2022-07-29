@@ -27,8 +27,8 @@ import (
 	"github.com/inchworks/webparts/users"
 	"github.com/justinas/nosurf"
 
-	"inchworks.com/picinch/pkg/form"
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/form"
+	"inchworks.com/picinch/internal/models"
 )
 
 // Template data for all pages - implements TemplateData interface so we can add data without knowing

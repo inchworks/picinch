@@ -27,7 +27,7 @@ import (
 	"os"
 	"strconv"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 // Copyright © Rob Burke inchworks.com, 2020.
@@ -469,7 +469,7 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 				if user == nil {
 					return nil
 				}
-			
+
 				// data for display
 				data = append(data, &DataPublished{
 					Id:          show.Id,

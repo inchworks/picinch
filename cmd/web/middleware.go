@@ -35,7 +35,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 // HTTP REQUEST HANDLERS.
@@ -55,7 +55,7 @@ const (
 // N - non-existent file accesses.
 // P - page requests.
 // Q - bad query URLs.
-// S - wrong shared access codes. 
+// S - wrong shared access codes.
 
 // authenticate returns a handler to check if this is an authenticated user or not.
 // It checks any ID against the database, to see if this is still a valid user since the last login.
@@ -105,7 +105,7 @@ func (app *Application) codeNotFound(next http.Handler) http.Handler {
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "for bad code requests, after " + r.RequestURI)
+		app.blocked(r, addr, status, "for bad code requests, after "+r.RequestURI)
 	})
 
 	return lim
@@ -120,9 +120,9 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 
 	var ban int
 	if banBad {
-		ban = 1  // banned after rejection
+		ban = 1 // banned after rejection
 	} else {
-		ban = math.MaxInt32  // never ban
+		ban = math.MaxInt32 // never ban
 	}
 
 	// limit bad file requests to bursts of 10
@@ -131,7 +131,7 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 
 	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "for bad file names" + r.RequestURI)
+		app.blocked(r, addr, status, "for bad file names"+r.RequestURI)
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -169,7 +169,7 @@ func (app *Application) limitFile(next http.Handler) http.Handler {
 
 	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "file requests, too many after " + r.RequestURI)
+		app.blocked(r, addr, status, "file requests, too many after "+r.RequestURI)
 	})
 
 	return lh
@@ -194,7 +194,7 @@ func (app *Application) limitLogin(next http.Handler) http.Handler {
 			username = r.PostForm.Get("username")
 		}
 
-		app.blocked(r, addr, status, "login, too many for user \"" + username + "\"")
+		app.blocked(r, addr, status, "login, too many for user \""+username+"\"")
 	})
 
 	return lh
@@ -209,7 +209,7 @@ func (app *Application) limitPage(next http.Handler) http.Handler {
 
 	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "page requests, too many after " + r.RequestURI)
+		app.blocked(r, addr, status, "page requests, too many after "+r.RequestURI)
 	})
 
 	return lim
@@ -255,7 +255,7 @@ func (app *Application) noBanned(next http.Handler) http.Handler {
 
 	lh.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "on " + r.RequestURI)
+		app.blocked(r, addr, status, "on "+r.RequestURI)
 	})
 
 	return lh
@@ -270,7 +270,7 @@ func (app *Application) noQuery(next http.Handler) http.Handler {
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "for bad queries, after " + r.RequestURI)
+		app.blocked(r, addr, status, "for bad queries, after "+r.RequestURI)
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -282,7 +282,7 @@ func (app *Application) noQuery(next http.Handler) http.Handler {
 		// reject queries with semicolon separators, just so that we don't log a server error
 		// (see golang.org/issue/25192 - it's a mess)
 		if !strings.Contains(r.URL.RawQuery, ";") {
-			
+
 			// allow some single query names, such as "fbclid" from Facebook
 			qs := r.URL.Query()
 			nOK := 0
@@ -301,8 +301,8 @@ func (app *Application) noQuery(next http.Handler) http.Handler {
 				return
 			}
 		}
-		
-		// limit the rate of bad queries 
+
+		// limit the rate of bad queries
 		ok, status := lim.Allow(r)
 		if ok {
 			app.threat("bad query", r)
@@ -381,7 +381,7 @@ func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http
 			}
 		}
 
-		// reject access, or ask for login 
+		// reject access, or ask for login
 		if !ok {
 			if app.isAuthenticated(r, models.UserUnknown) {
 				http.Error(w, "User is not authorised for role", http.StatusUnauthorized)
@@ -435,16 +435,16 @@ func (app *Application) routeNotFound() http.Handler {
 
 	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "for bad requests, after " + r.RequestURI)
+		app.blocked(r, addr, status, "for bad requests, after "+r.RequestURI)
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// ignore some common bad requests, so we don't ban unreasonably
 		d, f := path.Split(r.URL.Path)
-		if d =="/" && path.Ext(f) == ".png" { 
+		if d == "/" && path.Ext(f) == ".png" {
 			app.threat("no favicon", r)
-			http.NotFound(w, r)  // possibly a favicon for an ancient mobile device
+			http.NotFound(w, r) // possibly a favicon for an ancient mobile device
 			return
 		}
 
@@ -495,7 +495,7 @@ func wwwRedirect(h http.Handler) http.Handler {
 
 // blocked records the blocking or banning of an IP address
 func (app *Application) blocked(r *http.Request, addr string, status string, reason string) {
-	
+
 	loc := server.Location(r)
 	if status != "" {
 		// report changes in status
@@ -544,7 +544,7 @@ func (nfs noDirFileSystem) Open(path string) (http.File, error) {
 
 // threat records a suspected intrusion attempt
 func (app *Application) threat(event string, r *http.Request) {
-	
+
 	loc := server.Location(r)
 
 	app.threatLog.Printf("%s %s - %s %s %s %s", loc, r.RemoteAddr, event, r.Proto, r.Method, r.URL.RequestURI())
@@ -566,6 +566,6 @@ type statusWriter struct {
 }
 
 func (w *statusWriter) WriteHeader(status int) {
-    w.status = status
-    w.ResponseWriter.WriteHeader(status)
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
 }

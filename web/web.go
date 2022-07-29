@@ -1,10 +1,10 @@
 // Embed templates
 
-package ui
+package web
 
 import (
 	"embed"
 )
 
-//go:embed html static
+//go:embed template static
 var Files embed.FS

@@ -22,7 +22,7 @@ import (
 
 	"github.com/inchworks/webparts/multiforms"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 type SlideshowsForm struct {
@@ -104,7 +104,7 @@ func (f *SlideshowsForm) GetSlideshows(withTopics bool) (items []*SlideshowFormD
 
 		items = append(items, &SlideshowFormData{
 
-			Child:   multiforms.Child{Parent: f.Form, ChildIndex: ix},
+			Child:    multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			Visible:  visible,
 			IsShared: f.ChildBool("shared", ix),
 			NShow:    showId,

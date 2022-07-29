@@ -23,11 +23,11 @@ import (
 	"errors"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/inchworks/webparts/users"
 	"github.com/jmoiron/sqlx"
-	"github.com/go-sql-driver/mysql"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 var cmds = [...]string{
@@ -175,7 +175,7 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 	g, err := stGallery.Get(galleryId)
 	if err != nil {
 		if driverErr, ok := err.(*mysql.MySQLError); ok {
-			if driverErr.Number == 1146  {
+			if driverErr.Number == 1146 {
 
 				// no gallery table - make the database
 				err = setupTables(stGallery.DBX, *stGallery.ptx, cmds[:])
@@ -192,7 +192,7 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 	if err != nil {
 		return nil, stGallery.logError(err)
 	}
-	
+
 	if g == nil {
 		// create first gallery
 		g = &models.Gallery{Id: 1}
@@ -256,7 +256,7 @@ func setupTables(db *sqlx.DB, tx *sqlx.Tx, cmds []string) error {
 // MigrateRedo adds the redo table. Needed for version 0.11.0.
 func MigrateRedo(stRedo *RedoStore) error {
 
-	if _, err :=stRedo.Count(); err != nil {
+	if _, err := stRedo.Count(); err != nil {
 		return setupTables(stRedo.DBX, *stRedo.ptx, cmdsRedo[:])
 	}
 	return nil
@@ -265,7 +265,7 @@ func MigrateRedo(stRedo *RedoStore) error {
 // MigrateTags adds tag tables. Needed for version 0.9.8.
 func MigrateTags(stTag *TagStore) error {
 
-	if _, err :=stTag.Count(); err != nil {
+	if _, err := stTag.Count(); err != nil {
 		return setupTables(stTag.DBX, *stTag.ptx, cmdsTags[:])
 	}
 	return nil
@@ -390,20 +390,18 @@ func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *Sl
 // before first table access. Needed for version 0.9.4.
 func MigrateWebparts1(tx *sqlx.Tx) error {
 
-	var cmdUser1 =
-		`ALTER TABLE user
+	var cmdUser1 = `ALTER TABLE user
 		DROP FOREIGN KEY FK_USER_GALLERY,
 		CHANGE COLUMN gallery parent int(11),
 		ADD COLUMN role smallint(6) NOT NULL;`
 
-	var cmdUser2 =
-		`ALTER TABLE user
+	var cmdUser2 = `ALTER TABLE user
 		ADD CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id);`
 
 	// new user table definition, if needed
 	_, err := tx.Exec(cmdUser1)
 	if driverErr, ok := err.(*mysql.MySQLError); ok {
-		if driverErr.Number == 1054 || driverErr.Number == 1146 {	
+		if driverErr.Number == 1054 || driverErr.Number == 1146 {
 			return nil // ER_BAD_FIELD_ERROR is expected
 		}
 	}
@@ -413,7 +411,7 @@ func MigrateWebparts1(tx *sqlx.Tx) error {
 
 	// reinstate foreign key (cannot be done in same command - I hate SQL)
 	_, err = tx.Exec(cmdUser2)
- 
+
 	return err
 }
 

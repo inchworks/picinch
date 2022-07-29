@@ -26,8 +26,8 @@ import (
 	"github.com/inchworks/usage"
 	"github.com/julienschmidt/httprouter"
 
-	"inchworks.com/picinch/pkg/models"
-	"inchworks.com/picinch/pkg/picinch"
+	"inchworks.com/picinch/internal/models"
+	"inchworks.com/picinch/internal/picinch"
 )
 
 // classes serves the home page for a competition.

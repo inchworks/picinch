@@ -28,8 +28,8 @@ import (
 
 	"github.com/inchworks/webparts/users"
 
-	"inchworks.com/picinch/pkg/form"
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/form"
+	"inchworks.com/picinch/internal/models"
 )
 
 // allow access/update as requested user?
@@ -69,7 +69,6 @@ func (app *Application) allowEnterClass(r *http.Request, showId int64) *models.S
 	return show
 }
 
-
 // allow update to slideshow?
 
 func (app *Application) allowUpdateShow(r *http.Request, showId int64) bool {
@@ -99,18 +98,21 @@ func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bo
 	switch s.Visible {
 
 	case models.SlideshowPublic:
-		canView = true; return // everyone
+		canView = true
+		return // everyone
 
 	case models.SlideshowClub:
 		if app.isAuthenticated(r, models.UserFriend) {
-			canView = true; return // all club members and friends
-		} 
+			canView = true
+			return // all club members and friends
+		}
 
 	case models.SlideshowTopic:
 		// depends on topic visibility
 		t := app.SlideshowStore.GetIf(s.Topic)
 		if t == nil {
-			canView = false; return
+			canView = false
+			return
 		}
 
 		switch t.Visible {
@@ -120,15 +122,18 @@ func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bo
 
 		case models.SlideshowClub:
 			if app.isAuthenticated(r, models.UserFriend) {
-				canView = true; return // all club members and friends
+				canView = true
+				return // all club members and friends
 			}
 		}
 	}
 
 	if isTopic {
-		canView = app.isAuthenticated(r, models.UserCurator); return // curator or admin
+		canView = app.isAuthenticated(r, models.UserCurator)
+		return // curator or admin
 	} else {
-		canView = app.allowAccessUser(r, s.User.Int64); return // owner or curator
+		canView = app.allowAccessUser(r, s.User.Int64)
+		return // owner or curator
 	}
 }
 

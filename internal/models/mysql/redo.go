@@ -22,10 +22,10 @@ package mysql
 import (
 	"log"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/inchworks/webparts/etx"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -44,14 +44,13 @@ const (
 const (
 	redoCount = `SELECT COUNT(*) FROM redo`
 
-	redoSelect    = `SELECT * FROM redo`
+	redoSelect  = `SELECT * FROM redo`
 	redoOrderId = ` ORDER BY id`
 
-	redoWhereId       = redoSelect + ` WHERE id = ?`
+	redoWhereId = redoSelect + ` WHERE id = ?`
 
-	redoById = redoSelect + redoOrderId
+	redoById               = redoSelect + redoOrderId
 	redoWhereManagerBefore = redoSelect + ` WHERE manager = ? AND id < ?` + redoOrderId
-
 )
 
 type RedoStore struct {
@@ -138,7 +137,6 @@ func (st *RedoStore) Insert(r *etx.Redo) error {
 		return nil
 	}
 }
-
 
 // Update modifies an existing redo record.
 func (st *RedoStore) Update(r *etx.Redo) error {

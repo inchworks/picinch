@@ -32,15 +32,15 @@ import (
 	"strings"
 	"time"
 
-	"inchworks.com/picinch/pkg/models"
-	"inchworks.com/picinch/pkg/models/mysql"
+	"inchworks.com/picinch/internal/models"
+	"inchworks.com/picinch/internal/models/mysql"
 )
 
 type Tagger struct {
-	ErrorLog  *log.Logger
-	TagStore       *mysql.TagStore
-	TagRefStore    *mysql.TagRefStore
-	UserStore      *mysql.UserStore
+	ErrorLog    *log.Logger
+	TagStore    *mysql.TagStore
+	TagRefStore *mysql.TagRefStore
+	UserStore   *mysql.UserStore
 }
 
 type action struct {
@@ -238,7 +238,6 @@ func (tgr *Tagger) SetTagRef(item int64, parent int64, name string, user int64, 
 	return ok
 }
 
-
 // INTERNAL FUNCTIONS
 
 // addTagRef adds a tag to a item. Errors are logged and ignored. Returns false if the user lacks permission.
@@ -252,10 +251,10 @@ func (tgr *Tagger) addTagRef(item int64, tagId int64, user int64, detail string,
 
 	// link tag to item
 	r := &models.TagRef{
-		Item:      sql.NullInt64{Int64: item, Valid: true},
-		Tag:       tagId,
-		Added:     time.Now(),
-		Detail:    detail,
+		Item:   sql.NullInt64{Int64: item, Valid: true},
+		Tag:    tagId,
+		Added:  time.Now(),
+		Detail: detail,
 	}
 
 	if user != 0 {
@@ -407,8 +406,8 @@ func (tgr *Tagger) getTag(path []string) *models.Tag {
 		t = tgr.TagStore.GetNamed(p, name)
 		if t == nil {
 			return nil
-		}		
-		p = t.Id  // next in path
+		}
+		p = t.Id // next in path
 	}
 
 	return t

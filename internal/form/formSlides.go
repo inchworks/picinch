@@ -21,7 +21,7 @@ import (
 	"net/url"
 
 	"github.com/inchworks/webparts/multiforms"
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 type PublicCompForm struct {

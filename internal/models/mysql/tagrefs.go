@@ -24,7 +24,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 const (
@@ -49,12 +49,12 @@ const (
 
 	tagrefDeleteWhere = `DELETE FROM tagref WHERE item = ? AND tag = ?`
 
-	tagrefExistsUser = `SELECT EXISTS(SELECT * FROM tagref WHERE item = ? AND tag = ? AND user = ?)`
+	tagrefExistsUser     = `SELECT EXISTS(SELECT * FROM tagref WHERE item = ? AND tag = ? AND user = ?)`
 	tagrefExistsUserNull = `SELECT EXISTS(SELECT * FROM tagref WHERE item = ? AND tag = ? AND user IS NULL)`
 
 	tagrefPermission = `SELECT EXISTS(SELECT * FROM tagref WHERE user = ? AND tag = ? AND item IS NULL)`
 
-	tagrefAndUser = ` AND user = ?`
+	tagrefAndUser     = ` AND user = ?`
 	tagrefAndUserNull = ` AND user IS NULL`
 )
 
@@ -82,9 +82,9 @@ func (st *TagRefStore) CountItems(tag int64, user int64) int {
 
 	var err error
 	if user == 0 {
-		err = st.DBX.Get(&n, tagrefCountItems + tagrefAndUserNull, tag)
+		err = st.DBX.Get(&n, tagrefCountItems+tagrefAndUserNull, tag)
 	} else {
-		err = st.DBX.Get(&n, tagrefCountItems + tagrefAndUser, tag, user)
+		err = st.DBX.Get(&n, tagrefCountItems+tagrefAndUser, tag, user)
 	}
 	if err != nil {
 		st.logError(err)
@@ -98,11 +98,11 @@ func (st *TagRefStore) CountItems(tag int64, user int64) int {
 func (st *TagRefStore) DeleteIf(item int64, tag int64, user int64) error {
 
 	if user == 0 {
-		if _, err := st.DBX.Exec(tagrefDeleteWhere + tagrefAndUserNull, item, tag); err != nil {
+		if _, err := st.DBX.Exec(tagrefDeleteWhere+tagrefAndUserNull, item, tag); err != nil {
 			return st.logError(err)
 		}
 	} else {
-		if _, err := st.DBX.Exec(tagrefDeleteWhere + tagrefAndUser, item, tag, user); err != nil {
+		if _, err := st.DBX.Exec(tagrefDeleteWhere+tagrefAndUser, item, tag, user); err != nil {
 			return st.logError(err)
 		}
 	}

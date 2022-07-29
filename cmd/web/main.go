@@ -44,12 +44,12 @@ import (
 	"github.com/justinas/nosurf"
 	"github.com/microcosm-cc/bluemonday"
 
-	"inchworks.com/picinch/pkg/emailer"
-	"inchworks.com/picinch/pkg/models"
-	"inchworks.com/picinch/pkg/models/mysql"
+	"inchworks.com/picinch/internal/emailer"
+	"inchworks.com/picinch/internal/models"
+	"inchworks.com/picinch/internal/models/mysql"
 
-	"inchworks.com/picinch/pkg/tags"
-	"inchworks.com/picinch/ui"
+	"inchworks.com/picinch/internal/tags"
+	"inchworks.com/picinch/web"
 )
 
 // version and copyright
@@ -381,7 +381,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	pts = append(pts, pt)
 
 	// application templates
-	forApp, err := fs.Sub(ui.Files, "html")
+	forApp, err := fs.Sub(web.Files, "html")
 	if err != nil {
 		errorLog.Fatal(err)
 	}
@@ -419,7 +419,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// embedded static files from app
-	staticApp, err := fs.Sub(ui.Files, "static")
+	staticApp, err := fs.Sub(web.Files, "static")
 	if err != nil {
 		errorLog.Fatal(err)
 	}

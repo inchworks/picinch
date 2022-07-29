@@ -24,15 +24,15 @@ import (
 	"strconv"
 	"sync"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 // ## Doesn't need to be an object? No state between functions.
 
 type GalleryState struct {
-	app       *Application
-	muGallery sync.RWMutex
-	rollbackTx  bool
+	app        *Application
+	muGallery  sync.RWMutex
+	rollbackTx bool
 
 	// cached state
 	gallery    *models.Gallery
@@ -83,7 +83,7 @@ func respPath(route string, display string, nRound int, index int) string {
 }
 
 // rollback must be called on all error returns from any function that calls updatesGallery.
-// It returns an HTTP status that indicates whether the error is thought to be a fault on the client or server side. 
+// It returns an HTTP status that indicates whether the error is thought to be a fault on the client or server side.
 func (s *GalleryState) rollback(httpStatus int, err error) int {
 
 	s.rollbackTx = true

@@ -22,7 +22,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 const (
@@ -41,15 +41,15 @@ const (
 
 const (
 	// note that ID is included for stable ordering of selections for editing
-	topicSelect       = `SELECT * FROM topic`
-	topicOrderTitle   = ` ORDER BY title, id`
+	topicSelect     = `SELECT * FROM topic`
+	topicOrderTitle = ` ORDER BY title, id`
 
-	topicWhereId         = topicSelect + ` WHERE id = ?`
-	topicsWhereGallery0  = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
+	topicWhereId        = topicSelect + ` WHERE id = ?`
+	topicsWhereGallery0 = topicSelect + ` WHERE gallery = ?` + topicOrderTitle
 )
 
 type TopicStore struct {
-	GalleryId     int64
+	GalleryId int64
 	store
 }
 

@@ -23,7 +23,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 const (
@@ -119,7 +119,7 @@ const (
 	`
 
 	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ?` + slideshowOrderTitle
-	topicsWhereFormat = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ?` + slideshowOrderTitle
+	topicsWhereFormat   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ?` + slideshowOrderTitle
 	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderRevised
 
 	// most recent visible topics and slideshows, with a per-user limit
@@ -290,7 +290,6 @@ func (st *SlideshowStore) ForTagSystem(tagId int64, nLimit int) []*models.Slides
 	}
 	return slideshows
 }
-
 
 // ForTagTopic returns tagged slideshows, for a topic.
 // ## not needed?

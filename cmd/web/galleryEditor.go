@@ -28,15 +28,15 @@ import (
 	"strconv"
 	"time"
 
-	"inchworks.com/picinch/pkg/form"
-	"inchworks.com/picinch/pkg/models"
-	"inchworks.com/picinch/pkg/picinch"
+	"inchworks.com/picinch/internal/form"
+	"inchworks.com/picinch/internal/models"
+	"inchworks.com/picinch/internal/picinch"
 
 	"github.com/inchworks/webparts/etx"
 	"github.com/inchworks/webparts/multiforms"
 	"github.com/inchworks/webparts/uploader"
 	"github.com/inchworks/webparts/users"
-	"inchworks.com/picinch/pkg/tags"
+	"inchworks.com/picinch/internal/tags"
 )
 
 type userTags struct {
@@ -173,14 +173,16 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (status int, f
 	// title and slides
 	show = s.app.SlideshowStore.GetIf(showId)
 	if show == nil {
-		status = s.rollback(http.StatusNotFound, nil); return
+		status = s.rollback(http.StatusNotFound, nil)
+		return
 	}
 	slides := s.app.SlideStore.ForSlideshow(show.Id, 100)
 
 	// start multi-step transaction for uploaded files
 	ts, err := s.app.uploader.Begin()
 	if err != nil {
-		status = s.rollback(http.StatusInternalServerError, err); return
+		status = s.rollback(http.StatusInternalServerError, err)
+		return
 	}
 
 	// form
@@ -391,7 +393,7 @@ func (s *GalleryState) ForEditSlideshows(userId int64, tok string) (f *form.Slid
 	if user == nil {
 		return
 	}
-	
+
 	// get slideshows
 	slideshows := s.app.SlideshowStore.ForUser(userId, models.SlideshowPrivate)
 
@@ -530,9 +532,10 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (st
 	// start multi-step transaction for uploaded files
 	ts, err := s.app.uploader.Begin()
 	if err != nil {
-		status = s.rollback(http.StatusInternalServerError, err); return
+		status = s.rollback(http.StatusInternalServerError, err)
+		return
 	}
-	
+
 	// form
 	var d = make(url.Values)
 	f = form.NewSlides(d, len(slides), tok)
@@ -687,9 +690,11 @@ func (s *GalleryState) forEnterComp(classId int64, tok string) (status int, f *f
 	// get the class topic
 	show, err := s.app.SlideshowStore.Get(classId)
 	if err != nil {
-		status = s.rollback(http.StatusInternalServerError, err); return
+		status = s.rollback(http.StatusInternalServerError, err)
+		return
 	} else if show == nil {
-		status = s.rollback(http.StatusNotFound, nil); return
+		status = s.rollback(http.StatusNotFound, nil)
+		return
 	}
 
 	// start multi-step transaction for uploaded files

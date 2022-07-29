@@ -30,7 +30,7 @@ import (
 	"github.com/inchworks/webparts/etx"
 	"github.com/inchworks/webparts/uploader"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 // data for for request to validate competition entry
@@ -170,7 +170,7 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) int 
 	} else if show == nil {
 		return s.rollback(statusTeapot, errors.New("Unknown slideshow for validation"))
 	}
-	
+
 	user, err := app.userStore.Get(show.User.Int64)
 	if err != nil {
 		return s.rollback(statusTeapot, err)
@@ -201,7 +201,7 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) int 
 }
 
 // onPurge removes old unvalidate competition entries.
-// It returns the ID of a following transaction to remove media files. 
+// It returns the ID of a following transaction to remove media files.
 func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 
 	var nDelShows, nDelUsers int
@@ -244,7 +244,7 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 	// remove competitors with no other entries
 	for uId, n := range entries {
 		if n == 0 {
-		
+
 			user, err := s.app.userStore.Get(uId)
 			if err == nil && user == nil {
 				err = fmt.Errorf("Lost competitor %d during purge.", uId)
@@ -258,9 +258,9 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 				s.app.log(err)
 			}
 		}
-	}	
+	}
 
-	if nDelShows + nDelUsers > 0 {
+	if nDelShows+nDelUsers > 0 {
 		s.app.infoLog.Printf("Removed %d unverified competition entries, and %d entrants", nDelShows, nDelUsers)
 	}
 	return tx
@@ -304,7 +304,7 @@ func (s *GalleryState) onUpdateShow(showId int64, topicId int64, tx etx.TxId, re
 	// update highlighted images
 	if err := s.updateHighlights(showId); err != nil {
 		s.app.log(err)
-		return statusTeapot	
+		return statusTeapot
 	}
 
 	// remove unused versions

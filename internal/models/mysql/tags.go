@@ -24,7 +24,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"inchworks.com/picinch/pkg/models"
+	"inchworks.com/picinch/internal/models"
 )
 
 const (
@@ -41,16 +41,16 @@ const (
 )
 
 const (
-	tagSelect       = `SELECT * FROM tag`
+	tagSelect = `SELECT * FROM tag`
 
-	tagOrderName = ` ORDER BY name`
+	tagOrderName     = ` ORDER BY name`
 	tagOrderNameUser = ` ORDER BY name, usersname`
 
 	tagCount = `SELECT COUNT(*) FROM tag`
 
-	tagWhereId         = tagSelect + ` WHERE id = ?`
+	tagWhereId        = tagSelect + ` WHERE id = ?`
 	tagRootWhereName  = tagSelect + ` WHERE gallery = ? AND parent = 0 AND name = ?`
-	tagChildWhereName  = tagSelect + ` WHERE parent = ? AND name = ?`
+	tagChildWhereName = tagSelect + ` WHERE parent = ? AND name = ?`
 
 	tagsWherePermission = `
 		SELECT tag.*
@@ -64,26 +64,26 @@ const (
 		FROM tag
 		JOIN tagref on tagref.tag = tag.id
 		JOIN user on user.id = tagref.user
-		WHERE tag.id = ? AND tagref.item IS NULL`   + tagOrderNameUser
+		WHERE tag.id = ? AND tagref.item IS NULL` + tagOrderNameUser
 
 	tagsWhereRoot = `
 		SELECT tag.*, tagref.user AS userid, user.name AS usersname
 		FROM tagref
 		JOIN tag on tag.id = tagref.tag
 		JOIN user on user.id = tagref.user
-		WHERE tag.gallery = ? AND tagref.item IS NULL AND tag.parent = 0`  + tagOrderNameUser
+		WHERE tag.gallery = ? AND tagref.item IS NULL AND tag.parent = 0` + tagOrderNameUser
 
 	tagsWhereSystem = `
 		SELECT DISTINCT tag.*
 		FROM tag
 		JOIN tagref on tag.id = tagref.tag
-		WHERE tag.gallery = ? AND tagref.item IS NOT NULL AND tag.parent = 0`  + tagOrderName
+		WHERE tag.gallery = ? AND tagref.item IS NOT NULL AND tag.parent = 0` + tagOrderName
 
 	tagsWhereParent = tagSelect + ` WHERE parent = ?` + tagOrderName
 )
 
 type TagStore struct {
-	GalleryId    int64
+	GalleryId int64
 	store
 }
 
@@ -207,7 +207,7 @@ func (st *TagStore) GetNamed(parent int64, name string) *models.Tag {
 		}
 		return nil
 	}
-	
+
 	return &t
 }
 
