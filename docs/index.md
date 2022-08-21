@@ -1,9 +1,6 @@
 # PicInch Gallery
 This web server application provides a simple way for a group of members, such as a photography club, to display their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
 
-_This is in use at my photo club. I haven't seen any sign of more general use, so I am reducing the care I take
-over documentation and testing. If you are thinking of using it, I suggest you contact me at support@picinch.com._
-
 ## Features
 Contributors create simple slideshows. Each slide has a selection of title, photo and caption. Slides adjust in layout to match the content. There is a basic facility to edit and reorder slides.
 
@@ -77,6 +74,3 @@ The following are unlikely to change:
 - No option for public viewing of all highlights and public slideshows for a user, only the most recent ones shown on the home page.
 - There is no facility to comment on images or to rate them.
 - There is no bulk submission of images.
-
-## v0.10.0 change
-A change breaks compatibility with previous versions: `site.partial.tmpl` replaces `site.tmpl`.

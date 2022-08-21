@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.0.0"
+	version = "1.0.1"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -381,7 +381,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	pts = append(pts, pt)
 
 	// application templates
-	forApp, err := fs.Sub(web.Files, "html")
+	forApp, err := fs.Sub(web.Files, "template")
 	if err != nil {
 		errorLog.Fatal(err)
 	}
@@ -505,6 +505,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 			app.usage.Count(location, "geo-block")
 			return ""
 		},
+		ReportSingle: true,
 		Store: GeoDBPath,
 	}
 	app.geoblocker.Start(cfg.GeoBlock)

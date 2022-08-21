@@ -191,6 +191,7 @@ type compFormData struct {
 	Form      *form.PublicCompForm
 	Class     string
 	Caption   template.HTML
+	Accept    string
 	MaxUpload int // in MB
 	DataCommon
 }
@@ -203,6 +204,7 @@ type simpleFormData struct {
 type slidesFormData struct {
 	Form      *form.SlidesForm
 	Title     string
+	Accept    string
 	MaxUpload int // in MB
 	DataCommon
 }

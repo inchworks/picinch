@@ -9,7 +9,7 @@ require (
 	github.com/golangcollege/sessions v1.2.0
 	github.com/ilyakaznacheev/cleanenv v1.2.6
 	github.com/inchworks/usage v1.0.0
-	github.com/inchworks/webparts v0.15.0
+	github.com/inchworks/webparts v0.15.1
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/joho/godotenv v1.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -30,5 +30,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-// replace github.com/inchworks/usage v1.0.0 => ../../usage
-// replace github.com/inchworks/webparts v0.15.0 => ../../webparts
+// replace github.com/inchworks/usage v1.0.0 => ../usage
+// replace github.com/inchworks/webparts v0.15.0 => ../webparts

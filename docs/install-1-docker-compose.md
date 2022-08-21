@@ -40,7 +40,7 @@ services:
       - geodb:/usr/share/GeoIP
 
   gallery:
-    image: inchworks/picinch:0.13
+    image: inchworks/picinch:1.0
     ports:
       - 443:4000:
       - 80:8000

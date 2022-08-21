@@ -496,7 +496,7 @@ func wwwRedirect(h http.Handler) http.Handler {
 // blocked records the blocking or banning of an IP address
 func (app *Application) blocked(r *http.Request, addr string, status string, reason string) {
 
-	loc := server.Location(r)
+	loc := server.Country(r)
 	if status != "" {
 		// report changes in status
 		app.threatLog.Printf("%s %s - %s %s", loc, addr, status, reason)
@@ -545,7 +545,7 @@ func (nfs noDirFileSystem) Open(path string) (http.File, error) {
 // threat records a suspected intrusion attempt
 func (app *Application) threat(event string, r *http.Request) {
 
-	loc := server.Location(r)
+	loc := server.Country(r)
 
 	app.threatLog.Printf("%s %s - %s %s %s %s", loc, r.RemoteAddr, event, r.Proto, r.Method, r.URL.RequestURI())
 

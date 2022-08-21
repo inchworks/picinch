@@ -1,6 +1,6 @@
 # Installation and setup
 ## Before installation
-- Set up a host system with Docker and Docker-Compose installed. For example, using a DigitalOcean [Docker Droplet][1].
+- Set up a host system with Docker and Docker Compose installed. For example, using a DigitalOcean [Docker Droplet][1].
 - Acquire a domain name, or add a sub-domain to a domain you already own. Set the `A` record for the domain or subdomain to the IP address of your server. This should be done BEFORE starting the PicInch service.
 
 ## Installation steps

@@ -110,6 +110,7 @@ func (app *Application) getFormEnterComp(w http.ResponseWriter, r *http.Request)
 		Form:      f,
 		Class:     c,
 		Caption:   models.Nl2br(cap),
+		Accept:    app.accept(),
 		MaxUpload: app.cfg.MaxUpload,
 	})
 }
@@ -174,6 +175,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 			Form:      f,
 			Class:     show.Title,
 			Caption:   models.Nl2br(show.Caption),
+			Accept:    app.accept(),
 			MaxUpload: app.cfg.MaxUpload,
 		})
 		return
@@ -334,6 +336,7 @@ func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 		Form:      f,
 		Title:     slideshow.Title, // ## could be in form, to allow editing
+		Accept:    app.accept(),
 		MaxUpload: app.cfg.MaxUpload,
 	})
 }
@@ -395,6 +398,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 			Form:      f,
 			Title:     t,
+			Accept:    app.accept(),
 			MaxUpload: app.cfg.MaxUpload,
 		})
 		return
@@ -501,6 +505,7 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 		Form:      f,
 		Title:     title,
+		Accept:    app.accept(),
 		MaxUpload: app.cfg.MaxUpload,
 	})
 }
@@ -559,6 +564,17 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.Error(w, http.StatusText(status), status)
 	}
+}
+
+// accept returns the HTML specification of acceptable file types.
+func (app *Application) accept() string {
+
+	a := "image/*"
+	if len(app.cfg.VideoTypes) > 0 {
+		a = a + ",video/*"
+	}
+
+	return a
 }
 
 // validate handles a request to validate a competition entry.
