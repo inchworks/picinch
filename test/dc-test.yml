@@ -30,7 +30,7 @@ services:
       - 9080:8080
 
   server:
-    build: app/.
+    image: inchworks/picinch:latest-arm64
     ports:
       - 8000:8000
     restart: unless-stopped

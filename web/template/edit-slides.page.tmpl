@@ -56,7 +56,7 @@
    										<span class='input-group-text'>{{.ImageName}}</span>
 										<div class="custom-file">
 											<input type='hidden' class="imageName" name='imageName' value='{{.ImageName}}'>
-											<input type='file' class='custom-file-input {{.ChildValid "image"}} {{.ChildValid "imageName"}}' accept='{{.Accept}}'>
+											<input type='file' class='custom-file-input {{.ChildValid "image"}} {{.ChildValid "imageName"}}' accept='{{$.Accept}}'>
 											<label class='custom-file-label'><div class='invalid-feedback d-inline'>{{ .ChildError "imageName"}}</div>Choose photo...</label>
 										</div>
 									</div>
