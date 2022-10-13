@@ -105,7 +105,7 @@ func (app *Application) codeNotFound(next http.Handler) http.Handler {
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "for bad code requests, after "+r.RequestURI)
+		app.blocked(r, addr, status, "for bad code requests, after "+sanitise(r.RequestURI))
 	})
 
 	return lim
@@ -131,7 +131,7 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 
 	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "for bad file names"+r.RequestURI)
+		app.blocked(r, addr, status, "for bad file names after "+sanitise(r.RequestURI))
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -169,7 +169,7 @@ func (app *Application) limitFile(next http.Handler) http.Handler {
 
 	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "file requests, too many after "+r.RequestURI)
+		app.blocked(r, addr, status, "file requests, too many after "+sanitise(r.RequestURI))
 	})
 
 	return lh
@@ -189,12 +189,12 @@ func (app *Application) limitLogin(next http.Handler) http.Handler {
 	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
 
 		// try to get the username
-		username := "unknown"
+		username := "anon"
 		if r.ParseForm() == nil {
-			username = r.PostForm.Get("username")
+			username = sanitise(r.PostForm.Get("username"))
 		}
 
-		app.blocked(r, addr, status, "login, too many for user \""+username+"\"")
+		app.blocked(r, addr, status, "login, too many for user "+username)
 	})
 
 	return lh
@@ -209,7 +209,7 @@ func (app *Application) limitPage(next http.Handler) http.Handler {
 
 	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "page requests, too many after "+r.RequestURI)
+		app.blocked(r, addr, status, "page requests, too many after "+sanitise(r.RequestURI))
 	})
 
 	return lim
@@ -255,7 +255,7 @@ func (app *Application) noBanned(next http.Handler) http.Handler {
 
 	lh.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "on "+r.RequestURI)
+		app.blocked(r, addr, status, "on "+sanitise(r.RequestURI))
 	})
 
 	return lh
@@ -270,7 +270,7 @@ func (app *Application) noQuery(next http.Handler) http.Handler {
 
 	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "for bad queries, after "+r.RequestURI)
+		app.blocked(r, addr, status, "for bad queries, after "+sanitise(r.RequestURI))
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -435,7 +435,7 @@ func (app *Application) routeNotFound() http.Handler {
 
 	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
 
-		app.blocked(r, addr, status, "for bad requests, after "+r.RequestURI)
+		app.blocked(r, addr, status, "for bad requests, after "+sanitise(r.RequestURI))
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -542,12 +542,21 @@ func (nfs noDirFileSystem) Open(path string) (http.File, error) {
 	return f, nil
 }
 
+// sanitise prevents user input from creating fake log entries
+func sanitise(s string) string {
+
+	// remove line breaks, and quote the string
+	safe := strings.Replace(s, "\n", "", -1)
+	safe = `"` + strings.Replace(safe, "\r", "", -1) + `"`
+	return safe
+}
+
 // threat records a suspected intrusion attempt
 func (app *Application) threat(event string, r *http.Request) {
 
+	// log location and threat
 	loc := server.Country(r)
-
-	app.threatLog.Printf("%s %s - %s %s %s %s", loc, r.RemoteAddr, event, r.Proto, r.Method, r.URL.RequestURI())
+	app.threatLog.Printf("%s %s - %s %s %s %s", loc, r.RemoteAddr, event, r.Proto, r.Method, sanitise(r.URL.RequestURI()))
 
 	// count suspects
 	rec := app.usage

@@ -8,7 +8,7 @@ services:
 
   db:
     image: mariadb:10.4
-    container_name: gallery_db
+    container_name: picinch_db
     expose:
       - 3306
     restart: always
