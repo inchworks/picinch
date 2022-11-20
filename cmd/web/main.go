@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.0.3"
+	version = "1.0.6"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -489,6 +489,9 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	if app.usage, err = usage.New(app.statisticStore, cfg.UsageAnonymised, 0, 0, 0, 0, 0); err != nil {
 		errorLog.Fatal(err)
 	}
+	app.usage.SetSaverCallback(func(u *usage.Recorder) {
+		u.Add("blocked", "threats", app.lhs.RejectsCounted())
+	})
 
 	// user management
 	app.users = users.Users{
@@ -576,7 +579,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	return g
 }
 
-// NewServerLogger returns a logger that filter common events cause by background noise from internet idiots.
+// newServerLog returns a logger that filters common events cause by background noise from internet idiots.
 // (Typically probes using unsupported TLS versions or attempting HTTPS connection without a domain name.
 // Also continuing access attempts with the domain of a previous holder of the server's IP address.)
 func (app *Application) newServerLog(out io.Writer, prefix string, flag int) *log.Logger {

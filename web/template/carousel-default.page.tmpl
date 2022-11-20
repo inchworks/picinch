@@ -37,26 +37,26 @@
 					<h3 class="mx-5 my-auto">{{ .Caption }}</h3>
 				{{ else if eq .Format 5 }}
 					<div class="my-auto">
-						<h3 class="display-3 mx-5">{{ .Title }}</h2>
+						<h2 class="display-3 mx-5">{{ .Title }}</h2>
 						<h3 class="mx-5">{{ .Caption }}</h3>
 					</div>
 				{{ else if eq .Format 6 }}
 					{{template "image" .Image}}
 					<div class="h4 mb-4 mx-auto px-5">{{ .Caption }}</div>
 				{{ else if eq .Format 7 }}
-					<h2 class="mt-2 ml-5 font-weight-bold">{{ .Title }}</h3>
+					<h3 class="mt-2 ml-5 font-weight-bold">{{ .Title }}</h3>
 					{{template "image" .Image}}
 					<div class="h4 mb-4 mx-auto px-5">{{ .Caption }}</div>
 				{{ else if eq .Format 8 }}
 					{{template "video" .Image}}
 				{{ else if eq .Format 9 }}
-					<h2 class="mt-2 ml-5 font-weight-bold">{{ .Title }}</h3>
+					<h3 class="mt-2 ml-5 font-weight-bold">{{ .Title }}</h3>
 					{{template "video" .Image}}
 				{{ else if eq .Format 12 }}
 					{{template "video" .Image}}
 					<div class="h4 mb-4 mx-auto px-5">{{ .Caption }}</div>
 				{{ else if eq .Format 13 }}
-					<h2 class="mt-2 ml-5 font-weight-bold">{{ .Title }}</h3>
+					<h3 class="mt-2 ml-5 font-weight-bold">{{ .Title }}</h3>
 					{{template "video" .Image}}
 					<div class="h4 mb-4 mx-auto px-5">{{ .Caption }}</div>
 				{{ end }}

@@ -129,7 +129,7 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 	// (probably probing to guess file names, but we should allow for a few missing files that are our fault).
 	lim := app.lhs.New("N", threatRate, 10, ban, "B", nil)
 
-	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
 		app.blocked(r, addr, status, "for bad file names after "+sanitise(r.RequestURI))
 	})
@@ -207,7 +207,7 @@ func (app *Application) limitPage(next http.Handler) http.Handler {
 	// (This is too restrictive to be applied to file requests.)
 	lim := app.lhs.New("P", time.Second, 5, 20, "", next)
 
-	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
 		app.blocked(r, addr, status, "page requests, too many after "+sanitise(r.RequestURI))
 	})
@@ -253,7 +253,7 @@ func (app *Application) noBanned(next http.Handler) http.Handler {
 	// no limit - but set to escalate blocking of repeated offenders.
 	lh := app.lhs.NewUnlimited("B", "B", next)
 
-	lh.SetReportAllHandler(func(r *http.Request, addr string, status string) {
+	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
 
 		app.blocked(r, addr, status, "on "+sanitise(r.RequestURI))
 	})
@@ -433,7 +433,7 @@ func (app *Application) routeNotFound() http.Handler {
 	// (typically probing for vulnerable PHP files).
 	lim := app.lhs.New("R", threatRate, 3, 1, "B", nil)
 
-	lim.SetReportAllHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
 
 		app.blocked(r, addr, status, "for bad requests, after "+sanitise(r.RequestURI))
 	})
@@ -501,11 +501,6 @@ func (app *Application) blocked(r *http.Request, addr string, status string, rea
 		// report changes in status
 		app.threatLog.Printf("%s %s - %s %s", loc, addr, status, reason)
 	}
-
-	// count threat locations, if known
-	if loc != "" {
-		app.usage.Count(loc, "threats")
-	}
 }
 
 // A noDirFileSystem blocks browsing of directories.
@@ -560,10 +555,10 @@ func (app *Application) threat(event string, r *http.Request) {
 
 	// count suspects
 	rec := app.usage
-	rec.Seen(usage.FormatIP(r.RemoteAddr), "suspect")
+	first := rec.SeenFirst(usage.FormatIP(r.RemoteAddr), "suspect")
 
-	// count threat locations, if known
-	if loc != "" {
+	// count threat locations, if known, by distinct suspects
+	if first && loc != "" {
 		rec.Count(loc, "threats")
 	}
 }
