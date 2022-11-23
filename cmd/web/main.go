@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.0.6"
+	version = "1.0.7"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -490,7 +490,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		errorLog.Fatal(err)
 	}
 	app.usage.SetSaverCallback(func(u *usage.Recorder) {
-		u.Add("blocked", "threats", app.lhs.RejectsCounted())
+		u.Add("banned", "bad-req", app.lhs.RejectsCounted())
 	})
 
 	// user management
@@ -504,10 +504,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	// geo-blocking
 	app.geoblocker = &server.GeoBlocker{
 		ErrorLog: errorLog,
-		Reporter: func(_ *http.Request, location string, _ net.IP) string {
-			app.usage.Count(location, "geo-block")
-			return ""
-		},
 		ReportSingle: true,
 		Store: GeoDBPath,
 	}
@@ -586,7 +582,7 @@ func (app *Application) newServerLog(out io.Writer, prefix string, flag int) *lo
 
 	filter := []string{"TLS handshake error"}
 
-	return app.usage.NewLogger(out, prefix, flag, filter, "bad-https")
+	return app.usage.NewLogger(out, prefix, flag, filter, "bad-req")
 }
 
 // Open database

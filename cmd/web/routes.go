@@ -30,7 +30,7 @@ import (
 
 func (app *Application) Routes() http.Handler {
 
-	commonHs := alice.New(secureHeaders, app.geoBlock, app.noBanned, app.noQuery, wwwRedirect)
+	commonHs := alice.New(secureHeaders, app.noBanned, app.geoBlock, app.noQuery, wwwRedirect)
 	dynHs := alice.New(app.limitPage, app.session.Enable, noSurf, app.authenticate, app.logRequest) // dynamic page handlers
 	staticHs := alice.New(app.limitFile)
 

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -153,6 +154,27 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 // geoBlock returns a handler to block IPs for some locations.
 func (app *Application) geoBlock(next http.Handler) http.Handler {
 
+	// Use the limiter ban mechanism,
+	// because that allows us to dismiss repeated requests efficiently with a single lookup.
+	lh := app.lhs.New("G", threatRate, 3, 1, "B", nil)
+
+	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
+
+		app.blocked(r, addr, status, "from blocked country, after "+sanitise(r.RequestURI))
+	})
+
+	app.geoblocker.Reporter = func(r *http.Request, location string, _ net.IP) string {
+
+		if ip := usage.FormatIPSeen("B", r.RemoteAddr); ip != "" {
+			app.usage.Seen(ip, "blocked-" + location)
+		}
+
+		// allow a few unsuccessful attempts and then switch to a general ban on the IP
+		lh.Allow(r)
+
+		return ""
+	}
+
 	return app.geoblocker.GeoBlock(next)
 }
 
@@ -238,8 +260,8 @@ func (app *Application) logRequest(next http.Handler) http.Handler {
 		if userId != 0 {
 			app.usage.Seen(app.usage.FormatID("U", userId), "user")
 		} else {
-			if ip := usage.FormatIP(r.RemoteAddr); ip != "" {
-				app.usage.Seen(ip, "visitor")
+			if ip := usage.FormatIPSeen("V", r.RemoteAddr); ip != "" {
+				app.usage.Seen(ip, "visitor-" + server.Country(r))
 			}
 		}
 
@@ -554,12 +576,8 @@ func (app *Application) threat(event string, r *http.Request) {
 	app.threatLog.Printf("%s %s - %s %s %s %s", loc, r.RemoteAddr, event, r.Proto, r.Method, sanitise(r.URL.RequestURI()))
 
 	// count suspects
-	rec := app.usage
-	first := rec.SeenFirst(usage.FormatIP(r.RemoteAddr), "suspect")
-
-	// count threat locations, if known, by distinct suspects
-	if first && loc != "" {
-		rec.Count(loc, "threats")
+	if ip := usage.FormatIPSeen("S", r.RemoteAddr); ip != "" {
+		app.usage.Seen(ip, "suspect-" + server.Country(r))
 	}
 }
 
