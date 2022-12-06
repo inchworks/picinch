@@ -32,7 +32,7 @@
 		<form action='/select-slideshow' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
-				<div class="form-group col-md-2">
+				<div class="col-md-2 mb-2">
 					<label>Slideshow ID</label>
 					<input type='number' class='form-control {{.Errors.Valid "nShow"}}' name='nShow' value='{{.Get "nShow"}}'>
 					{{with .Errors.Get "nShow"}}
@@ -46,7 +46,7 @@
 {{end}}
 
 {{ define "pagescripts" }}
-   <script type="text/javascript" src='/static/js/multiforms-02.js'></script>
+   <script type="text/javascript" src='/static/js/multiforms-03.js'></script>
    <script>
 		// page-specific item data
 		function childAdded($prototype, $newForm) {}

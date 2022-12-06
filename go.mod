@@ -8,8 +8,8 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golangcollege/sessions v1.2.0
 	github.com/ilyakaznacheev/cleanenv v1.2.6
-	github.com/inchworks/usage v1.2.0
-	github.com/inchworks/webparts v0.15.3
+	github.com/inchworks/usage v1.2.1
+	github.com/inchworks/webparts v1.1.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/joho/godotenv v1.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -30,5 +30,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-// replace github.com/inchworks/usage v1.1.0 => ../usage
-// replace github.com/inchworks/webparts v0.15.3 => ../webparts
+// replace github.com/inchworks/usage v1.2.1 => ../usage
+// replace github.com/inchworks/webparts v1.1.0 => ../webparts

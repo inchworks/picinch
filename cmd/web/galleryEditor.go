@@ -276,7 +276,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 		} else if iDest == nDest {
 			// no more destination slides - add new one
-			imageName := uploader.CleanName(qsSrc[iSrc].ImageName)
+			mediaName := uploader.CleanName(qsSrc[iSrc].MediaName)
 			qd := models.Slide{
 				Slideshow: showId,
 				Format:    s.app.slideFormat(qsSrc[iSrc]),
@@ -285,10 +285,10 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				Revised:   now,
 				Title:     s.sanitize(qsSrc[iSrc].Title, ""),
 				Caption:   s.sanitize(qsSrc[iSrc].Caption, ""),
-				Image:     uploader.FileFromName(tx, imageName),
+				Image:     uploader.FileFromName(tx, mediaName),
 			}
 			// only a new media file is counted as a revision to the slideshow
-			if imageName != "" {
+			if mediaName != "" {
 				revised = true
 			}
 
@@ -307,13 +307,13 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			} else if ix == iDest {
 				// check if details changed
 				// (checking media name at this point, version change will be handled later)
-				imageName := uploader.CleanName(qsSrc[iSrc].ImageName)
+				mediaName := uploader.CleanName(qsSrc[iSrc].MediaName)
 				qDest := qsDest[iDest]
 				_, dstName, _ := uploader.NameFromFile(qDest.Image)
 				if qsSrc[iSrc].ShowOrder != qDest.ShowOrder ||
 					qsSrc[iSrc].Title != qDest.Title ||
 					qsSrc[iSrc].Caption != qDest.Caption ||
-					imageName != dstName {
+					mediaName != dstName {
 
 					qDest.Format = s.app.slideFormat(qsSrc[iSrc])
 					qDest.ShowOrder = qsSrc[iSrc].ShowOrder
@@ -323,8 +323,8 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 					// If the media name hasn't changed, leave the old version in use for now,
 					// so that the slideshow still works. We'll detect a version change later.
-					if imageName != dstName {
-						qDest.Image = uploader.FileFromName(tx, imageName)
+					if mediaName != dstName {
+						qDest.Image = uploader.FileFromName(tx, mediaName)
 					}
 
 					s.app.SlideStore.Update(qDest)
@@ -1018,8 +1018,8 @@ func (app *Application) slideFormat(slide *form.SlideFormData) int {
 	if len(slide.Title) > 0 {
 		f = models.SlideTitle
 	}
-	if len(slide.ImageName) > 0 {
-		f = f + slideMedia(app.uploader.MediaType(slide.ImageName))
+	if len(slide.MediaName) > 0 {
+		f = f + slideMedia(app.uploader.MediaType(slide.MediaName))
 	}
 	if len(slide.Caption) > 0 {
 		f = f + models.SlideCaption

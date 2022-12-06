@@ -32,21 +32,21 @@
 		<form action='/setup' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
-				<div class="form-group col-md-6">
+				<div class="col-md-6 mb-3">
 					<label>Organiser</label>
 					<input type='text' class='form-control {{.Errors.Valid "organiser"}}' name='organiser' value='{{.Get "organiser"}}'>
 					{{with .Errors.Get "organiser"}}
 						<div class='invalid-feedback'>{{.}}</div>
 					{{end}}
 				</div>
-				<div class="form-group col-md-2">
+				<div class="col-md-2 mb-3">
 					<label>Max. slides</label>
 					<input type='number' class='form-control {{.Errors.Valid "nMaxSlides"}}' name='nMaxSlides' value='{{.Get "nMaxSlides"}}'>
 					{{with .Errors.Get "nMaxSlides"}}
 						<div class='invalid-feedback'>{{.}}</div>
 					{{end}}
 				</div>
-				<div class="form-group col-md-2">
+				<div class="col-md-2 mb-3">
 					<label>Showcased for club, per user</label>
 					<input type='number' class='form-control {{.Errors.Valid "nShowcased"}}' name='nShowcased' value='{{.Get "nShowcased"}}'>
 					{{with .Errors.Get "nShowcased"}}
@@ -60,7 +60,7 @@
 {{end}}
 
 {{ define "pagescripts" }}
-   <script type="text/javascript" src='/static/js/multiforms-02.js'></script>
+   <script type="text/javascript" src='/static/js/multiforms-03.js'></script>
    <script>
 		// page-specific item data
 		function childAdded($prototype, $newForm) {}

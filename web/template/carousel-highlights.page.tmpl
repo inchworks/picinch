@@ -23,17 +23,17 @@
 				{{ if eq .Format 2 }}
 					{{template "image" .Image}}
 				{{ else if eq .Format 3 }}
-					<h2 class="mt-2 ml-5 font-weight-bold">{{ .Title }}</h3>
+					<h2 class="mt-2 ms-5 fw-bold">{{ .Title }}</h3>
 					{{template "image" .Image}}
 				{{ else if eq .Format 6 }}
 					{{template "image" .Image}}
 				{{ else if eq .Format 7 }}
-					<h2 class="mt-2 ml-5 font-weight-bold">{{ .Title }}</h3>
+					<h2 class="mt-2 ms-5 fw-bold">{{ .Title }}</h3>
 					{{template "image" .Image}}
 				{{ else if eq .Format 8 }}
 					{{template "video" .Image}}
 				{{ else if eq .Format 9 }}
-					<h2 class="mt-2 ml-5 font-weight-bold">{{ .Title }}</h3>
+					<h2 class="mt-2 ms-5 fw-bold">{{ .Title }}</h3>
 					{{template "video" .Image}}
 				{{ else if eq .Format 12 }}
 					{{template "video" .Image}}

@@ -6,7 +6,7 @@ body {
 
 /* navigation */
 nav.navbar { background-color: #ccc; }
-div.dropdown-menu { background-color: #ccc; }
+ul.dropdown-menu { background-color: #ccc; }
 
 header { background-color: #DDD; text-align:left; }
 img.banner { height: 40px;}
@@ -27,8 +27,10 @@ footer { background-color: #ccc; }
   height: 207px;
   object-fit: scale-down;
 }
+.card-link { text-decoration: none; }
+a.text-light:hover { color: #cbd3da!important; }
+.bg-dark { background-color: #343a40!important; }
 
-/* modify upload status */
 .upload-status {
   margin-bottom: 1px;
   height: 20px;
