@@ -184,7 +184,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	// save changes
 	email := f.Get("email")
 	status, code := app.galleryState.onEnterComp(id, tx, f.Get("name"), email, f.Get("location"),
-		slides[0].Title, slides[0].Caption, slides[0].ImageName, nAgreed)
+		slides[0].Title, slides[0].Caption, slides[0].MediaName, nAgreed)
 
 	if status == 0 {
 		// bind updated media, now that update is committed
@@ -260,8 +260,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 // postFormImage handles an uploaded media file
 func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 
-	ps := httprouter.ParamsFromContext(r.Context())
-	timestamp := ps.ByName("timestamp")
+	timestamp := r.FormValue("timestamp")
 
 	// multipart form
 	// (The limit, 10 MB, is just for memory use, not the size of the upload)
@@ -272,10 +271,10 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get file returned with form
-	f := r.MultipartForm.File["image"]
+	f := r.MultipartForm.File["media"]
 	if f == nil || len(f) == 0 {
 		// ## don't know how we can get a form without a file, but we do
-		app.httpBadRequest(w, errors.New("Upload received without image."))
+		app.httpBadRequest(w, errors.New("Upload received without file."))
 		return
 	}
 

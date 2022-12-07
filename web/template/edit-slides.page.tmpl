@@ -42,44 +42,41 @@
  				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
-							<div style='display:none'>
-								<input type='number' name='index' value='{{ .ChildIndex }}'>								
-							</div>
-							<div class="form-group row">
+							<input type='hidden' name='index' value='{{ .ChildIndex }}'>								
+							<div class="row mb-2">
 								<label class="col-md-1 col-form-label">SLIDE</label>
 								<div class="col-md-1">
 									<input type='number' class='form-control showOrder {{.ChildValid "showOrder"}}' name='showOrder' style='width:60px; margin-right:540px' value='{{ .ShowOrder }}'>
 									<div class='invalid-feedback'>{{ .ChildError "showOrder"}}</div>
 								</div>
-								<div class="input-group col-md-8">
-									<div class="input-group-prepend">
-   										<span class='input-group-text'>{{.ImageName}}</span>
-										<div class="custom-file">
-											<input type='hidden' class="imageName" name='imageName' value='{{.ImageName}}'>
-											<input type='file' class='custom-file-input {{.ChildValid "image"}} {{.ChildValid "imageName"}}' accept='{{$.Accept}}'>
-											<label class='custom-file-label'><div class='invalid-feedback d-inline'>{{ .ChildError "imageName"}}</div>Choose photo...</label>
-										</div>
+								<div class="col-md-8 media">
+									<input type='hidden' class="mediaName" name='mediaName' value='{{.MediaName}}'>
+									<div class="input-group">
+										<span class='input-group-text upload-name'>{{.MediaName}}</span>
+										<label class='form-control upload-text {{.ChildValid "mediaName"}}' for='U{{ .ChildIndex }}' role='button'>Choose a photo or video...</label>
+										<input class='upload-input d-none' type='file' id='U{{ .ChildIndex }}' accept='{{$.Accept}}'>
+										<label class='input-group-text upload-label' for='U{{ .ChildIndex }}' role='button'>Browse</label>
+										<div class='invalid-feedback bad-file'>{{ .ChildError "mediaName"}}</div>
 									</div>
-									<div class='invalid-feedback bad-file'></div>
 								</div>
 								<div class="col-md-2">
 									<a href="#" class="btn btn-secondary btnDeleteChild">Delete</a>
 								</div>
 							</div>
-							<div class="form-group row upload" style='display:none'>
+							<div class="row mb-2 upload" style='display:none'>
 								<div class="offset-md-2 col-md-5 progress">
 									<div class="progress-bar" style="width:50%; height:100%"></div>
 								</div>
-								<div class='col-md-3 alert upload-status'>{{ .ChildError "image"}}</div>
+								<div class='col-md-3 alert upload-status'></div>
 							</div>
-							<div class="form-group row">
+							<div class="row mb-2">
 								<label class="offset-md-1 col-md-1 col-form-label">Title</label>
 								<div class="col-md-8">
 									<input type='text' class='form-control {{.ChildValid "title"}}' name='title' value='{{ .Title }}'>
 									<div class='invalid-feedback'>{{ .ChildError "title"}}</div>
 								</div>
 							</div>
-							<div class="form-group row">
+							<div class="row mb-3">
 								<label class="offset-md-1 col-md-1 col-form-label">Caption</label>
 								<div class="col-md-8">
 									<textarea name='caption' class='form-control {{.ChildValid "caption"}}'>{{ .Caption }}</textarea>
@@ -90,12 +87,12 @@
 					{{end}}
 				</div>
 
-				<div class="form-group row">
+				<div class="row mb-2">
 					<div class="offset-md-10 col-md-2">
 						<a href="#" class="btn btn-secondary btnAddChild">New Slide</a>
 					</div>
 				</div>
-				<div class="form-group row">
+				<div class="row mb-2">
 					<div class="offset-md-2	col-md-2">
 						<button type='submit' class="btn btn-primary" id='submit'>Update</button>
 					</div>
@@ -110,8 +107,8 @@
 {{end}}
 
 {{ define "pagescripts" }}
-	<script type="text/javascript" src='/static/js/multiforms-02.js'></script>
-	<script type="text/javascript" src='/static/js/upload-02.js'></script>
+	<script type="text/javascript" src='/static/js/multiforms-03.js'></script>
+	<script type="text/javascript" src='/static/js/upload-03.js'></script>
 	<script>
 		// page-specific processing
 
@@ -119,7 +116,7 @@
 
 			// Set name of the photo, and upload on select
 
-			$(".custom-file-input").on("change", function() {
+			$(".upload-input").on("change", function() {
 				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
 			});
 
@@ -133,13 +130,18 @@
 		function childAdded($prototype, $newForm) {
 
 			// add change handler (not copied with prototype, it seems)
-			$newForm.find(".custom-file-input").on("change", function() {
+			$newForm.find(".upload-input").on("change", function() {
 				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
 			});
 
 			// increment showOrder in prototype
 			$f = $prototype.find(".showOrder");
 			$f.val(Number($f.val())+1);
+
+			// link label to upload input
+			var id = "U" + $newForm.attr("id");
+			$newForm.find(".upload-input").attr("id", id);
+			$newForm.find(".upload-label").attr("for", id);
 		}
 
     </script>

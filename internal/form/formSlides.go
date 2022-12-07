@@ -39,8 +39,7 @@ type SlideFormData struct {
 	ShowOrder int
 	Title     string
 	Caption   string
-	ImageName string
-	ImageType string
+	MediaName string
 }
 
 type ValidTypeFunc func(string) bool
@@ -70,13 +69,13 @@ func NewSlides(data url.Values, nSlides int, token string) *SlidesForm {
 
 // Add slide to form
 
-func (f *SlidesForm) Add(index int, showOrder int, title string, imageName string, caption string) {
+func (f *SlidesForm) Add(index int, showOrder int, title string, mediaName string, caption string) {
 
 	f.Children = append(f.Children, &SlideFormData{
 		Child:     multiforms.Child{Parent: f.Form, ChildIndex: index},
 		ShowOrder: showOrder,
 		Title:     title,
-		ImageName: imageName,
+		MediaName: mediaName,
 		Caption:   caption,
 	})
 }
@@ -108,13 +107,13 @@ func (f *PublicCompForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, er
 		items = append(items, &SlideFormData{
 			Child:     multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			Title:     f.ChildText("title", i, ix, 2, models.MaxTitle),
-			ImageName: f.ChildFile("imageName", i, ix, vt),
+			MediaName: f.ChildFile("mediaName", i, ix, vt),
 			Caption:   f.ChildText("caption", i, ix, 0, models.MaxDetail),
 		})
 
 		// require an image for every name
-		if len(items[i].ImageName) == 0 {
-			f.ChildErrors.Add("imageName", ix, "No photo!")
+		if len(items[i].MediaName) == 0 {
+			f.ChildErrors.Add("mediaName", ix, "No photo!")
 		}
 	}
 
@@ -140,7 +139,7 @@ func (f *SlidesForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, err er
 			Child:     multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			ShowOrder: f.ChildMin("showOrder", i, ix, 1),
 			Title:     f.ChildText("title", i, ix, 0, models.MaxDetail), // allow long titles for slides
-			ImageName: f.ChildFile("imageName", i, ix, vt),
+			MediaName: f.ChildFile("mediaName", i, ix, vt),
 			Caption:   f.ChildText("caption", i, ix, 0, models.MaxDetail),
 		})
 	}

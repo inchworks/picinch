@@ -38,46 +38,44 @@
 				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
-							<div style='display:none'>
-								<input type='number' name='index' value='{{.ChildIndex }}'>								
-							</div>
-							<div class="form-group row">
-								<div class="col-xl-6 col-lg-5 col-md-5">
-									<label class="sr-only">Title</label>
+							<input type='hidden' name='index' value='{{.ChildIndex }}'>								
+							<div class="row mb-2">
+								<div class="col-xl-7 col-md-5">
+									<label class="visually-hidden">Title</label>
 									<input type='text' class='form-control {{.ChildValid "title"}}' placeholder='Title' name='title' value='{{ .Title }}'>
 									<div class='invalid-feedback'>{{.ChildError "title"}}</div>
 								</div>
-								<div class="input-group col-xl-2 col-lg-3 col-md-3">
-									<div class="input-group-prepend">
+								<div class="col-xl-2 col-md-3">
+									<div class="input-group">
 										<span class="input-group-text">Show</span>
-										<select class='custom-select w-auto {{.ChildValid "visible"}}' name="visible">
+										<select class='form-select {{.ChildValid "visible"}}' data-width='fit' name='visible'>
 											{{ $visible := .Visible }}
 											{{ range $i, $opt := $visibleOpts }}
 												<option value='{{ $i }}' {{ if eq $i $visible }} selected{{ end }}>{{ $opt }}</option>
 											{{end}}
 										</select>
+										<div class='invalid-feedback'>{{.ChildError "visible"}}</div>
 									</div>
-									<div class='invalid-feedback'>{{.ChildError "visible"}}</div>
 								</div>
-								<div class="col-xl-2 col-md-2">
+								<div class="col-md-2">
 									<div class="form-check">
 										<input type='checkbox' class='form-check-input' name='shared' value='{{.ChildIndex}}' {{checked .IsShared}}>
 										<label class="form-check-label">Shared</label>
 									</div>
 								</div>
-								<div class="col-md-2">
+								<div class="col-xl-1 col-md-2">
 									<a href="#" class='btn btn-secondary btnConfirmDelChild'>Delete</a>
 								</div>
 							</div>
 						</div>
 					{{end}}
 				</div>
-				<div class="form-group row">
-					<div class="offset-lg-10 offset-md-9 col-lg-2 col-md-3">
+				<div class="row mb-2">
+					<div class="offset-xl-10 offset-md-9 col-xl-2 col-md-3">
 						<a href="#" class="btn btn-secondary btnAddChild">New Topic</a>
 					</div>
 				</div>
-				<div class="form-group row">
+				<div class="row mb-2">
 					<div class="col-md-3">
 						<button type='submit' class="btn btn-primary" id='submit'>Update</button>
 					</div>
@@ -90,7 +88,7 @@
 {{end}}
 
 {{ define "pagescripts" }}
-   <script type="text/javascript" src='/static/js/multiforms-02.js'></script>
+   <script type="text/javascript" src='/static/js/multiforms-03.js'></script>
    <script>
 		// page-specific processing
 		function childAdded($prototype, $newForm) {}

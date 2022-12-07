@@ -38,33 +38,31 @@
 				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
-							<div style='display:none'>
-								<input type='number' name='index' value='{{.ChildIndex }}'>								
-								<input type='number' name='nShow' value='{{.NShow }}'>								
-							</div>
-							<div class="form-group row">
-								<div class="col-xl-5 col-lg-4 col-md-4 col-sm-3">
-									<label class="sr-only">Title</label>
+							<input type='hidden' name='index' value='{{.ChildIndex }}'>								
+							<input type='hidden' name='nShow' value='{{.NShow }}'>								
+							<div class="row mb-2">
+								<div class="col-xl-6 col-lg-5 col-md-4 col-sm-3">
+									<label class="visually-hidden">Title</label>
 									<input type='text' class='form-control {{.ChildValid "title"}}' placeholder='Title' name='title' value='{{ .Title }}'>
 									<div class='invalid-feedback'>{{.ChildError "title"}}</div>
 								</div>
-								<div class="col-xl-4 col-lg-4 col-md-3 col-sm-3">
+								<div class="col-xl-3 col-lg-3 col-md-3 col-sm-3">
 									<span class="input-group-text">{{ .DisplayName }}</span>
 								</div>
-								<div class="input-group col-xl-2 col-lg-3 col-md-3 col-sm-4">
-									<div class="input-group-prepend">
+								<div class="col-xl-2 col-lg-3 col-md-3 col-sm-4">
+									<div class="input-group">
 										<span class="input-group-text">Show</span>
-										<select class='custom-select w-auto {{.ChildValid "visible"}}' name="visible">
+										<select class='form-select {{.ChildValid "visible"}}' data-width="fit" name="visible">
 											{{ $visible := .Visible }}
 											{{ range $i, $opt := $visibleOpts }}
 												<option value='{{ $i }}' {{ if eq $i $visible }} selected{{ end }}>{{ $opt }}</option>
 											{{end}}
 										</select>
+										<div class='invalid-feedback'>{{.ChildError "visible"}}</div>
 									</div>
-									<div class='invalid-feedback'>{{.ChildError "visible"}}</div>
 								</div>
-								<div class="col-lg-1 col-md-2 col-sm-2">
-									<label class="sr-only">Topic</label>
+								<div class="col-xl-1 col-lg-1 col-md-2 col-sm-2">
+									<label class="visually-hidden">Topic</label>
 									<input type='text' class='form-control {{.ChildValid "topic"}}' placeholder='NTopic' name='topic' value='{{ .NTopic }}'>
 									<div class='invalid-feedback'>{{.ChildError "topic"}}</div>
 								</div>
@@ -72,7 +70,7 @@
 						</div>
 					{{end}}
 				</div>
-				<div class="form-group row">
+				<div class="row mb-2">
 					<div class="col-md-3">
 						<button type='submit' class="btn btn-primary" id='submit'>Update</button>
 					</div>
@@ -86,7 +84,7 @@
 {{end}}
 
 {{ define "pagescripts" }}
-   <script type="text/javascript" src='/static/js/multiforms-02.js'></script>
+   <script type="text/javascript" src='/static/js/multiforms-03.js'></script>
    <script>
 		// page-specific processing
 		function childAdded($prototype, $newForm) {}

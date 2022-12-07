@@ -9,7 +9,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/app/cmd/web",
+            "program": "${workspaceFolder}/cmd/web",
             "env": {
                 "db-source": "tcp(:3306)/picinch",
                 "db-password": "test-only",
@@ -27,7 +27,7 @@
                 "test": "../../picinch-test/srv/picinch"
                },
             "args": [],
-            "cwd": "${workspaceFolder}/app",
+            "cwd": "${workspaceFolder}",
         }
     ]
 }

@@ -19,21 +19,21 @@
 
 {{define "menu-admin"}}
     <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">ADMIN</a>
-        <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-	        <a class="dropdown-item" href="/setup">SETUP</a>
-	        <a class="dropdown-item" href="/edit-tags">TAGS</a>
- 	        <a class="dropdown-item" href="/edit-users">USERS</a>
-          <div class="dropdown-divider"></div>
-	        <a class="dropdown-item" href="/usage-days">DAYS</a>
-	        <a class="dropdown-item" href="/usage-months">MONTHS</a>
-        </div>
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">ADMIN</a>
+        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+	        <li><a class="dropdown-item" href="/setup">SETUP</a></li>
+	        <li><a class="dropdown-item" href="/edit-tags">TAGS</a></li>
+ 	        <li><a class="dropdown-item" href="/edit-users">USERS</a></li>
+            <li><div class="dropdown-divider"></div></li>
+	        <li><a class="dropdown-item" href="/usage-days">DAYS</a></li>
+	        <li><a class="dropdown-item" href="/usage-months">MONTHS</a></li>
+        </ul>
     </li>
 {{end}}
 
 {{define "menu-authenticated"}}
     <li class="nav-item">
-        <form class="form-inline" action='/user/logout' method='POST'>
+        <form action='/user/logout' method='POST'>
             <input class="form-control" type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
             <button class="btn btn-outline-dark btn-sm">LOGOUT</button>
         </form>
@@ -42,21 +42,21 @@
 
 {{define "menu-competition"}}
     <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">SELECT</a>
-        <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-            <a class="dropdown-item" href="/select-slideshow">ENTRY</a>
-	        <a class="dropdown-item" href="/user-tags">TAGS</a>
-        </div>
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">SELECT</a>
+        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+            <li><a class="dropdown-item" href="/select-slideshow">ENTRY</a></li>
+	        <li><a class="dropdown-item" href="/user-tags">TAGS</a></li>
+        </ul>
     </li>
 {{end}}
 
 {{define "menu-curator"}}
     <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">CURATOR</a>
-        <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-	        <a class="dropdown-item" href="/topics">TOPICS</a>
-	        <a class="dropdown-item" href="/users-curator">USERS</a>
-         </div>
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">CURATOR</a>
+        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+	        <li><a class="dropdown-item" href="/topics">TOPICS</a></li>
+	        <li><a class="dropdown-item" href="/users-curator">USERS</a></li>
+        </ul>
     </li>
 {{end}}
 

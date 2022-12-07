@@ -31,7 +31,7 @@
 
 		<div class="d-flex">
 			<h3 class="comp-class">{{ .Class }}</h3>
-			<div class="comp-caption ml-4">{{ .Caption }}</div>
+			<div class="comp-caption ms-4">{{ .Caption }}</div>
 		</div>
 
 		{{block "compIntro" .}}
@@ -44,7 +44,7 @@
    	        	<input type='hidden' name='class' value='{{.Get "class"}}'>
    	        	<input type='hidden' name='timestamp' value='{{.Get "timestamp"}}'>
 
-				<div class="form-group col-md-6">
+				<div class="col-md-6 mb-2">
 					<label>Your name</label>
 					<input type='text' class='form-control {{.Errors.Valid "name"}}' name='name' value='{{.Get "name"}}'>
 					<small class="form-text text-muted">{{block "compName" .}}As you would like it to to appear to others.{{end}}</small>
@@ -52,7 +52,7 @@
 							<div class='invalid-feedback'>{{.}}</div>
 					{{end}}
 				</div>
-				<div class="form-group col-md-6">
+				<div class="col-md-6 mb-2">
 					<label for='usr'>Email address</label>
 					<input type='email' class='form-control {{.Errors.Valid "email"}}' id='usr' name='email' autocomplete='email' value='{{.Get "email"}}'>
 					<small class="form-text text-muted">{{block "compEmail" .}}Your email address.{{end}}</small>
@@ -60,7 +60,7 @@
 							<div class='invalid-feedback'>{{.}}</div>
 					{{end}}
 				</div>
-				<div class="form-group col-md-6">
+				<div class="col-md-6 mb-2">
 					<label>Location</label>
 					<input type='text' class='form-control {{.Errors.Valid "location"}}' name='location' value='{{.Get "location"}}'>
 					<small class="form-text text-muted">{{block "compLocation" .}}Your town or city, and country.{{end}}</small>
@@ -72,45 +72,41 @@
  				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
-							<div style='display:none'>
-								<input type='number' name='index' value='{{ .ChildIndex }}'>								
-							</div>
-							<div class="form-group col-md-6">
+							<input type='hidden' name='index' value='{{ .ChildIndex }}'>								
+							<div class="col-md-6 mb-2">
 								<label>{{block "compTitleLabel" .}}Title{{end}}</label>
 								<input type='text' class='form-control {{.ChildValid "title"}}' name='title' value='{{ .Title }}'>
 								<small class="form-text text-muted">{{block "compTitle" .}}A title for your entry.{{end}}</small>
 								<div class='invalid-feedback'>{{ .ChildError "title"}}</div>
 							</div>
-							<div class="form-group col-md-10">
+							<div class="col-md-10 mb-2">
 								<label>{{block "compCaptionLabel" .}}Other information{{end}}</label>
 								<textarea name='caption' class='form-control {{.ChildValid "caption"}}'>{{ .Caption }}</textarea>
 								<small class="form-text text-muted">{{block "compCaption" .}}A short description of your entry.{{end}}</small>
 								<div class='invalid-feedback'>{{ .ChildError "caption"}}</div>
 							</div>
-							<div class="form-group col-md-8">
-								<label>Photo or video</label>
-								<div class="input-group-prepend">
-									<span class='input-group-text'>{{.ImageName}}</span>
-									<div class="custom-file">
-										<input type='hidden' class="imageName" name='imageName' value='{{.ImageName}}'>
-										<input type='file' accept='{{.Accept}}' class='custom-file-input {{.ChildValid "image"}} {{.ChildValid "imageName"}}'>
-										<label class='custom-file-label'><div class='invalid-feedback d-inline'>{{ .ChildError "imageName"}}</div>Choose photo...</label>
-									</div>
+							<div class="col-md-8 mb-2 media">
+								<input type='hidden' class="mediaName" name='mediaName' value='{{.MediaName}}'>
+								<div class='input-group'>
+									<span class='input-group-text upload-name'>{{.MediaName}}</span>
+									<label class='form-control upload-text {{.ChildValid "mediaName"}}' for='U{{ .ChildIndex }}' role='button'>Your photo or video...</label>
+									<input class='upload-input d-none' type='file' id='U{{ .ChildIndex }}' accept='{{$.Accept}}'>
+									<label class='input-group-text upload-label' for='U{{ .ChildIndex }}' role='button'>Browse</label>
+									<div class='invalid-feedback bad-file'>{{ .ChildError "mediaName"}}</div>
+									<small class="form-text text-muted">{{block "compPhoto" .}}A photo or short video.{{end}}</small>
 								</div>
-								<div class='invalid-feedback bad-file'></div>
-								<small class="form-text text-muted">{{block "compPhoto" .}}A photo or short video.{{end}}</small>
 							</div>
-							<div class="form-group row upload" style='display:none'>
+							<div class="row mb-2 upload" style='display:none'>
 								<div class="col-md-5 progress">
 									<div class="progress-bar" style="width:50%; height:100%"></div>
 								</div>
-								<div class='col-md-3 alert upload-status'>{{ .ChildError "image"}}</div>
+								<div class='col-md-3 alert upload-status'></div>
 							</div>
 						</div>
 					{{end}}
 				</div>
 
-				<div class="form-group col md-10">
+				<div class="col md-10">
 					<label>Click to confirm ageement</label>
 					<div class="form-check">
 						<input type='checkbox' class='form-check-input {{.Errors.Valid "agree1"}}' id='agree1' name='agree1' value='checked' {{.Get "agree1"}}>
@@ -128,7 +124,7 @@
 					</div>
 				</div>
 
-				<div class="form-group row">
+				<div class="row mb-2">
 					<div class="offset-md-4	col-md-2">
 						<button type='submit' class="btn btn-primary" id='submit'>Submit</button>
 					</div>
@@ -149,8 +145,8 @@
 {{end}}
 
 {{ define "pagescripts" }}
-	<script type="text/javascript" src='/static/js/multiforms-02.js'></script>
-	<script type="text/javascript" src='/static/js/upload-02.js'></script>
+	<script type="text/javascript" src='/static/js/multiforms-03.js'></script>
+	<script type="text/javascript" src='/static/js/upload-03.js'></script>
 	<script>
 		// page-specific processing
 
@@ -158,7 +154,7 @@
 
 			// Set name of the photo, and upload on select
 
-			$(".custom-file-input").on("change", function() {
+			$(".upload-input").on("change", function() {
 				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
 			});
 

@@ -21,6 +21,7 @@ __debug_bin
 .vscode/
 
 # PicInch working folders
+geodb*/
 misc*/
 photos*/
 site*/
