@@ -38,19 +38,17 @@
 				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
-							<div style='display:none'>
-								<input type='number' name='index' value='{{.ChildIndex }}'>								
-							</div>
+							<input type='hidden' name='index' value='{{.ChildIndex }}'>								
 							<div class="row mb-2">
-								<div class="col-xl-6 col-md-5">
+								<div class="col-xl-7 col-md-5">
 									<label class="visually-hidden">Title</label>
 									<input type='text' class='form-control {{.ChildValid "title"}}' placeholder='Title' name='title' value='{{ .Title }}'>
 									<div class='invalid-feedback'>{{.ChildError "title"}}</div>
 								</div>
-								<div class="col-md-3">
+								<div class="col-xl-2 col-md-3">
 									<div class="input-group">
-										<div class="input-group-text">Show</div>
-										<select class='form-select w-auto {{.ChildValid "visible"}}' name="visible">
+										<span class="input-group-text">Show</span>
+										<select class='form-select {{.ChildValid "visible"}}' data-width='fit' name='visible'>
 											{{ $visible := .Visible }}
 											{{ range $i, $opt := $visibleOpts }}
 												<option value='{{ $i }}' {{ if eq $i $visible }} selected{{ end }}>{{ $opt }}</option>
@@ -73,7 +71,7 @@
 					{{end}}
 				</div>
 				<div class="row mb-2">
-					<div class="offset-lg-10 offset-md-9 col-lg-2 col-md-3">
+					<div class="offset-xl-10 offset-md-9 col-xl-2 col-md-3">
 						<a href="#" class="btn btn-secondary btnAddChild">New Topic</a>
 					</div>
 				</div>

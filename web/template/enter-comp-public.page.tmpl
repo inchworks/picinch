@@ -72,9 +72,7 @@
  				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
-							<div style='display:none'>
-								<input type='number' name='index' value='{{ .ChildIndex }}'>								
-							</div>
+							<input type='hidden' name='index' value='{{ .ChildIndex }}'>								
 							<div class="col-md-6 mb-2">
 								<label>{{block "compTitleLabel" .}}Title{{end}}</label>
 								<input type='text' class='form-control {{.ChildValid "title"}}' name='title' value='{{ .Title }}'>
