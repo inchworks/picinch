@@ -104,9 +104,9 @@ func (app *Application) codeNotFound(next http.Handler) http.Handler {
 		http.Error(w, "Too many wrong access codes - wait an hour", http.StatusTooManyRequests)
 	}))
 
-	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportHandler(func(r *http.Request, ip string, status string) {
 
-		app.blocked(r, addr, status, "for bad code requests, after "+sanitise(r.RequestURI))
+		app.blocked(r, ip, status, "for bad code requests, after "+sanitise(r.RequestURI))
 	})
 
 	return lim
@@ -130,9 +130,9 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 	// (probably probing to guess file names, but we should allow for a few missing files that are our fault).
 	lim := app.lhs.New("N", threatRate, 10, ban, "B", nil)
 
-	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportHandler(func(r *http.Request, ip string, status string) {
 
-		app.blocked(r, addr, status, "for bad file names after "+sanitise(r.RequestURI))
+		app.blocked(r, ip, status, "for bad file names after "+sanitise(r.RequestURI))
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -158,9 +158,9 @@ func (app *Application) geoBlock(next http.Handler) http.Handler {
 	// because that allows us to dismiss repeated requests efficiently with a single lookup.
 	lh := app.lhs.New("G", threatRate, 3, 1, "B", nil)
 
-	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lh.SetReportHandler(func(r *http.Request, ip string, status string) {
 
-		app.blocked(r, addr, status, "from blocked country, after "+sanitise(r.RequestURI))
+		app.blocked(r, ip, status, "from blocked country, after "+sanitise(r.RequestURI))
 	})
 
 	app.geoblocker.Reporter = func(r *http.Request, location string, _ net.IP) string {
@@ -189,9 +189,9 @@ func (app *Application) limitFile(next http.Handler) http.Handler {
 		http.Error(w, "Too many file requests - wait a minute", http.StatusTooManyRequests)
 	}))
 
-	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lh.SetReportHandler(func(r *http.Request, ip string, status string) {
 
-		app.blocked(r, addr, status, "file requests, too many after "+sanitise(r.RequestURI))
+		app.blocked(r, ip, status, "file requests, too many after "+sanitise(r.RequestURI))
 	})
 
 	return lh
@@ -208,7 +208,7 @@ func (app *Application) limitLogin(next http.Handler) http.Handler {
 		http.Error(w, "Too many login requests - wait an hour", http.StatusTooManyRequests)
 	}))
 
-	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lh.SetReportHandler(func(r *http.Request, ip string, status string) {
 
 		// try to get the username
 		username := "anon"
@@ -216,7 +216,7 @@ func (app *Application) limitLogin(next http.Handler) http.Handler {
 			username = sanitise(r.PostForm.Get("username"))
 		}
 
-		app.blocked(r, addr, status, "login, too many for user "+username)
+		app.blocked(r, ip, status, "login, too many for user "+username)
 	})
 
 	return lh
@@ -229,9 +229,9 @@ func (app *Application) limitPage(next http.Handler) http.Handler {
 	// (This is too restrictive to be applied to file requests.)
 	lim := app.lhs.New("P", time.Second, 5, 20, "", next)
 
-	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportHandler(func(r *http.Request, ip string, status string) {
 
-		app.blocked(r, addr, status, "page requests, too many after "+sanitise(r.RequestURI))
+		app.blocked(r, ip, status, "page requests, too many after "+sanitise(r.RequestURI))
 	})
 
 	return lim
@@ -275,9 +275,9 @@ func (app *Application) noBanned(next http.Handler) http.Handler {
 	// no limit - but set to escalate blocking of repeated offenders.
 	lh := app.lhs.NewUnlimited("B", "B", next)
 
-	lh.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lh.SetReportHandler(func(r *http.Request, ip string, status string) {
 
-		app.blocked(r, addr, status, "on "+sanitise(r.RequestURI))
+		app.blocked(r, ip, status, "on "+sanitise(r.RequestURI))
 	})
 
 	return lh
@@ -290,9 +290,9 @@ func (app *Application) noQuery(next http.Handler) http.Handler {
 	// (typically probing for well-known PHP vulnerabilities).
 	lim := app.lhs.New("Q", threatRate, 1, 0, "B", nil)
 
-	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportHandler(func(r *http.Request, ip string, status string) {
 
-		app.blocked(r, addr, status, "for bad queries, after "+sanitise(r.RequestURI))
+		app.blocked(r, ip, status, "for bad queries, after "+sanitise(r.RequestURI))
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -455,9 +455,9 @@ func (app *Application) routeNotFound() http.Handler {
 	// (typically probing for vulnerable PHP files).
 	lim := app.lhs.New("R", threatRate, 3, 1, "B", nil)
 
-	lim.SetReportHandler(func(r *http.Request, addr string, status string) {
+	lim.SetReportHandler(func(r *http.Request, ip string, status string) {
 
-		app.blocked(r, addr, status, "for bad requests, after "+sanitise(r.RequestURI))
+		app.blocked(r, ip, status, "for bad requests, after "+sanitise(r.RequestURI))
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -516,12 +516,17 @@ func wwwRedirect(h http.Handler) http.Handler {
 // HELPER FUNCTIONS.
 
 // blocked records the blocking or banning of an IP address
-func (app *Application) blocked(r *http.Request, addr string, status string, reason string) {
+func (app *Application) blocked(r *http.Request, ip string, status string, reason string) {
 
-	loc := server.Country(r)
 	if status != "" {
+		loc := server.Country(r)
+		if loc == "" {
+			// on an early rejection we haven't located the address yet
+			loc, _, _ = app.geoblocker.Locate(ip)
+		}
+
 		// report changes in status
-		app.threatLog.Printf("%s %s - %s %s", loc, addr, status, reason)
+		app.threatLog.Printf("%s %s - %s %s", loc, ip, status, reason)
 	}
 }
 
@@ -573,7 +578,8 @@ func (app *Application) threat(event string, r *http.Request) {
 
 	// log location and threat
 	loc := server.Country(r)
-	app.threatLog.Printf("%s %s - %s %s %s %s", loc, r.RemoteAddr, event, r.Proto, r.Method, sanitise(r.URL.RequestURI()))
+	ip := server.RemoteIP(r)
+	app.threatLog.Printf("%s %s - %s %s %s %s", loc, ip, event, r.Proto, r.Method, sanitise(r.URL.RequestURI()))
 
 	// count suspects
 	if ip := usage.FormatIPSeen("S", r.RemoteAddr); ip != "" {

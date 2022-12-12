@@ -9,7 +9,7 @@ require (
 	github.com/golangcollege/sessions v1.2.0
 	github.com/ilyakaznacheev/cleanenv v1.2.6
 	github.com/inchworks/usage v1.2.1
-	github.com/inchworks/webparts v1.1.0
+	github.com/inchworks/webparts v1.2.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/joho/godotenv v1.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

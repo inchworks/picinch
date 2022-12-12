@@ -23,7 +23,6 @@ import (
 	"io"
 	"io/fs"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -54,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.0.8"
+	version = "1.0.9"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -619,23 +618,4 @@ func openDB(dsn string) (db *sqlx.DB, err error) {
 	db.SetConnMaxLifetime(connMaxLifetime * time.Second)
 
 	return db, nil
-}
-
-// Redirect HTTP requests to HTTPS, taken from autocert. Changed to do 301 redirect.
-
-func handleHTTPRedirect(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" && r.Method != "HEAD" {
-		http.Error(w, "Use HTTPS", http.StatusBadRequest)
-		return
-	}
-	target := "https://" + stripPort(r.Host) + r.URL.RequestURI()
-	http.Redirect(w, r, target, http.StatusMovedPermanently)
-}
-
-func stripPort(hostport string) string {
-	host, _, err := net.SplitHostPort(hostport)
-	if err != nil {
-		return hostport
-	}
-	return net.JoinHostPort(host, "443")
 }
