@@ -142,16 +142,16 @@ func (app *Application) Routes() http.Handler {
 
 	// serve static files and content (Alice doesn't seem to simplify these)
 	ban := app.cfg.BanBadFiles 
-	router.Handler("GET", path.Join(misc, "*filepath"), staticHs.Then(http.StripPrefix(misc, app.fileServer(fsMisc, true))))
-	router.Handler("GET", "/static/*filepath", staticHs.Then(http.StripPrefix("/static", app.fileServer(fsStatic, ban))))
-	router.Handler("GET", "/photos/*filepath", staticHs.Then(http.StripPrefix("/photos", app.fileServer(fsPhotos, ban))))
+	router.Handler("GET", path.Join(misc, "*filepath"), staticHs.Then(http.StripPrefix(misc, app.fileServer(fsMisc, true, app.cfg.MiscName))))
+	router.Handler("GET", "/static/*filepath", staticHs.Then(http.StripPrefix("/static", app.fileServer(fsStatic, ban, ""))))
+	router.Handler("GET", "/photos/*filepath", staticHs.Then(http.StripPrefix("/photos", app.fileServer(fsPhotos, ban, ""))))
 
 	// files that must be in root
 	fsImages, _ := fs.Sub(app.staticFS, "images")
 	fsRoot := http.FS(fsImages)
-	router.Handler("GET", "/robots.txt", staticHs.Then(app.fileServer(fsStatic, false)))
-	router.Handler("GET", "/apple-touch-icon.png", staticHs.Then(app.fileServer(fsRoot, false)))
-	router.Handler("GET", "/favicon.ico", staticHs.Then(app.fileServer(fsRoot, false)))
+	router.Handler("GET", "/robots.txt", staticHs.Then(app.fileServer(fsStatic, false, "")))
+	router.Handler("GET", "/apple-touch-icon.png", staticHs.Then(app.fileServer(fsRoot, false, "")))
+	router.Handler("GET", "/favicon.ico", staticHs.Then(app.fileServer(fsRoot, false, "")))
 	
 	// return 'standard' middleware chain followed by router
 	return commonHs.Then(router)

@@ -115,7 +115,7 @@ func (app *Application) codeNotFound(next http.Handler) http.Handler {
 // fileServer returns a handler that serves files.
 // It wraps http.File server with a limit on the number of bad requests accepted.
 // (Thanks https://stackoverflow.com/questions/34017342/log-404-on-http-fileserver.)
-func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handler {
+func (app *Application) fileServer(root http.FileSystem, banBad bool, event string) http.Handler {
 
 	fs := http.FileServer(root)
 
@@ -147,6 +147,8 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool) http.Handl
 			if ok, _ := lim.Allow(r); ok {
 				app.threat("bad file", r)
 			}
+		} else{
+			app.usage.Count(event, "file")
 		}
 	})
 }
@@ -465,17 +467,17 @@ func (app *Application) routeNotFound() http.Handler {
 		// ignore some common bad requests, so we don't ban unreasonably
 		d, f := path.Split(r.URL.Path)
 		if (d == "/" && path.Ext(f) == ".png") || (strings.HasPrefix(f, "favicon")) {
-			app.missing("no favicon", r)
+			app.optional("no favicon", r)
 			http.NotFound(w, r) // possibly a favicon for an ancient mobile device
 			return
 		}
 		if d == "/" && strings.HasPrefix(f, "sitemap") {
-			app.missing("no sitemap", r)
+			app.optional("no sitemap", r)
 			http.NotFound(w, r) // some people ask for sitemap, sitemap.txt, sitemap.xml
 			return
 		}
 		if r.URL.Path == "/.well-known/security.txt" {
-			app.missing("no security.txt", r)
+			app.optional("no security.txt", r)
 			http.NotFound(w, r) // not sure if there is a good reason for asking :-)
 			return
 		}
