@@ -464,9 +464,19 @@ func (app *Application) routeNotFound() http.Handler {
 
 		// ignore some common bad requests, so we don't ban unreasonably
 		d, f := path.Split(r.URL.Path)
-		if d == "/" && path.Ext(f) == ".png" {
-			app.threat("no favicon", r)
+		if (d == "/" && path.Ext(f) == ".png") || (strings.HasPrefix(f, "favicon")) {
+			app.missing("no favicon", r)
 			http.NotFound(w, r) // possibly a favicon for an ancient mobile device
+			return
+		}
+		if d == "/" && strings.HasPrefix(f, "sitemap") {
+			app.missing("no sitemap", r)
+			http.NotFound(w, r) // some people ask for sitemap, sitemap.txt, sitemap.xml
+			return
+		}
+		if r.URL.Path == "/.well-known/security.txt" {
+			app.missing("no security.txt", r)
+			http.NotFound(w, r) // not sure if there is a good reason for asking :-)
 			return
 		}
 
@@ -564,6 +574,12 @@ func (nfs noDirFileSystem) Open(path string) (http.File, error) {
 	return f, nil
 }
 
+// optional records a legitimate request for something we don't have
+func (app *Application) optional(event string, r *http.Request) {
+
+	app.usage.Count("optional", "bad-req")
+}
+
 // sanitise prevents user input from creating fake log entries
 func sanitise(s string) string {
 
@@ -580,6 +596,9 @@ func (app *Application) threat(event string, r *http.Request) {
 	loc := server.Country(r)
 	ip := server.RemoteIP(r)
 	app.threatLog.Printf("%s %s - %s %s %s %s", loc, ip, event, r.Proto, r.Method, sanitise(r.URL.RequestURI()))
+
+	// count requests
+	app.usage.Count("suspect", "bad-req")
 
 	// count suspects
 	if ip := usage.FormatIPSeen("S", r.RemoteAddr); ip != "" {

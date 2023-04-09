@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.0.10"
+	version = "1.0.11"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
