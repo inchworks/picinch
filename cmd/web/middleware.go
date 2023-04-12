@@ -579,7 +579,7 @@ func (nfs noDirFileSystem) Open(path string) (http.File, error) {
 // optional records a legitimate request for something we don't have
 func (app *Application) optional(event string, r *http.Request) {
 
-	app.usage.Count("optional", "bad-req")
+	app.usage.Count("allowed", "bad-req")
 }
 
 // sanitise prevents user input from creating fake log entries

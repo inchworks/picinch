@@ -9,7 +9,7 @@ require (
 	github.com/golangcollege/sessions v1.2.0
 	github.com/ilyakaznacheev/cleanenv v1.4.2
 	github.com/inchworks/usage v1.2.1
-	github.com/inchworks/webparts v1.3.2
+	github.com/inchworks/webparts v1.4.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -19,15 +19,10 @@ require (
 	github.com/mailgun/mailgun-go/v4 v4.8.2
 	github.com/microcosm-cc/bluemonday v1.0.22
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/oschwald/maxminddb-golang v1.10.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	golang.org/x/crypto v0.6.0 // indirect
-	golang.org/x/image v0.5.0 // indirect
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/time v0.3.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/mail.v2 v2.3.1 // indirect
 )
 
 // replace github.com/inchworks/usage v1.2.1 => ../usage
-// replace github.com/inchworks/webparts v1.3.2 => ../webparts
+// replace github.com/inchworks/webparts v1.4.0 => ../webparts

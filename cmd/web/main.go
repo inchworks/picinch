@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.0.11"
+	version = "1.0.12"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -489,7 +489,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		errorLog.Fatal(err)
 	}
 	app.usage.SetSaverCallback(func(u *usage.Recorder) {
-		u.Add("banned", "bad-req", app.lhs.RejectsCounted())
+		u.Add("blocked", "bad-req", app.lhs.RejectsCounted()+app.geoblocker.RejectsCounted())
 	})
 
 	// user management
