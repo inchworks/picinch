@@ -147,8 +147,8 @@ func (app *Application) fileServer(root http.FileSystem, banBad bool, event stri
 			if ok, _ := lim.Allow(r); ok {
 				app.threat("bad file", r)
 			}
-		} else{
-			app.usage.Count(event, "file")
+		} else if event != "" {
+			app.usage.Count(event, "file") // count significant file reads
 		}
 	})
 }
