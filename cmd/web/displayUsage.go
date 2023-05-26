@@ -29,6 +29,7 @@ func (s *GalleryState) ForUsage(period usage.Detail) *DataUsagePeriods {
 
 	var title string
 	var fmt string
+	var min int
 	switch period {
 	case usage.Day:
 		title = "Daily Usage"
@@ -37,6 +38,7 @@ func (s *GalleryState) ForUsage(period usage.Detail) *DataUsagePeriods {
 	case usage.Month:
 		title = "Monthly Usage"
 		fmt = "January 2006"
+		min = 1
 
 	default:
 		return nil
@@ -46,7 +48,7 @@ func (s *GalleryState) ForUsage(period usage.Detail) *DataUsagePeriods {
 	defer s.updatesNone()()
 
 	// get stats
-	stats := usage.Get(s.app.statisticStore, period)
+	stats := usage.GetSignificant(s.app.statisticStore, period, min)
 	var dataUsage []*DataUsage
 
 	for _, s := range stats {

@@ -8,7 +8,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/golangcollege/sessions v1.2.0
 	github.com/ilyakaznacheev/cleanenv v1.4.2
-	github.com/inchworks/usage v1.2.1
+	github.com/inchworks/usage v1.3.0
 	github.com/inchworks/webparts v1.4.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/joho/godotenv v1.5.1 // indirect
@@ -24,5 +24,5 @@ require (
 	gopkg.in/mail.v2 v2.3.1 // indirect
 )
 
-// replace github.com/inchworks/usage v1.2.1 => ../usage
+// replace github.com/inchworks/usage v1.3.0 => ../usage
 // replace github.com/inchworks/webparts v1.4.0 => ../webparts
