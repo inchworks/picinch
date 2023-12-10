@@ -66,7 +66,7 @@ const (
 		WHERE EXISTS ( SELECT * FROM tag WHERE tag.gallery = ? AND tag.user = user.id )
 	`
 
-	// Users ordered by most recent published slideshow.
+	// Users ordered by most recent published slideshow, excluding suspended users.
 	// This is tricky. First get all slideshows, partition them by user and sort within users by date.
 	// Then take the first ranked ones, and join the users.
 	// https://dev.mysql.com/doc/refman/8.0/en/example-maximum-column-group-row.html
@@ -84,7 +84,7 @@ const (
 		SELECT user.*
 		FROM s1
 		JOIN user ON userId = user.id
-		WHERE rnk = 1
+		WHERE rnk = 1 AND user.status > 0
 		ORDER BY s1.created DESC
 	`
 

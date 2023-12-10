@@ -49,14 +49,11 @@ const (
 	slideshowSelect       = `SELECT * FROM slideshow`
 	slideshowOrderRevised = ` ORDER BY gallery_order DESC, revised DESC, id`
 	slideshowOrderTitle   = ` ORDER BY title, id`
-	slideshowRevisedSeq   = ` ORDER BY revised ASC LIMIT ?,1`
 
-	slideshowCountForTopic = `SELECT COUNT(*) FROM slideshow WHERE topic = ?`
 	slideshowCountForUser  = `SELECT COUNT(*) FROM slideshow WHERE user = ?`
 
 	slideshowWhereId       = slideshowSelect + ` WHERE id = ?`
 	slideshowWhereTopic    = slideshowSelect + ` WHERE topic = ? AND user = ?`
-	slideshowWhereTopicSeq = slideshowSelect + ` WHERE topic = ?` + slideshowRevisedSeq
 
 	slideshowsWhereTopic     = slideshowSelect + ` WHERE topic = ?`
 	slideshowsWhereTopicUser = slideshowSelect + ` WHERE topic = ? AND user = ?`
@@ -65,6 +62,21 @@ const (
 	slideshowsNotTopics      = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL` + slideshowOrderTitle
 
 	slideshowWhereShared = slideshowSelect + ` WHERE shared = ?`
+
+	// number of slideshows for topic, excluding suspended users
+	slideshowCountForTopic = `
+		SELECT COUNT(*) FROM slideshow
+		JOIN user ON user.id = slideshow.user
+		WHERE topic = ? AND user.status > 0
+	`
+
+	// slideshow in sequence for a topic, excluding suspended users
+	slideshowWhereTopicSeq = `
+		SELECT slideshow.* FROM slideshow
+		JOIN user ON user.id = slideshow.user
+		WHERE topic = ? AND user.status > 0
+		ORDER BY revised ASC LIMIT ?,1
+	`
 
 	// tagged slideshows
 	slideshowsWhereTag = `
@@ -122,7 +134,7 @@ const (
 	topicsWhereFormat   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ?` + slideshowOrderTitle
 	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderRevised
 
-	// most recent visible topics and slideshows, with a per-user limit
+	// most recent visible topics and slideshows, with a per-user limit, excluding suspended users
 	slideshowsRecentPublished = `
 		WITH s1 AS (
 			SELECT slideshow.*,
@@ -132,16 +144,17 @@ const (
 			FROM slideshow
 			WHERE gallery = ? AND visible >= ? AND slideshow.image <> ""
 		)
-		SELECT id, visible, user, title, caption, format, image
+		SELECT s1.id, visible, user, title, caption, format, image
 		FROM s1
-		WHERE user IS NULL OR rnk <= ?
-		ORDER BY created DESC
+		LEFT JOIN user ON user.id = s1.user
+		WHERE s1.user IS NULL OR (rnk <= ? AND user.status > 0) 
+		ORDER BY s1.created DESC
 	`
 	slideshowsTopicPublished = `
 		SELECT slideshow.id, slideshow.title, slideshow.image, user.name 
 		FROM slideshow
 		INNER JOIN user ON user.id = slideshow.user
-		WHERE slideshow.topic = ? AND slideshow.visible <> 0 AND slideshow.image <> ""
+		WHERE slideshow.topic = ? AND slideshow.visible <> 0 AND slideshow.image <> "" AND user.status > 0
 		ORDER BY slideshow.revised`
 )
 
