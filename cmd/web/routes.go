@@ -97,7 +97,7 @@ func (app *Application) Routes() http.Handler {
 	// displays
 	router.Handler("GET", "/slideshow/:nShow/:seq", dynHs.ThenFunc(app.slideshow))
 	router.Handler("GET", "/contributors", authHs.ThenFunc(app.contributors))
-	router.Handler("GET", "/contributor/:nUser", authHs.ThenFunc(app.contributor))
+	router.Handler("GET", "/contributor/:nUser", dynHs.ThenFunc(app.contributor))
 	router.Handler("GET", "/entry/:nShow", dynHs.ThenFunc(app.entry))
 	router.Handler("GET", "/my-slideshows", authHs.ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/slideshows-user/:nUser", authHs.ThenFunc(app.slideshowsUser))

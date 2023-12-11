@@ -49,9 +49,8 @@ func (s *GalleryState) displayClasses(member bool) *dataCompetition {
 	}
 }
 
-// List of published slideshows for a user
-
-func (s *GalleryState) DisplayContributor(userId int64) *DataHome {
+// DisplayContributor returns a list of published slideshows for a user.
+func (s *GalleryState) DisplayContributor(userId int64, member bool) *DataHome {
 
 	defer s.updatesNone()()
 
@@ -61,15 +60,23 @@ func (s *GalleryState) DisplayContributor(userId int64) *DataHome {
 		return nil
 	}
 
+	// show all published or just public ones?
+	var visible int
+	if member {
+		visible = models.SlideshowClub
+	} else {
+		visible = models.SlideshowPublic
+	}
+
 	// highlights
 	var dHighlights []*DataSlide
-	show := s.app.SlideshowStore.ForTopicUserIf(s.app.SlideshowStore.HighlightsId, user.Id)
+	show := s.app.SlideshowStore.ForTopicUserVisibleIf(s.app.SlideshowStore.HighlightsId, user.Id, visible)
 	if show != nil {
 		dHighlights = s.dataSlides(show.Id, s.app.cfg.MaxHighlightsTotal)
 	}
 
 	// slideshows
-	slideshows := s.app.SlideshowStore.ForUserPublished(user.Id)
+	slideshows := s.app.SlideshowStore.ForUserPublished(user.Id, visible)
 	var dShows []*DataPublished
 
 	for _, show := range slideshows {

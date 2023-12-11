@@ -42,15 +42,14 @@ func (app *Application) classes(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "classes.page.tmpl", data)
 }
 
-// Contributor (for other users to see)
-
+// contributor shows a page of contributions from a user (for other users to see)
 func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
 	// template and data for contributor
-	data := app.galleryState.DisplayContributor(userId)
+	data := app.galleryState.DisplayContributor(userId, app.isAuthenticated(r, models.UserFriend))
 	if data == nil {
 		httpNotFound(w)
 		return

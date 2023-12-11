@@ -78,6 +78,13 @@ const (
 		ORDER BY revised ASC LIMIT ?,1
 	`
 
+	// a user's slideshow for a topic, if visible
+	slideshowWhereTopicVisible = `
+		SELECT slideshow.* FROM slideshow
+		JOIN slideshow AS topic ON topic.id = slideshow.topic
+		WHERE slideshow.topic = ? AND slideshow.user = ? AND topic.visible >= ?
+	`
+
 	// tagged slideshows
 	slideshowsWhereTag = `
 		SELECT slideshow.* FROM slideshow
@@ -126,7 +133,7 @@ const (
 	slideshowsUserPublished = `
 		SELECT slideshow.* FROM slideshow
 		LEFT JOIN slideshow AS topic ON topic.id = slideshow.topic
-		WHERE slideshow.user = ? AND (slideshow.visible > 0 OR slideshow.visible = -1 AND topic.visible > 0) AND slideshow.image <> ""
+		WHERE slideshow.user = ? AND (slideshow.visible >= ? OR slideshow.visible = -1 AND topic.visible >= ?) AND slideshow.image <> ""
 		ORDER BY slideshow.created DESC
 	`
 
@@ -393,12 +400,24 @@ func (st *SlideshowStore) ForTopicUserAll(topicId int64, userId int64) []*models
 	return slideshows
 }
 
-// ForTopicUserIf returns a the slideshow for a topic and user, if it exists.
+// ForTopicUserIf returns the slideshow for a topic and user, if it exists.
 func (st *SlideshowStore) ForTopicUserIf(topicId int64, userId int64) *models.Slideshow {
 
 	var r models.Slideshow
 
 	if err := st.DBX.Get(&r, slideshowWhereTopic, topicId, userId); err != nil {
+		return nil
+	}
+
+	return &r
+}
+
+// ForTopicUserVisibleIf returns the slideshow for a topic and user, if it exists and is visible.
+func (st *SlideshowStore) ForTopicUserVisibleIf(topicId int64, userId int64, visible int) *models.Slideshow {
+
+	var r models.Slideshow
+
+	if err := st.DBX.Get(&r, slideshowWhereTopicVisible, topicId, userId, visible); err != nil {
 		return nil
 	}
 
@@ -420,11 +439,11 @@ func (st *SlideshowStore) ForUser(userId int64, visible int) []*models.Slideshow
 
 // All published slideshows for user, in published order, including topics
 
-func (st *SlideshowStore) ForUserPublished(userId int64) []*models.Slideshow {
+func (st *SlideshowStore) ForUserPublished(userId int64, visible int) []*models.Slideshow {
 
 	var slideshows []*models.Slideshow
 
-	if err := st.DBX.Select(&slideshows, slideshowsUserPublished, userId); err != nil {
+	if err := st.DBX.Select(&slideshows, slideshowsUserPublished, userId, visible, visible); err != nil {
 		st.logError(err)
 		return nil
 	}
