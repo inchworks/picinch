@@ -49,14 +49,11 @@ const (
 	slideshowSelect       = `SELECT * FROM slideshow`
 	slideshowOrderRevised = ` ORDER BY gallery_order DESC, revised DESC, id`
 	slideshowOrderTitle   = ` ORDER BY title, id`
-	slideshowRevisedSeq   = ` ORDER BY revised ASC LIMIT ?,1`
 
-	slideshowCountForTopic = `SELECT COUNT(*) FROM slideshow WHERE topic = ?`
 	slideshowCountForUser  = `SELECT COUNT(*) FROM slideshow WHERE user = ?`
 
 	slideshowWhereId       = slideshowSelect + ` WHERE id = ?`
 	slideshowWhereTopic    = slideshowSelect + ` WHERE topic = ? AND user = ?`
-	slideshowWhereTopicSeq = slideshowSelect + ` WHERE topic = ?` + slideshowRevisedSeq
 
 	slideshowsWhereTopic     = slideshowSelect + ` WHERE topic = ?`
 	slideshowsWhereTopicUser = slideshowSelect + ` WHERE topic = ? AND user = ?`
@@ -65,6 +62,28 @@ const (
 	slideshowsNotTopics      = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL` + slideshowOrderTitle
 
 	slideshowWhereShared = slideshowSelect + ` WHERE shared = ?`
+
+	// number of slideshows for topic, excluding suspended users
+	slideshowCountForTopic = `
+		SELECT COUNT(*) FROM slideshow
+		JOIN user ON user.id = slideshow.user
+		WHERE topic = ? AND user.status > 0
+	`
+
+	// slideshow in sequence for a topic, excluding suspended users
+	slideshowWhereTopicSeq = `
+		SELECT slideshow.* FROM slideshow
+		JOIN user ON user.id = slideshow.user
+		WHERE topic = ? AND user.status > 0
+		ORDER BY revised ASC LIMIT ?,1
+	`
+
+	// a user's slideshow for a topic, if visible
+	slideshowWhereTopicVisible = `
+		SELECT slideshow.* FROM slideshow
+		JOIN slideshow AS topic ON topic.id = slideshow.topic
+		WHERE slideshow.topic = ? AND slideshow.user = ? AND topic.visible >= ?
+	`
 
 	// tagged slideshows
 	slideshowsWhereTag = `
@@ -114,7 +133,7 @@ const (
 	slideshowsUserPublished = `
 		SELECT slideshow.* FROM slideshow
 		LEFT JOIN slideshow AS topic ON topic.id = slideshow.topic
-		WHERE slideshow.user = ? AND (slideshow.visible > 0 OR slideshow.visible = -1 AND topic.visible > 0) AND slideshow.image <> ""
+		WHERE slideshow.user = ? AND (slideshow.visible >= ? OR slideshow.visible = -1 AND topic.visible >= ?) AND slideshow.image <> ""
 		ORDER BY slideshow.created DESC
 	`
 
@@ -122,7 +141,7 @@ const (
 	topicsWhereFormat   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ?` + slideshowOrderTitle
 	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderRevised
 
-	// most recent visible topics and slideshows, with a per-user limit
+	// most recent visible topics and slideshows, with a per-user limit, excluding suspended users
 	slideshowsRecentPublished = `
 		WITH s1 AS (
 			SELECT slideshow.*,
@@ -132,16 +151,17 @@ const (
 			FROM slideshow
 			WHERE gallery = ? AND visible >= ? AND slideshow.image <> ""
 		)
-		SELECT id, visible, user, title, caption, format, image
+		SELECT s1.id, visible, user, title, caption, format, image
 		FROM s1
-		WHERE user IS NULL OR rnk <= ?
-		ORDER BY created DESC
+		LEFT JOIN user ON user.id = s1.user
+		WHERE s1.user IS NULL OR (rnk <= ? AND user.status > 0) 
+		ORDER BY s1.created DESC
 	`
 	slideshowsTopicPublished = `
 		SELECT slideshow.id, slideshow.title, slideshow.image, user.name 
 		FROM slideshow
 		INNER JOIN user ON user.id = slideshow.user
-		WHERE slideshow.topic = ? AND slideshow.visible <> 0 AND slideshow.image <> ""
+		WHERE slideshow.topic = ? AND slideshow.visible <> 0 AND slideshow.image <> "" AND user.status > 0
 		ORDER BY slideshow.revised`
 )
 
@@ -380,12 +400,24 @@ func (st *SlideshowStore) ForTopicUserAll(topicId int64, userId int64) []*models
 	return slideshows
 }
 
-// ForTopicUserIf returns a the slideshow for a topic and user, if it exists.
+// ForTopicUserIf returns the slideshow for a topic and user, if it exists.
 func (st *SlideshowStore) ForTopicUserIf(topicId int64, userId int64) *models.Slideshow {
 
 	var r models.Slideshow
 
 	if err := st.DBX.Get(&r, slideshowWhereTopic, topicId, userId); err != nil {
+		return nil
+	}
+
+	return &r
+}
+
+// ForTopicUserVisibleIf returns the slideshow for a topic and user, if it exists and is visible.
+func (st *SlideshowStore) ForTopicUserVisibleIf(topicId int64, userId int64, visible int) *models.Slideshow {
+
+	var r models.Slideshow
+
+	if err := st.DBX.Get(&r, slideshowWhereTopicVisible, topicId, userId, visible); err != nil {
 		return nil
 	}
 
@@ -407,11 +439,11 @@ func (st *SlideshowStore) ForUser(userId int64, visible int) []*models.Slideshow
 
 // All published slideshows for user, in published order, including topics
 
-func (st *SlideshowStore) ForUserPublished(userId int64) []*models.Slideshow {
+func (st *SlideshowStore) ForUserPublished(userId int64, visible int) []*models.Slideshow {
 
 	var slideshows []*models.Slideshow
 
-	if err := st.DBX.Select(&slideshows, slideshowsUserPublished, userId); err != nil {
+	if err := st.DBX.Select(&slideshows, slideshowsUserPublished, userId, visible, visible); err != nil {
 		st.logError(err)
 		return nil
 	}

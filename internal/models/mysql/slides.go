@@ -63,7 +63,7 @@ const (
 		ORDER BY slide.created DESC, slide.id DESC LIMIT ?
 	`
 
-	// most recent slides for a topic
+	// most recent slides for a topic, excluding suspended users
 	slidesRecentTopic = `
 		WITH s1 AS (
 			SELECT slide.*, user.name,
@@ -73,7 +73,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slide.image <> ''
+			WHERE slideshow.topic = ? AND slide.image <> '' AND user.status > 0
 			)
 		SELECT format, title, caption, image, name
 		FROM s1
