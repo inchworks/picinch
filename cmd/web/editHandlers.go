@@ -187,8 +187,8 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 		slides[0].Title, slides[0].Caption, slides[0].MediaName, nAgreed)
 
 	if status == 0 {
-		// bind updated media, now that update is committed
-		app.uploader.DoNext(tx)
+		// claim updated media, now that update is committed
+		app.tm.Do(tx)
 
 		if code == 0 {
 
@@ -406,8 +406,9 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	// save changes
 	status, userId := app.galleryState.OnEditSlideshow(nShow, nTopic, tx, nUser, slides)
 	if status == 0 {
-		// bind updated media, now that update is committed
-		app.uploader.DoNext(tx)
+
+		// claim updated media, now that update is committed
+		app.tm.Do(tx)
 
 		app.session.Put(r, "flash", "Slide changes saved.")
 		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
@@ -474,8 +475,8 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 	status, tx := app.galleryState.OnEditSlideshows(userId, slideshows)
 	if status == 0 {
 
-		// bind updated media, now that update is committed
-		app.tm.DoNext(tx)
+		// claim updated media, now that update is committed
+		app.tm.Do(tx)
 
 		app.session.Put(r, "flash", "Slideshow changes saved.")
 		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
@@ -556,7 +557,7 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 	// save changes
 	status, tx := app.galleryState.OnEditTopics(slideshows)
 	if status == 0 {
-		app.tm.DoNext(tx)
+		app.tm.Do(tx)
 		app.session.Put(r, "flash", "Topic changes saved.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 

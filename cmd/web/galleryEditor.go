@@ -212,9 +212,9 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 	// serialisation
 	defer s.updatesGallery()()
 
-	// check for a request that has been running so long that we have discarded the uploads
-	if !s.app.uploader.ValidCode(tx) {
-		return s.rollback(http.StatusRequestTimeout, nil), 0
+	// commit uploads, unless request has been running so long that we have discarded them
+	if err := s.app.uploader.Commit(tx); err != nil {
+		return s.rollback(http.StatusRequestTimeout, err), 0
 	}
 
 	now := time.Now()
@@ -270,6 +270,8 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 		if iSrc == nSrc {
 			// no more source slides - delete from destination
+			// ## errors ignored - better to aggregate and report them
+			s.app.uploader.Delete(tx, qsDest[iDest].Image)
 			s.app.SlideStore.DeleteId(qsDest[iDest].Id)
 			updated = true
 			iDest++
@@ -300,6 +302,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			ix := qsSrc[iSrc].ChildIndex
 			if ix > iDest {
 				// source slide removed - delete from destination
+				s.app.uploader.Delete(tx, qsDest[iDest].Image)
 				s.app.SlideStore.DeleteId(qsDest[iDest].Id)
 				updated = true
 				iDest++
@@ -323,7 +326,9 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 					// If the media name hasn't changed, leave the old version in use for now,
 					// so that the slideshow still works. We'll detect a version change later.
+					// #### Problem - need to be working with file names now. Or could do delete later?
 					if mediaName != dstName {
+						s.app.uploader.Delete(tx, qsDest[iDest].Image)
 						qDest.Image = uploader.FileFromName(tx, mediaName)
 					}
 
@@ -363,17 +368,16 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 	// Note that if showId is still 0 at this point, the user submitted a slideshow with no images for a topic.
 	// We'll ignore it. The uploader's timeout operation will be called via uploader.DoNext.
+	// #### could be images to delete?
 
 	if showId != 0 {
 		// request worker to generate media versions, and remove unused images
-		if err := s.txShow(
+		if _, err := s.app.tm.AddNext(tx, s, OpShow,
 			&OpUpdateShow{
 				ShowId:  showId,
 				TopicId: topicId,
-				tx:      tx,
 				Revised: revised,
-			},
-			OpShow); err != nil {
+			}); err != nil {
 			return s.rollback(http.StatusInternalServerError, err), 0
 		}
 	}
@@ -657,7 +661,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) (int, etx.T
 						rDest.Revised = now
 
 						// needs a media file before it will appear on home page
-						if err := s.txBeginTopic(tx, &OpUpdateTopic{
+						if _, err := s.app.tm.AddNext(tx, s, OpTopic, &OpUpdateTopic{
 							TopicId: rDest.Id,
 							Revised: false,
 						}); err != nil {
@@ -724,8 +728,8 @@ func (s *GalleryState) onEnterComp(classId int64, tx etx.TxId, name string, emai
 	defer s.updatesGallery()()
 
 	// check for a request that has been running so long that we have discarded the uploads
-	if !s.app.uploader.ValidCode(tx) {
-		return s.rollback(http.StatusRequestTimeout, nil), -1
+	if err := s.app.uploader.Commit(tx); err != nil {
+		return s.rollback(http.StatusRequestTimeout, err), -1
 	}
 
 	// create user for entry
@@ -802,7 +806,10 @@ func (s *GalleryState) onEnterComp(classId int64, tx etx.TxId, name string, emai
 	}
 
 	// request worker to generate media version, remove unused images, and send validation email
-	if err := s.txShow(&OpUpdateShow{ShowId: show.Id, tx: tx, Revised: false}, OpComp); err != nil {
+	if _, err := s.app.tm.AddNext(tx, s, OpComp, &OpUpdateShow{
+			ShowId: show.Id,
+			Revised: false,
+		}); err != nil {
 		return s.rollback(http.StatusInternalServerError, err), -1
 	}
 
@@ -816,13 +823,20 @@ func (s *GalleryState) onEnterComp(classId int64, tx etx.TxId, name string, emai
 // OnRemoveUser removes a user's media files from the system.
 func (s *GalleryState) OnRemoveUser(tx etx.TxId, user *users.User) {
 
-	// all slideshow IDs for user
+	// all slideshows for user
 	shows := s.app.SlideshowStore.ForUser(user.Id, models.SlideshowTopic)
 	for _, show := range shows {
-		s.txBeginShow(tx, &OpUpdateShow{
-			ShowId:  show.Id,
+
+		// delayed deletion of all images
+		s.app.deleteImages(tx, show.Id)
+
+		// request worker change topic thumbnail
+		_, err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{
 			TopicId: show.Topic,
 			Revised: false})
+		if err != nil {
+			s.app.log(err)
+		}
 	}
 
 	// slideshows and slides will be removed by cascade delete in caller
@@ -848,16 +862,18 @@ func (s *GalleryState) onRemoveSlideshow(tx etx.TxId, slideshow *models.Slidesho
 
 	topicId := slideshow.Topic
 
-	// slides will be removed by cascade delete
+	// delayed deletion of all images
+	s.app.deleteImages(tx, slideshow.Id)
+
+	// delete slideshow (slides will be removed by cascade delete)
 	s.app.SlideshowStore.DeleteId(slideshow.Id)
 
-	// request worker to remove media files, and change topic image
-	return s.txBeginShow(tx, &OpUpdateShow{
-		ShowId:  slideshow.Id,
+	// request worker to change topic thumbnail
+	_, err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{
 		TopicId: topicId,
-		tx:      0,
 		Revised: false},
 	)
+	return err
 }
 
 // validate tags an entry as validated and returns 0, a template and data to confirm a validated entry on success.
@@ -916,6 +932,17 @@ func (s *GalleryState) validate(code int64) (int, string, *dataValidated) {
 }
 
 // INTERNAL FUNCTIONS
+
+// deleteImages requests delayed deletion of all images for a slideshow
+func (app *Application) deleteImages(tx etx.TxId, showId int64) {
+	for _, slide := range app.SlideStore.ForSlideshow(showId, 1000) {
+		if slide.Image != "" {
+			if err := app.uploader.Delete(tx, slide.Image); err != nil {
+				app.log(err)
+			}
+		}
+	}
+}
 
 // editTags recursively processes tag changes.
 func (app *Application) editTags(f *multiforms.Form, userId int64, slideshowId int64, tags []*tags.ItemTag) bool {
@@ -1039,23 +1066,4 @@ func slideMedia(mediaType int) int {
 	default:
 		return 0 // invalid media type
 	}
-}
-
-// txBeginTopic requests a topic update as a new extended transaction.
-func (s *GalleryState) txBeginTopic(tx etx.TxId, req *OpUpdateTopic) error {
-
-	// ## could log error
-	return s.app.tm.BeginNext(tx, s, OpTopic, req)
-}
-
-// txBeginShow requests a show update as a new extended transaction.
-func (s *GalleryState) txBeginShow(tx etx.TxId, req *OpUpdateShow) error {
-
-	// ## could log error
-	return s.app.tm.BeginNext(tx, s, OpShow, req)
-}
-
-// txShow requests a show update as a transaction, so that it will be done even if the server restarts.
-func (s *GalleryState) txShow(req *OpUpdateShow, opType int) error {
-	return s.app.tm.SetNext(req.tx, s, opType, req)
 }

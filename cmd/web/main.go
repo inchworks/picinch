@@ -154,19 +154,27 @@ type Configuration struct {
 	ReplyTo       string `yaml:"reply-to" env:"reply-to" env-default:""`
 }
 
-// Operation to update slideshow images.
+// Operation to claim slideshow images.
 type OpUpdateShow struct {
 	ShowId  int64
 	TopicId int64
 	Revised bool
-	tx      etx.TxId
+	op      etx.OpId
 }
 
 // Operation to update topic images.
 type OpUpdateTopic struct {
 	TopicId int64
 	Revised bool
-	tx      etx.TxId
+	op      etx.OpId
+}
+
+// Worker request to bind slideshow images.
+type reqBindShow struct {
+	showId  int64
+	topicId int64
+	revised bool
+	op      etx.OpId
 }
 
 // Application struct supplies application-wide dependencies.
@@ -215,6 +223,7 @@ type Application struct {
 	chShow  chan OpUpdateShow
 	chShows chan []OpUpdateShow
 	chTopic chan OpUpdateTopic
+	chBind  chan reqBindShow
 
 	// Since we support just one gallery at a time, we can cache state here.
 	// With multiple galleries, we'd need a per-gallery cache.
@@ -285,7 +294,7 @@ func main() {
 	defer close(chDone)
 
 	// start background worker
-	go app.galleryState.worker(app.chComp, app.chShow, app.chShows, app.chTopic, tr.C, tp.C, chDone)
+	go app.galleryState.worker(app.chComp, app.chShow, app.chShows, app.chTopic, app.chBind, tr.C, tp.C, chDone)
 
 	// redo any pending operations
 	infoLog.Print("Starting operation recovery")
@@ -455,7 +464,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		app.emailer = emailer.NewDialer(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, app.cfg.ReplyTo, localHost, app.templateCache)
 	}
 
-	// set up extended transaction manager, and recover
+	// setup extended transaction manager
 	app.tm = etx.New(app, app.redoStore)
 
 	// setup media upload processing
