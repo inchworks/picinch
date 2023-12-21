@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.0.18"
+	version = "1.1.0"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -110,11 +110,12 @@ type Configuration struct {
 	AdminPassword string `yaml:"admin-password" env:"admin-password" env-default:"<your-password>"`
 
 	// image sizes
-	MaxW      int `yaml:"image-width" env-default:"1600"` // maximum stored image dimensions
-	MaxH      int `yaml:"image-height" env-default:"1200"`
-	ThumbW    int `yaml:"thumbnail-width" env-default:"278"` // thumbnail size
-	ThumbH    int `yaml:"thumbnail-height" env-default:"208"`
-	MaxUpload int `yaml:"max-upload" env-default:"64"` // maximum file upload (megabytes)
+	MaxW        int `yaml:"image-width" env-default:"1600"` // maximum stored image dimensions
+	MaxH        int `yaml:"image-height" env-default:"1200"`
+	MaxAV int `yaml:"max-audio-visual" env-default:"16"`       // maximum stored AV file size
+	ThumbW      int `yaml:"thumbnail-width" env-default:"278"` // thumbnail size
+	ThumbH      int `yaml:"thumbnail-height" env-default:"208"`
+	MaxUpload   int `yaml:"max-upload" env-default:"64"` // maximum file upload (megabytes)
 
 	// total limits
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
@@ -195,6 +196,7 @@ type Application struct {
 	SlideStore     *mysql.SlideStore
 	GalleryStore   *mysql.GalleryStore
 	redoStore      *mysql.RedoStore
+	redoV1Store    *mysql.RedoV1Store
 	SlideshowStore *mysql.SlideshowStore
 	statisticStore *mysql.StatisticStore
 	userStore      *mysql.UserStore
@@ -219,11 +221,12 @@ type Application struct {
 	wrongCode http.Handler
 
 	// Channels to background worker
-	chComp  chan OpUpdateShow
-	chShow  chan OpUpdateShow
-	chShows chan []OpUpdateShow
-	chTopic chan OpUpdateTopic
-	chBind  chan reqBindShow
+	chComp   chan OpUpdateShow
+	chShow   chan OpUpdateShow
+	chShowV1 chan OpUpdateShow
+	chShows  chan []OpUpdateShow
+	chTopic  chan OpUpdateTopic
+	chBind   chan reqBindShow
 
 	// Since we support just one gallery at a time, we can cache state here.
 	// With multiple galleries, we'd need a per-gallery cache.
@@ -294,10 +297,16 @@ func main() {
 	defer close(chDone)
 
 	// start background worker
-	go app.galleryState.worker(app.chComp, app.chShow, app.chShows, app.chTopic, app.chBind, tr.C, tp.C, chDone)
+	go app.galleryState.worker(app.chComp, app.chShow, app.chShowV1, app.chShows, app.chTopic, app.chBind, tr.C, tp.C, chDone)
 
 	// redo any pending operations
 	infoLog.Print("Starting operation recovery")
+	if app.redoV1Store != nil {
+		if err := app.tm.RecoverV1(app.redoV1Store, &app.galleryState, app.uploader); err != nil {
+			errorLog.Fatal(err)
+		}
+		app.uploader.V1() // uploader should request timeouts
+	}
 	if err := app.tm.Recover(&app.galleryState, app.uploader); err != nil {
 		errorLog.Fatal(err)
 	}
@@ -472,6 +481,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		FilePath:     ImagePath,
 		MaxW:         app.cfg.MaxW,
 		MaxH:         app.cfg.MaxH,
+		MaxSize:      app.cfg.MaxAV * 1024 * 1024,
 		ThumbW:       app.cfg.ThumbW,
 		ThumbH:       app.cfg.ThumbH,
 		MaxAge:       app.cfg.MaxUploadAge,
@@ -511,15 +521,16 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// geo-blocking
 	app.geoblocker = &server.GeoBlocker{
-		ErrorLog: errorLog,
+		ErrorLog:     errorLog,
 		ReportSingle: true,
-		Store: GeoDBPath,
+		Store:        GeoDBPath,
 	}
 	app.geoblocker.Start(cfg.GeoBlock)
 
 	// create worker channels
 	app.chComp = make(chan OpUpdateShow, 10)
 	app.chShow = make(chan OpUpdateShow, 10)
+	app.chShowV1 = make(chan OpUpdateShow, 10)
 	app.chShows = make(chan []OpUpdateShow, 1)
 	app.chTopic = make(chan OpUpdateTopic, 10)
 
@@ -542,6 +553,9 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.tagger.TagStore = mysql.NewTagStore(app.db, &app.tx, app.errorLog)
 	app.tagger.TagRefStore = mysql.NewTagRefStore(app.db, &app.tx, app.errorLog)
 	app.userStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
+
+	// this is to handle V1 transactions from before upgrade, to be deleted if not needed
+	app.redoV1Store = mysql.NewRedoV1Store(app.db, &app.tx, app.errorLog)
 
 	// database change to users table, to use webparts
 	// The first part must be done before we add a missing admin,
@@ -576,8 +590,11 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	if err = mysql.MigrateTags(app.tagger.TagStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
-	if err = mysql.MigrateRedo(app.redoStore); err != nil {
+	if err = mysql.MigrateRedo2(app.redoStore); err != nil {
 		app.errorLog.Fatal(err)
+	}
+	if !mysql.MigrateRedoV1(app.redoV1Store) {
+		app.redoV1Store = nil
 	}
 
 	return g

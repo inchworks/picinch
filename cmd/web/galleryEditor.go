@@ -198,7 +198,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (status int, f
 
 	// add slides to form
 	for i, sl := range slides {
-		_, image, _ := uploader.NameFromFile(sl.Image)
+		_, image := uploader.NameFromFile(sl.Image)
 		f.Add(i, sl.ShowOrder, sl.Title, image, sl.Caption)
 	}
 
@@ -220,10 +220,11 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 	now := time.Now()
 	nSrc := len(qsSrc)
 	revised := false
+	var show *models.Slideshow
 
 	if showId != 0 {
 		// slideshow already exists
-		show := s.app.SlideshowStore.GetIf(showId)
+		show = s.app.SlideshowStore.GetIf(showId)
 		if show == nil {
 			return s.rollback(http.StatusBadRequest, nil), 0
 		}
@@ -239,7 +240,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 		// It might already exist, if the user is attempting an edit on two devices at the same time,
 		// and we allow only one. (Yes, it has happened!)
-		show := s.app.SlideshowStore.ForTopicUserIf(topicId, userId)
+		show = s.app.SlideshowStore.ForTopicUserIf(topicId, userId)
 		if show == nil {
 
 			// create a new slideshow from the topic details
@@ -312,7 +313,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				// (checking media name at this point, version change will be handled later)
 				mediaName := uploader.CleanName(qsSrc[iSrc].MediaName)
 				qDest := qsDest[iDest]
-				_, dstName, _ := uploader.NameFromFile(qDest.Image)
+				_, dstName := uploader.NameFromFile(qDest.Image)
 				if qsSrc[iSrc].ShowOrder != qDest.ShowOrder ||
 					qsSrc[iSrc].Title != qDest.Title ||
 					qsSrc[iSrc].Caption != qDest.Caption ||
@@ -326,7 +327,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 					// If the media name hasn't changed, leave the old version in use for now,
 					// so that the slideshow still works. We'll detect a version change later.
-					// #### Problem - need to be working with file names now. Or could do delete later?
+					// #### Problem - need to be working with file names now. How to detect new version of same name?
 					if mediaName != dstName {
 						s.app.uploader.Delete(tx, qsDest[iDest].Image)
 						qDest.Image = uploader.FileFromName(tx, mediaName)
@@ -366,20 +367,24 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 		}
 	}
 
-	// Note that if showId is still 0 at this point, the user submitted a slideshow with no images for a topic.
-	// We'll ignore it. The uploader's timeout operation will be called via uploader.DoNext.
-	// #### could be images to delete?
+	// remove empty show for topic
+	// #### beware race with user re-opening show to add back an image
+	if nImages == 0 && show.Visible == models.SlideshowTopic {
+		s.app.SlideshowStore.DeleteId(showId)
+	}
 
-	if showId != 0 {
-		// request worker to generate media versions, and remove unused images
-		if _, err := s.app.tm.AddNext(tx, s, OpShow,
-			&OpUpdateShow{
-				ShowId:  showId,
-				TopicId: topicId,
-				Revised: revised,
-			}); err != nil {
-			return s.rollback(http.StatusInternalServerError, err), 0
-		}
+
+	// Note that if showId is still 0 at this point, the user submitted a slideshow with no images for a topic.
+	// We still do OpUpdateShow to remove any uploads added to a slide and then removed.
+
+	// request worker to generate media versions, and remove unused images
+	if _, err := s.app.tm.AddNext(tx, s, OpShow,
+		&OpUpdateShow{
+			ShowId:  showId,
+			TopicId: topicId,
+			Revised: revised,
+		}); err != nil {
+		return s.rollback(http.StatusInternalServerError, err), 0
 	}
 
 	return 0, userId
@@ -553,7 +558,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (st
 
 	// add slides to form
 	for i, sl := range slides {
-		_, image, _ := uploader.NameFromFile(sl.Image)
+		_, image := uploader.NameFromFile(sl.Image)
 		f.Add(i, sl.ShowOrder, sl.Title, image, sl.Caption)
 	}
 

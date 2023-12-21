@@ -122,9 +122,11 @@ var cmds = [...]string{
 
 var cmdsRedo = [...]string{
 
-	`CREATE TABLE redo (
+	`CREATE TABLE redoV2 (
 		id BIGINT NOT NULL,
 		manager varchar(32) COLLATE utf8_unicode_ci NOT NULL,
+		redotype int(11) NOT NULL,
+		delay int(11) NOT NULL,
 		optype int(11) NOT NULL,
 		operation JSON NOT NULL,
 		PRIMARY KEY (id)
@@ -253,13 +255,20 @@ func setupTables(db *sqlx.DB, tx *sqlx.Tx, cmds []string) error {
 	return nil
 }
 
-// MigrateRedo adds the redo table. Needed for version 0.11.0.
-func MigrateRedo(stRedo *RedoStore) error {
+// MigrateRedo adds the redo V2 table. Needed for version 1.1.0.
+func MigrateRedo2(stRedo *RedoStore) error {
 
 	if _, err := stRedo.Count(); err != nil {
 		return setupTables(stRedo.DBX, *stRedo.ptx, cmdsRedo[:])
 	}
 	return nil
+}
+
+// MigrateRedoV1 checks to see if we have a V1 redo table with records, as created before version 1.1.0.
+func MigrateRedoV1(stRedoV1 *RedoV1Store) bool {
+
+	n, err := stRedoV1.Count()
+	return err == nil && n > 0
 }
 
 // MigrateTags adds tag tables. Needed for version 0.9.8.
