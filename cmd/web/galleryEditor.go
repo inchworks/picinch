@@ -354,6 +354,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 		// ## but this makes the unsequenced changes visible briefly, or would if I weren't serialising at server level
 		s.save()
 
+		nImages := 0
 		sls := s.app.SlideStore.ForSlideshow(showId, 100)
 
 		for ix, sl := range sls {
@@ -364,15 +365,17 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				sl.ShowOrder = nOrder
 				s.app.SlideStore.Update(sl)
 			}
+			if sl.Image != "" {
+				nImages++ // count slides with images
+			}
+		}
+
+		// remove empty show for topic
+		// #### beware race with user re-opening show to add back an image
+		if nImages == 0 && show.Visible == models.SlideshowTopic {
+			s.app.SlideshowStore.DeleteId(showId)
 		}
 	}
-
-	// remove empty show for topic
-	// #### beware race with user re-opening show to add back an image
-	if nImages == 0 && show.Visible == models.SlideshowTopic {
-		s.app.SlideshowStore.DeleteId(showId)
-	}
-
 
 	// Note that if showId is still 0 at this point, the user submitted a slideshow with no images for a topic.
 	// We still do OpUpdateShow to remove any uploads added to a slide and then removed.
