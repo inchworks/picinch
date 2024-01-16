@@ -124,6 +124,7 @@ var cmdsRedo = [...]string{
 
 	`CREATE TABLE redoV2 (
 		id BIGINT NOT NULL,
+		tx BIGINT NOT NULL,
 		manager varchar(32) COLLATE utf8_unicode_ci NOT NULL,
 		redotype int(11) NOT NULL,
 		delay int(11) NOT NULL,
@@ -255,7 +256,7 @@ func setupTables(db *sqlx.DB, tx *sqlx.Tx, cmds []string) error {
 	return nil
 }
 
-// MigrateRedo adds the redo V2 table. Needed for version 1.1.0.
+// MigrateRedo2 adds the redo V2 table. Needed for version 1.1.0.
 func MigrateRedo2(stRedo *RedoStore) error {
 
 	if _, err := stRedo.Count(); err != nil {

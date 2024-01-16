@@ -7,7 +7,7 @@
 */}}
 
 {{define "video"}}
-  <video class="slide_video" controls autoplay src="/photos/{{ . }}">
+  <video class="slide_video" controls autoplay src="{{ thumbnail . }}">
     Video needs conversion to be shown.
   </video>
 {{end}}

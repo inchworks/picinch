@@ -253,6 +253,7 @@ var templateFuncs = template.FuncMap{
 	"humanDate":  humanDate,
 	"thumbnail":  thumbnail,
 	"userStatus": userStatus,
+	"viewable":   viewable,
 }
 
 // checked returns "checked" if the parameter is true, for use with a form checkbox.
@@ -268,36 +269,15 @@ func checked(isChecked bool) string {
 // thumbnail returns a path to a thumbnail image
 func thumbnail(image string) string {
 
-	if image == "" {
+	s := uploader.Status(image)
+
+	if s == 0 {
 		return "/static/images/no-photos.jpg"
+	} else if s < 100 {
+		return "/static/images/working.jpg"
 	} else {
 		return "/photos/" + uploader.Thumbnail(image)
 	}
-
-}
-
-// userRole returns a user's role as a string
-func userRole(n int) (s string) {
-
-	switch n {
-	// user status
-	case models.UserFriend:
-		s = "friend"
-
-	case models.UserMember:
-		s = "member"
-
-	case models.UserCurator:
-		s = "curator"
-
-	case models.UserAdmin:
-		s = "administrator"
-
-	default:
-		s = "??"
-	}
-
-	return
 }
 
 // userStatus returns a user's status as a string
@@ -318,4 +298,18 @@ func userStatus(n int) (s string) {
 	}
 
 	return
+}
+
+// viewable returns the version of a media file that is ready to be viewed.
+func viewable(image string) string {
+	
+	s := uploader.Status(image)
+
+	if s == 0 {
+		return "/static/images/no-photo.jpg" // not expected
+	} else if s < 100 {
+		return "/static/images/working-lg.jpg"
+	} else {
+		return "/photos/" + image
+	}
 }

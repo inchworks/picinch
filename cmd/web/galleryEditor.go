@@ -288,7 +288,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				Revised:   now,
 				Title:     s.sanitize(qsSrc[iSrc].Title, ""),
 				Caption:   s.sanitize(qsSrc[iSrc].Caption, ""),
-				Image:     uploader.FileFromName(tx, mediaName),
+				Image:     uploader.FileFromName(tx, qsSrc[iSrc].Version, mediaName),
 			}
 			// only a new media file is counted as a revision to the slideshow
 			if mediaName != "" {
@@ -310,14 +310,12 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 			} else if ix == iDest {
 				// check if details changed
-				// (checking media name at this point, version change will be handled later)
 				mediaName := uploader.CleanName(qsSrc[iSrc].MediaName)
 				qDest := qsDest[iDest]
-				_, dstName := uploader.NameFromFile(qDest.Image)
 				if qsSrc[iSrc].ShowOrder != qDest.ShowOrder ||
 					qsSrc[iSrc].Title != qDest.Title ||
 					qsSrc[iSrc].Caption != qDest.Caption ||
-					mediaName != dstName {
+					qsSrc[iSrc].Version != 0 {
 
 					qDest.Format = s.app.slideFormat(qsSrc[iSrc])
 					qDest.ShowOrder = qsSrc[iSrc].ShowOrder
@@ -325,12 +323,10 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 					qDest.Title = s.sanitize(qsSrc[iSrc].Title, qDest.Title)
 					qDest.Caption = s.sanitize(qsSrc[iSrc].Caption, qDest.Caption)
 
-					// If the media name hasn't changed, leave the old version in use for now,
-					// so that the slideshow still works. We'll detect a version change later.
-					// #### Problem - need to be working with file names now. How to detect new version of same name?
-					if mediaName != dstName {
+					if qsSrc[iSrc].Version != 0 {
+						// replace media file
 						s.app.uploader.Delete(tx, qsDest[iDest].Image)
-						qDest.Image = uploader.FileFromName(tx, mediaName)
+						qDest.Image = uploader.FileFromName(tx, qsSrc[iSrc].Version, mediaName)
 					}
 
 					s.app.SlideStore.Update(qDest)
@@ -371,7 +367,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 		}
 
 		// remove empty show for topic
-		// #### beware race with user re-opening show to add back an image
+		// ### beware race with user re-opening show to add back an image
 		if nImages == 0 && show.Visible == models.SlideshowTopic {
 			s.app.SlideshowStore.DeleteId(showId)
 		}
@@ -381,7 +377,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 	// We still do OpUpdateShow to remove any uploads added to a slide and then removed.
 
 	// request worker to generate media versions, and remove unused images
-	if _, err := s.app.tm.AddNext(tx, s, OpShow,
+	if err := s.app.tm.AddNext(tx, s, OpShow,
 		&OpUpdateShow{
 			ShowId:  showId,
 			TopicId: topicId,
@@ -448,7 +444,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 
 		if iSrc == nSrc {
 			// no more source slideshows - delete from destination
-			if err := s.onRemoveSlideshow(tx, rsDest[iDest]); err != nil {
+			if err := s.removeSlideshow(tx, rsDest[iDest]); err != nil {
 				return s.rollback(http.StatusBadRequest, err), 0
 			}
 			iDest++
@@ -478,7 +474,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 			ix := rsSrc[iSrc].ChildIndex
 			if ix > iDest {
 				// source slideshow removed - delete from destination
-				if err := s.onRemoveSlideshow(tx, rsDest[iDest]); err != nil {
+				if err := s.removeSlideshow(tx, rsDest[iDest]); err != nil {
 					return s.rollback(http.StatusBadRequest, err), 0
 				}
 				iDest++
@@ -669,7 +665,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) (int, etx.T
 						rDest.Revised = now
 
 						// needs a media file before it will appear on home page
-						if _, err := s.app.tm.AddNext(tx, s, OpTopic, &OpUpdateTopic{
+						if err := s.app.tm.AddNext(tx, s, OpTopic, &OpUpdateTopic{
 							TopicId: rDest.Id,
 							Revised: false,
 						}); err != nil {
@@ -798,7 +794,7 @@ func (s *GalleryState) onEnterComp(classId int64, tx etx.TxId, name string, emai
 		Format:    sf,
 		Revised:   time.Now(),
 		Caption:   s.sanitize(caption, ""),
-		Image:     uploader.FileFromName(tx, image),
+		Image:     uploader.FileFromName(tx, 1, image),
 	}
 
 	if err = s.app.SlideStore.Update(slide); err != nil {
@@ -814,7 +810,7 @@ func (s *GalleryState) onEnterComp(classId int64, tx etx.TxId, name string, emai
 	}
 
 	// request worker to generate media version, remove unused images, and send validation email
-	if _, err := s.app.tm.AddNext(tx, s, OpComp, &OpUpdateShow{
+	if err := s.app.tm.AddNext(tx, s, OpComp, &OpUpdateShow{
 			ShowId: show.Id,
 			Revised: false,
 		}); err != nil {
@@ -828,8 +824,8 @@ func (s *GalleryState) onEnterComp(classId int64, tx etx.TxId, name string, emai
 	return 0, vc
 }
 
-// OnRemoveUser removes a user's media files from the system.
-func (s *GalleryState) OnRemoveUser(tx etx.TxId, user *users.User) {
+// onRemoveUser removes a user's media files from the system.
+func (s *GalleryState) onRemoveUser(tx etx.TxId, user *users.User) {
 
 	// all slideshows for user
 	shows := s.app.SlideshowStore.ForUser(user.Id, models.SlideshowTopic)
@@ -839,11 +835,13 @@ func (s *GalleryState) OnRemoveUser(tx etx.TxId, user *users.User) {
 		s.app.deleteImages(tx, show.Id)
 
 		// request worker change topic thumbnail
-		_, err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{
-			TopicId: show.Topic,
-			Revised: false})
-		if err != nil {
-			s.app.log(err)
+		if show.Topic != 0 {
+			err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{
+				TopicId: show.Topic,
+				Revised: false})
+			if err != nil {
+				s.app.log(err)
+			}
 		}
 	}
 
@@ -865,8 +863,8 @@ func (s *GalleryState) UserDisplayName(userId int64) string {
 	return u.Name
 }
 
-// onRemoveSlideshow does cleanup when a slideshow is removed.
-func (s *GalleryState) onRemoveSlideshow(tx etx.TxId, slideshow *models.Slideshow) error {
+// removeSlideshow deletes a slideshow and initiates cleanup.
+func (s *GalleryState) removeSlideshow(tx etx.TxId, slideshow *models.Slideshow) error {
 
 	topicId := slideshow.Topic
 
@@ -874,13 +872,15 @@ func (s *GalleryState) onRemoveSlideshow(tx etx.TxId, slideshow *models.Slidesho
 	s.app.deleteImages(tx, slideshow.Id)
 
 	// delete slideshow (slides will be removed by cascade delete)
-	s.app.SlideshowStore.DeleteId(slideshow.Id)
+	err := s.app.SlideshowStore.DeleteId(slideshow.Id)
 
 	// request worker to change topic thumbnail
-	_, err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{
-		TopicId: topicId,
-		Revised: false},
-	)
+	if err == nil && topicId != 0 {
+		err = s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{
+			TopicId: topicId,
+			Revised: false},
+		)
+	}
 	return err
 }
 

@@ -262,9 +262,16 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 
 	timestamp := r.FormValue("timestamp")
 
+	vs := r.FormValue("version")
+	v, err := strconv.Atoi(vs)
+	if err != nil {
+		app.httpBadRequest(w, errors.New("Bad media version."))
+		return
+	}
+
 	// multipart form
 	// (The limit, 10 MB, is just for memory use, not the size of the upload)
-	err := r.ParseMultipartForm(10 << 20)
+	err = r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		app.httpBadRequest(w, err)
 		return
@@ -295,7 +302,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var s string
-	err, byUser := app.uploader.Save(fh, id)
+	err, byUser := app.uploader.Save(fh, id, v)
 	if err != nil {
 		if byUser {
 			s = err.Error()

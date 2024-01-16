@@ -160,14 +160,14 @@ type OpUpdateShow struct {
 	ShowId  int64
 	TopicId int64
 	Revised bool
-	op      etx.OpId
+	tx      etx.TxId
 }
 
 // Operation to update topic images.
 type OpUpdateTopic struct {
 	TopicId int64
 	Revised bool
-	op      etx.OpId
+	tx      etx.TxId
 }
 
 // Worker request to bind slideshow images.
@@ -175,7 +175,7 @@ type reqBindShow struct {
 	showId  int64
 	topicId int64
 	revised bool
-	op      etx.OpId
+	tx      etx.TxId
 }
 
 // Application struct supplies application-wide dependencies.
@@ -361,7 +361,7 @@ func (app *Application) OnAddUser(user *users.User) {
 // OnRemoveUser is called to delete any application data for a user.
 func (app *Application) OnRemoveUser(tx etx.TxId, user *users.User) {
 
-	app.galleryState.OnRemoveUser(tx, user)
+	app.galleryState.onRemoveUser(tx, user)
 }
 
 // Render writes an HTTP response using the specified template and field (embedded as Users).
@@ -533,6 +533,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.chShowV1 = make(chan OpUpdateShow, 10)
 	app.chShows = make(chan []OpUpdateShow, 1)
 	app.chTopic = make(chan OpUpdateTopic, 10)
+	app.chBind = make(chan reqBindShow, 10)
 
 	return app
 }

@@ -70,12 +70,12 @@ func (s *GalleryState) ForOperation(opType int) etx.Op {
 }
 
 // Do operation requested via TM.
-func (s *GalleryState) Operation(id etx.OpId, opType int, op etx.Op) {
+func (s *GalleryState) Operation(id etx.TxId, opType int, op etx.Op) {
 
 	// send the request to the worker
 	switch req := op.(type) {
 	case *OpUpdateShow:
-		req.op = id
+		req.tx = id
 		switch opType {
 		case OpComp:
 			s.app.chComp <- *req
@@ -86,7 +86,7 @@ func (s *GalleryState) Operation(id etx.OpId, opType int, op etx.Op) {
 		}
 
 	case *OpUpdateTopic:
-		req.op = id
+		req.tx = id
 		s.app.chTopic <- *req
 
 	default:
@@ -114,40 +114,35 @@ func (s *GalleryState) worker(
 		case req := <-chComp:
 
 			// a competition entry has been added
-			s.onCompEntry(req.ShowId, req.op, req.Revised)
+			s.onCompEntry(req.ShowId, req.tx, req.Revised)
 
 		case req := <-chShow:
 
 			// a slideshow has been updated or removed
-			s.onUpdateShow(req.ShowId, req.TopicId, req.op, req.Revised)
+			s.onUpdateShow(req.ShowId, req.TopicId, req.tx, req.Revised)
 
 		case req := <-chShowV1:
 
 			// a slideshow has been updated or removed
-			s.onUpdateShowV1(req.ShowId, req.TopicId, req.op, req.Revised)
+			s.onUpdateShowV1(req.ShowId, req.TopicId, req.tx, req.Revised)
 
 		case reqs := <-chShows:
 
 			// a set of slideshows have been updated (e.g. user removed)
 			for _, req := range reqs {
-				s.onUpdateShow(req.ShowId, req.TopicId, req.op, req.Revised)
+				s.onUpdateShow(req.ShowId, req.TopicId, req.tx, req.Revised)
 				runtime.Gosched()
 			}
 
 		case req := <-chTopic:
 
 			// a topic slideshow has been updated or removed
-			s.onUpdateTopic(req.TopicId, req.op, req.Revised)
+			s.onUpdateTopic(req.TopicId, req.tx, req.Revised)
 
 		case req := <-chBind:
 
 			// media files have been processed, ready to be displayed
-			s.onBindShow(req.showId, req.revised, req.op)
-
-			// update topic, to drop any old thumbnails and choose new ones
-			if req.topicId != 0 {
-				s.onUpdateTopic(req.topicId, 0, req.revised)
-			}
+			s.onBindShow(req.showId, req.topicId, req.revised, req.tx)
 
 		case <-chRefresh:
 
@@ -168,12 +163,12 @@ func (s *GalleryState) worker(
 }
 
 // onBindShow sets uploaded images for a new and updated slideshow.
-func (s *GalleryState) onBindShow(showId int64, revised bool, opId etx.OpId) {
+func (s *GalleryState) onBindShow(showId int64, topicId int64, revised bool, tx etx.TxId) {
 
 	defer s.updatesGallery()()
 
 	// setup
-	bind := s.app.uploader.StartBind(etx.Transaction(opId))
+	bind := s.app.uploader.StartBind(tx)
 
 	// set versioned images, and update slideshow
 	s.bindFiles(showId, revised, bind)
@@ -182,25 +177,35 @@ func (s *GalleryState) onBindShow(showId int64, revised bool, opId etx.OpId) {
 	if err := s.updateHighlights(showId); err != nil {
 		s.app.log(err)
 	}
-
+ 
 	// all bound
 	if err := bind.End(); err != nil {
 		s.app.log(err)
 	}
 
+	// update topic, to drop any old thumbnails and choose new ones
+	if topicId != 0 {
+		topic := s.app.SlideshowStore.GetIf(topicId)
+		if topic != nil {
+			if err := s.updateTopic(topic, revised); err != nil {
+				s.app.log(err)
+			}
+		}
+	}
+
 	// terminate this operation
-	if err := s.app.tm.End(opId); err != nil {
+	if err := s.app.tm.End(tx); err != nil {
 		s.app.log(err)
 	}
 }
 
 // onCompEntry processes a competition entry.
-func (s *GalleryState) onCompEntry(showId int64, opId etx.OpId, revised bool) int {
+func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) int {
 
 	app := s.app
 
 	// slideshow for competition
-	s.onUpdateShow(showId, 0, opId, revised)
+	s.onUpdateShow(showId, 0, tx, revised)
 
 	// email configured?
 	if s.app.emailer == nil {
@@ -279,7 +284,7 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 		}
 
 		// remove media files after slideshow has been deleted
-		// #### revise to match V2 uploader
+		// ### revise to match V2 uploader
 		// ## log error
 		s.app.tm.AddNext(tx, s, OpShow, &OpUpdateShow{
 			ShowId:  show.Id,
@@ -332,10 +337,12 @@ func (s *GalleryState) onRefresh() int {
 }
 
 // onUpdateShow processes an updated or deleted slideshow.
-func (s *GalleryState) onUpdateShow(showId int64, topicId int64, opId etx.OpId, revised bool) {
+func (s *GalleryState) onUpdateShow(showId int64, topicId int64, tx etx.TxId, revised bool) {
+
+	defer s.updatesNone()()
 
 	// setup
-	claim := s.app.uploader.StartClaim(etx.Transaction(opId))
+	claim := s.app.uploader.StartClaim(tx)
 
 	// showId will be 0 if the user submitted slides with no images for a topic
 	if showId == 0 {
@@ -350,7 +357,7 @@ func (s *GalleryState) onUpdateShow(showId int64, topicId int64, opId etx.OpId, 
 	// remove unclaimed files and continue when all uploads have been processed
 	claim.End(func(err error) {
 		if err == nil {
-			s.app.chBind <- reqBindShow{showId: showId, topicId: topicId, revised: revised, op: opId}
+			s.app.chBind <- reqBindShow{showId: showId, topicId: topicId, revised: revised, tx: tx}
 		} else {
 			s.app.log(err)
 		}
@@ -358,17 +365,22 @@ func (s *GalleryState) onUpdateShow(showId int64, topicId int64, opId etx.OpId, 
 }
 
 // onUpdateShowV1 processes a V1 operation for an updated or deleted slideshow.
-func (s *GalleryState) onUpdateShowV1(showId int64, topicId int64, opId etx.OpId, revised bool) {
+func (s *GalleryState) onUpdateShowV1(showId int64, topicId int64, tx etx.TxId, revised bool) {
+
+	defer s.updatesGallery()()
 
 	// setup
-	claim := s.app.uploader.StartClaimV1(etx.Transaction(opId))
+	claim := s.app.uploader.StartClaimV1(tx)
 
 	// identify which uploaded files are referenced
 	s.claimFiles(showId, claim, false)
 
 	// update topic, before we remove any thumbnails it might use
 	if topicId != 0 {
-		s.onUpdateTopic(topicId, 0, revised)
+		topic := s.app.SlideshowStore.GetIf(topicId)
+		if topic != nil {
+			s.updateTopic(topic, revised)
+		}
 	}
 
 	// update highlighted images
@@ -380,22 +392,17 @@ func (s *GalleryState) onUpdateShowV1(showId int64, topicId int64, opId etx.OpId
 	claim.EndV1()
 
 	// terminate the extended transaction
-	defer s.updatesGallery()()
-	if err := s.app.tm.End(opId); err != nil {
+	if err := s.app.tm.End(tx); err != nil {
 		s.app.log(err)
 	}
 }
 
 // onUpdateTopic processes a topic with an updated or deleted slideshow.
-// A TxId is specified if the extended transaction should be ended as part of the database transaction.
-func (s *GalleryState) onUpdateTopic(topicId int64, opId etx.OpId, revised bool) {
+func (s *GalleryState) onUpdateTopic(topicId int64, tx etx.TxId, revised bool) {
 	defer s.updatesGallery()()
 
-	if opId != 0 {
-		// this is the end of the aynchronous operation
-		if err := s.app.tm.End(opId); err != nil {
-			s.app.log(err)
-		}
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
 	}
 
 	topic := s.app.SlideshowStore.GetIf(topicId)
@@ -410,8 +417,6 @@ func (s *GalleryState) onUpdateTopic(topicId int64, opId etx.OpId, revised bool)
 
 // updateHighlights changes the cached images when a highlight slideshow is changed.
 func (s *GalleryState) updateHighlights(id int64) error {
-
-	defer s.updatesNone()()
 
 	show := s.app.SlideshowStore.GetIf(id)
 	if show == nil {
@@ -500,9 +505,6 @@ func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind
 // updateSlides claims media files for a slideshow. It also sets the slideshow revision time.
 // process is set false only for V1 operations, in which case the uploaded media will have been processed already.
 func (s *GalleryState) claimFiles(showId int64, claim *uploader.Claim, process bool) {
-
-	// serialise display state while slides are changing
-	defer s.updatesNone()()
 
 	show := s.app.SlideshowStore.GetIf(showId)
 	if show == nil {

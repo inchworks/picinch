@@ -40,8 +40,8 @@ const (
 
 	redoV1WhereId = redoSelect + ` WHERE id = ?`
 
-	redoV1ById               = redoSelect + redoOrderId
-	redoV1WhereManagerBefore = redoSelect + ` WHERE manager = ? AND id < ?` + redoOrderId
+	redoV1ById               = redoV1Select + redoV1OrderId
+	redoV1WhereManagerBefore = redoV1Select + ` WHERE manager = ? AND id < ?` + redoV1OrderId
 )
 
 type RedoV1Store struct {

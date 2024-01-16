@@ -32,7 +32,7 @@ const (
 	redoDelete = `DELETE FROM redoV2 WHERE id = ?`
 
 	redoInsert = `
-		INSERT INTO redoV2 (id, manager, redotype, delay, optype, operation) VALUES (:id, :manager, :redotype, :delay, :optype, :operation)`
+		INSERT INTO redoV2 (id, tx, manager, redotype, delay, optype, operation) VALUES (:id, :tx, :manager, :redotype, :delay, :optype, :operation)`
 
 	redoUpdate = `
 		UPDATE redoV2
