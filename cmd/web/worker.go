@@ -100,6 +100,9 @@ func (s *GalleryState) worker(
 	chPurge <-chan time.Time,
 	done <-chan bool) {
 
+	// refresh topic thumbnails on restart
+	s.onRefresh()
+
 	for {
 		// returns to client sooner?
 		runtime.Gosched()

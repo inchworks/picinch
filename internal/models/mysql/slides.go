@@ -49,10 +49,12 @@ const (
 	slidesWhereShow       = slideSelect + ` WHERE slideshow = ?` + slideOrder
 	slidesWhereShowRecent = slideSelect + ` WHERE slideshow = ?` + slideRecent
 
+	// images for a topic, excluding suspended users
 	imagesWhereTopic = `
 		SELECT slide.image FROM slide
 		INNER JOIN slideshow ON slideshow.id = slide.slideshow
-		WHERE slideshow.topic = ? AND slide.image <> ''
+		INNER JOIN user ON user.id = slideshow.user
+		WHERE slideshow.topic = ? AND slide.image <> '' AND user.status > 0
 	`
 
 	slidesWhereTopic = `
@@ -127,8 +129,7 @@ func (st *SlideStore) ForTopic(topicId int64, max int) []*models.TopicSlide {
 	return slides
 }
 
-// Images for topic
-
+// ImagesForTopic returns all images, excluding those for suspended users.
 func (st *SlideStore) ImagesForTopic(topicId int64) []string {
 
 	var tns []string
@@ -155,7 +156,7 @@ func (st *SlideStore) RecentForSlideshow(showId int64, max int) []*models.Slide 
 	return slides
 }
 
-// Recent slides for topic, in order, limited per user
+// RecentForTopic returns the most recent slides, in order with a per-user limit, and excluding suspended users.
 
 func (st *SlideStore) RecentForTopic(topicId int64, perUser int, max int) []*models.TopicSlide {
 
