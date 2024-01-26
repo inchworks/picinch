@@ -160,22 +160,13 @@ type OpUpdateShow struct {
 	ShowId  int64
 	TopicId int64
 	Revised bool
-	tx      etx.TxId
 }
 
 // Operation to update topic images.
 type OpUpdateTopic struct {
 	TopicId int64
 	Revised bool
-	tx      etx.TxId
-}
-
-// Worker request to bind slideshow images.
-type reqBindShow struct {
-	showId  int64
-	topicId int64
-	revised bool
-	tx      etx.TxId
+	tx etx.TxId
 }
 
 // Application struct supplies application-wide dependencies.
@@ -209,6 +200,9 @@ type Application struct {
 	usage      *usage.Recorder
 	users      users.Users
 
+	// worker
+	chTopic chan OpUpdateTopic
+
 	// HTML sanitizer for titles and captions
 	sanitizer *bluemonday.Policy
 
@@ -219,14 +213,6 @@ type Application struct {
 
 	// HTML handlers for threats detected by application logic
 	wrongCode http.Handler
-
-	// Channels to background worker
-	chComp   chan OpUpdateShow
-	chShow   chan OpUpdateShow
-	chShowV1 chan OpUpdateShow
-	chShows  chan []OpUpdateShow
-	chTopic  chan OpUpdateTopic
-	chBind   chan reqBindShow
 
 	// Since we support just one gallery at a time, we can cache state here.
 	// With multiple galleries, we'd need a per-gallery cache.
@@ -297,7 +283,8 @@ func main() {
 	defer close(chDone)
 
 	// start background worker
-	go app.galleryState.worker(app.chComp, app.chShow, app.chShowV1, app.chShows, app.chTopic, app.chBind, tr.C, tp.C, chDone)
+	app.chTopic = make(chan OpUpdateTopic, 4)
+	go app.galleryState.worker(app.chTopic, tr.C, tp.C, chDone)
 
 	// redo any pending operations
 	infoLog.Print("Starting operation recovery")
@@ -354,7 +341,7 @@ func (app *Application) LogThreat(msg string, r *http.Request) {
 }
 
 // OnAddUser is called to add any additional application data for a user.
-func (app *Application) OnAddUser(user *users.User) {
+func (app *Application) OnAddUser(tx etx.TxId, user *users.User) {
 	// not needed for this application
 }
 
@@ -362,6 +349,12 @@ func (app *Application) OnAddUser(user *users.User) {
 func (app *Application) OnRemoveUser(tx etx.TxId, user *users.User) {
 
 	app.galleryState.onRemoveUser(tx, user)
+}
+
+// OnRemoveUser is called to delete any application data for a user.
+func (app *Application) OnUpdateUser(tx etx.TxId, from *users.User, to *users.User) {
+
+	app.galleryState.onUpdateUser(tx, from, to)
 }
 
 // Render writes an HTTP response using the specified template and field (embedded as Users).
@@ -526,14 +519,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		Store:        GeoDBPath,
 	}
 	app.geoblocker.Start(cfg.GeoBlock)
-
-	// create worker channels
-	app.chComp = make(chan OpUpdateShow, 10)
-	app.chShow = make(chan OpUpdateShow, 10)
-	app.chShowV1 = make(chan OpUpdateShow, 10)
-	app.chShows = make(chan []OpUpdateShow, 1)
-	app.chTopic = make(chan OpUpdateTopic, 10)
-	app.chBind = make(chan reqBindShow, 10)
 
 	return app
 }

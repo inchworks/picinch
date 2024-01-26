@@ -49,12 +49,12 @@ const (
 	slidesWhereShow       = slideSelect + ` WHERE slideshow = ?` + slideOrder
 	slidesWhereShowRecent = slideSelect + ` WHERE slideshow = ?` + slideRecent
 
-	// all images for a topic, excluding suspended users
+	// all images for a topic, excluding suspended users and temporary versions
 	imagesWhereTopic = `
 		SELECT slide.image FROM slide
 		INNER JOIN slideshow ON slideshow.id = slide.slideshow
 		INNER JOIN user ON user.id = slideshow.user
-		WHERE slideshow.topic = ? AND slide.image <> '' AND user.status > 0
+		WHERE slideshow.topic = ? AND slide.image LIKE 'P%' AND user.status > 0
 	`
 
 	slidesWhereTopic = `

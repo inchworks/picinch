@@ -366,10 +366,27 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			}
 		}
 
-		// remove empty show for topic
-		// ### beware race with user re-opening show to add back an image
-		if nImages == 0 && show.Visible == models.SlideshowTopic {
-			s.app.SlideshowStore.DeleteId(showId)
+		// slideshow for topic
+		if topicId != 0 {
+
+			// request to change topic thumbnail
+			// ## could wait for new images to become available,
+			// ## but what if this is longer than the lifetime of old images?
+			if nImages > 0 {
+				if err := s.app.tm.AddNext(tx, s, OpShow,
+					&OpUpdateTopic{
+						TopicId: topicId,
+						Revised: false,
+					}); err != nil {
+						return s.rollback(http.StatusInternalServerError, err), 0
+					}
+			} else {
+				// remove empty show for topic
+				// ### beware race with user re-opening show to add back an image
+				s.app.SlideshowStore.DeleteId(showId)
+				showId = 0
+			}
+
 		}
 	}
 
@@ -444,7 +461,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 
 		if iSrc == nSrc {
 			// no more source slideshows - delete from destination
-			if err := s.removeSlideshow(tx, rsDest[iDest]); err != nil {
+			if err := s.removeSlideshow(tx, rsDest[iDest], true); err != nil {
 				return s.rollback(http.StatusBadRequest, err), 0
 			}
 			iDest++
@@ -474,7 +491,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 			ix := rsSrc[iSrc].ChildIndex
 			if ix > iDest {
 				// source slideshow removed - delete from destination
-				if err := s.removeSlideshow(tx, rsDest[iDest]); err != nil {
+				if err := s.removeSlideshow(tx, rsDest[iDest], true); err != nil {
 					return s.rollback(http.StatusBadRequest, err), 0
 				}
 				iDest++
@@ -831,21 +848,31 @@ func (s *GalleryState) onRemoveUser(tx etx.TxId, user *users.User) {
 	shows := s.app.SlideshowStore.ForUser(user.Id, models.SlideshowTopic)
 	for _, show := range shows {
 
-		// delayed deletion of all images
-		s.app.deleteImages(tx, show.Id)
-
-		// request worker change topic thumbnail
-		if show.Topic != 0 {
-			err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{
-				TopicId: show.Topic,
-				Revised: false})
-			if err != nil {
-				s.app.log(err)
-			}
+		if err := s.app.galleryState.removeSlideshow(tx, show, false); err != nil {
+			s.app.log(err)
 		}
 	}
 
 	// slideshows and slides will be removed by cascade delete in caller
+}
+
+// onUpdateUser updates topics when a user is suspended.
+func (s *GalleryState) onUpdateUser(tx etx.TxId, from *users.User, to *users.User) {
+
+	if from.Status == users.UserSuspended || to.Status != users.UserSuspended {
+		return // no action needed
+	}
+
+	// all topic slideshows for user
+	shows := s.app.SlideshowStore.ForUser(to.Id, models.SlideshowTopic)
+	for _, show := range shows {
+
+		// request to change topic thumbnail
+		err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{ TopicId: show.Topic, Revised: false })
+		if err != nil {
+			s.app.log(err)
+		}
+	}
 }
 
 // Get user's display name
@@ -864,22 +891,22 @@ func (s *GalleryState) UserDisplayName(userId int64) string {
 }
 
 // removeSlideshow deletes a slideshow and initiates cleanup.
-func (s *GalleryState) removeSlideshow(tx etx.TxId, slideshow *models.Slideshow) error {
+func (s *GalleryState) removeSlideshow(tx etx.TxId, slideshow *models.Slideshow, delete bool) error {
 
 	topicId := slideshow.Topic
 
-	// delayed deletion of all images
+	// delayed deletion of all media
 	s.app.deleteImages(tx, slideshow.Id)
 
 	// delete slideshow (slides will be removed by cascade delete)
 	err := s.app.SlideshowStore.DeleteId(slideshow.Id)
 
-	// request worker to change topic thumbnail
+	// request to change topic thumbnail
 	if err == nil && topicId != 0 {
 		err = s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{
 			TopicId: topicId,
-			Revised: false},
-		)
+			Revised: false,
+		})
 	}
 	return err
 }
