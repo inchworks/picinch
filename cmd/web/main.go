@@ -133,8 +133,9 @@ type Configuration struct {
 	AllowedQueries    []string        `yaml:"allowed-queries" env-default:"fbclid"`                            // URL query names allowed
 	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing files
 	GeoBlock          []string        `yaml:"geo-block" env:"geo-block" env-default:""`                        // blocked countries (ISO 3166-1 alpha-2 codes)
-	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env:"max-upload-age" env-default:"8h"`            // maximum time for a slideshow update. Units m or h.
+	MaxCacheAge       time.Duration   `yaml:"max-cache-age" env:"max-cache-age" env-default:"10m"`             // browser cache control, maximum age. Units s, m or h.
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
+	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env:"max-upload-age" env-default:"8h"`            // maximum time for a slideshow update. Units m or h.
 	SiteRefresh       time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`                             // refresh interval for topic thumbnails. Units m or h.
 	UsageAnonymised   usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 
@@ -477,6 +478,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		MaxSize:      app.cfg.MaxAV * 1024 * 1024,
 		ThumbW:       app.cfg.ThumbW,
 		ThumbH:       app.cfg.ThumbH,
+		DeleteAfter:  time.Duration(float64(app.cfg.MaxCacheAge) * 1.2), // longer than Cache-Control max-age
 		MaxAge:       app.cfg.MaxUploadAge,
 		SnapshotAt:   app.cfg.VideoSnapshot,
 		VideoPackage: app.cfg.VideoPackage,
