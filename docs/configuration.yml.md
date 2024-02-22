@@ -83,6 +83,8 @@ Photos uploaded are resized to fit these dimensions.
 
 **slides-show** `50` slides shown in a slideshow
 
+**slides-topic** `8` slides shown in a topic contribution
+
 **slideshows-club** `2` club slideshows on home page
 
 **slideshows-public** `1` public slideshows on home page
