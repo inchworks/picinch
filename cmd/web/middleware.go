@@ -361,7 +361,7 @@ func (app *Application) public(next http.Handler) http.Handler {
 			w.Header().Set("Link", `<`+u.String()+`>; rel="canonical"`)
 		}
 
-		w.Header().Set("Cache-Control", "public, max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
+		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
 		next.ServeHTTP(w, r)
 	})
 }
@@ -505,7 +505,7 @@ func secureHeaders(next http.Handler) http.Handler {
 // shared sets headers for shared topic and slideshows
 func (app *Application) shared(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "public, max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
+		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
 		next.ServeHTTP(w, r)
 	})
 }

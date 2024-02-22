@@ -26,6 +26,36 @@ import (
 	"github.com/justinas/alice"
 )
 
+// Note that for caching we're using a few different patterns.
+//
+// 0: Specify nothing, leaving it to the browser, because I don't know what else to do.
+// Used for files with standard names that must be in root.
+//
+// 1: Immutable content with one year max-age. Used for images.
+// ## Use for some static files too?
+//
+// 2: Mutable content with access controls, always server-revalidated.
+// Used for all editing and configuration pages, including user listing of own slideshows etc.
+// "no-store" (not "no-cache") because access to these pages is controlled, and caching likely to be ineffective anyway.
+//
+// 3: Mutable public content.
+// Used for home, contributor and topic-contributors pages.
+// "no-cache" because referenced content (contributors and slideshows) may be deleted.
+// ## Needs Last-Modified implementation.
+// ## Also embedded highlights?
+// 
+// 4: Mutable public pages, with configurable max-age, default 1 hour.
+// Used for slideshows.
+// Needs care when referenced content (that might not be cached) is deleted.
+// - Image deletions are deferred for longer than the page max-age.
+// ## "prev" "next for topics can be lost.
+// ## "from" for slideshow can be lost, if from contributor slideshows or topic contributors.
+// ## Could handle by redirecting to home (from contributor, my-gallery, topic-contributors, topics).
+//
+// 5: Mutable pages as 4, with access controls.
+// Used for user-access slideshows.
+// "private" to restrict caching to the user's browser.
+
 // Register handlers for routes
 
 func (app *Application) Routes() http.Handler {
