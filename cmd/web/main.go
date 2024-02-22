@@ -125,6 +125,7 @@ type Configuration struct {
 	// per user limits
 	MaxHighlights       int `yaml:"highlights-user"  env-default:"2"`  // highlights on home page
 	MaxSlides           int `yaml:"slides-show" env-default:"50"`      // slides in a slideshow
+	MaxSlidesTopic      int `yaml:"slides-topic" env-default:"8"`      // slides in a topic contribution
 	MaxSlideshowsClub   int `yaml:"slideshows-club"  env-default:"2"`  // club slideshows on home page, per user
 	MaxSlideshowsPublic int `yaml:"slideshows-public" env-default:"1"` // public slideshows on home page, per user
 

@@ -200,24 +200,25 @@ func (s *Topic) VisibleStr() string {
 
 // Formats
 
-func (t *Slideshow) ParseFormat() (fmt string, max int) {
+func (t *Slideshow) ParseFormat(defaultMax int) (fmt string, max int) {
 
 	var err error
 	ss := strings.Split(t.Format, ".")
 
 	switch len(ss) {
 	case 0:
-		return "T", 8
+		fmt = "T"
+		max = defaultMax
 
 	case 1:
 		fmt = ss[0]
-		max = 8
+		max = defaultMax
 
 	default:
 		fmt = ss[0]
 		max, err = strconv.Atoi(ss[1])
 		if err != nil {
-			max = 8
+			max = defaultMax
 		} // default
 	}
 
