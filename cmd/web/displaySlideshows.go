@@ -221,7 +221,7 @@ func (s *GalleryState) DisplayTopicHome(id int64, seq int, from string) (string,
 	if topic == nil {
 		return "", nil
 	}
-	fmt, max := topic.ParseFormat()
+	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlides)
 
 	// special selection and ordering for highlights
 	if fmt == "H" {
@@ -231,8 +231,7 @@ func (s *GalleryState) DisplayTopicHome(id int64, seq int, from string) (string,
 	return s.displayTopic(topic, false, seq, from)
 }
 
-// Slideshows for a topic
-
+// DisplayTopicContributors returns the slideshows contributed to a topic.
 func (s *GalleryState) DisplayTopicContributors(id int64) *DataSlideshows {
 
 	defer s.updatesNone()()
@@ -244,7 +243,7 @@ func (s *GalleryState) DisplayTopicContributors(id int64) *DataSlideshows {
 
 	// show latest highlights first, other topics in published order
 	latest := false
-	fmt, _ := topic.ParseFormat()
+	fmt, _ := topic.ParseFormat(0)
 	if fmt == "H" {
 		latest = true
 	}
@@ -603,7 +602,7 @@ func (s *GalleryState) displaySlides(show *models.Slideshow, forRole int, from s
 func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq int, from string) (string, *DataSlideshow) {
 
 	id := topic.Id
-	fmt, max := topic.ParseFormat()
+	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlides)
 
 	// special selection and ordering for highlights
 	if fmt == "H" {

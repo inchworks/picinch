@@ -156,7 +156,7 @@ func (st *SlideStore) RecentForSlideshow(showId int64, max int) []*models.Slide 
 	return slides
 }
 
-// Recent slides for topic, in order, limited per user
+// RecentForTopic returns the most recent slides, in order with a per-user limit, and excluding suspended users.
 
 func (st *SlideStore) RecentForTopic(topicId int64, perUser int, max int) []*models.TopicSlide {
 
