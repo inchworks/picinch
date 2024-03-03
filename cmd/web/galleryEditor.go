@@ -890,7 +890,7 @@ func (s *GalleryState) UserDisplayName(userId int64) string {
 	return u.Name
 }
 
-// removeSlideshow deletes a slideshow and initiates cleanup.
+// removeSlideshow removes media for a slideshow, optionally deletes it, and initiates cleanup.
 func (s *GalleryState) removeSlideshow(tx etx.TxId, slideshow *models.Slideshow, delete bool) error {
 
 	topicId := slideshow.Topic
@@ -899,7 +899,10 @@ func (s *GalleryState) removeSlideshow(tx etx.TxId, slideshow *models.Slideshow,
 	s.app.deleteImages(tx, slideshow.Id)
 
 	// delete slideshow (slides will be removed by cascade delete)
-	err := s.app.SlideshowStore.DeleteId(slideshow.Id)
+	var err error
+	if delete {
+		err = s.app.SlideshowStore.DeleteId(slideshow.Id)
+	}
 
 	// request to change topic thumbnail
 	if err == nil && topicId != 0 {

@@ -84,7 +84,7 @@ func (app *Application) allowUpdateShow(r *http.Request, showId int64) bool {
 
 // allowViewShow returns whether the specified slideshow can be viewed by the current user,
 // and whether it is a topic.
-func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bool, isTopic bool) {
+func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bool, isPublic bool, isTopic bool) {
 
 	// get show user and visibility
 	s := app.SlideshowStore.GetIf(showId)
@@ -99,6 +99,7 @@ func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bo
 
 	case models.SlideshowPublic:
 		canView = true
+		isPublic = true
 		return // everyone
 
 	case models.SlideshowClub:
@@ -118,7 +119,9 @@ func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bo
 		switch t.Visible {
 
 		case models.SlideshowPublic:
-			return true, isTopic // public topic
+			canView = true
+			isPublic = true
+			return // public topic
 
 		case models.SlideshowClub:
 			if app.isAuthenticated(r, models.UserFriend) {

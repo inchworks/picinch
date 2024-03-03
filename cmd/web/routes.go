@@ -29,32 +29,33 @@ import (
 // Note that for caching we're using a few different patterns.
 //
 // 0: Specify nothing, leaving it to the browser, because I don't know what else to do.
-// Used for files with standard names that must be in root.
+// Last-Modified is set and If-Modified-Since is supported.
+// Used for favicons, files with standard names that must be in root, and embedded images.
 //
 // 1: Immutable content with one year max-age. Used for images.
-// ## Use for some static files too?
 //
 // 2: Mutable content with access controls, always server-revalidated.
-// Used for all editing and configuration pages, including user listing of own slideshows etc.
 // "no-store" (not "no-cache") because access to these pages is controlled, and caching likely to be ineffective anyway.
+// Used for all editing and configuration pages, including user listing of own slideshows etc.
 //
 // 3: Mutable public content.
-// Used for home, contributor and topic-contributors pages.
 // "no-cache" because referenced content (contributors and slideshows) may be deleted.
-// ## Needs Last-Modified implementation.
-// ## Also embedded highlights?
-// 
-// 4: Mutable public pages, with configurable max-age, default 1 hour.
+// Used for home, contributor and topic-contributors pages.
+// Also used for a user's own slideshows, so that they see updates immediately.
+//
+// 4: Mutable public pages, with configurable "max-age", default 1 hour.
 // Used for slideshows.
 // Needs care when referenced content (that might not be cached) is deleted.
 // - Image deletions are deferred for longer than the page max-age.
-// ## "prev" "next for topics can be lost.
-// ## "from" for slideshow can be lost, if from contributor slideshows or topic contributors.
-// ## Could handle by redirecting to home (from contributor, my-gallery, topic-contributors, topics).
+// - "from", "prev" and "next" could be incorrect. Missing pages (for slideshow, contributor 
+// and topic-contributors) are reported politely.
 //
 // 5: Mutable pages as 4, with access controls.
-// Used for user-access slideshows.
 // "private" to restrict caching to the user's browser.
+// Used for user-access slideshows.
+//
+// For patterns 3 to 5, "If-Modified-Since" is checked on requests, and a StatusNotModified header
+// returned if there have been no changes to the gallery.
 
 // Register handlers for routes
 
@@ -70,8 +71,13 @@ func (app *Application) Routes() http.Handler {
 	compHs := dynHs.Append(app.publicComp)
 	curatorHs := dynHs.Append(app.requireCurator)
 	ownerHs := dynHs.Append(app.requireOwner)
-	publicHs := dynHs.Append(app.public)
-	sharedHs := dynHs.Append(app.shared)
+	privateHs := dynHs.Append(app.requirePrivate, app.ifModified) // as authHs but may be cached privately
+
+	publicHs := dynHs.Append(app.public, app.ifModified)
+	sharedHs := dynHs.Append(app.shared, app.ifModified)
+
+	// files
+	immutableHs := staticHs.Append(app.immutable)
 
 	// HttpRouter wrapped to allow middleware handlers
 	router := httprouter.New()
@@ -122,17 +128,18 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/edit-topic/:nShow/:nUser", ownerHs.ThenFunc(app.getFormTopic))
 
 	// upload media files
-	router.Handler("POST", "/upload", publicHs.ThenFunc(app.postFormMedia))
+	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))
 
 	// displays
-	router.Handler("GET", "/slideshow/:nShow/:seq", dynHs.ThenFunc(app.slideshow))
-	router.Handler("GET", "/contributors", authHs.ThenFunc(app.contributors))
-	router.Handler("GET", "/contributor/:nUser", dynHs.ThenFunc(app.contributor))
-	router.Handler("GET", "/entry/:nShow", dynHs.ThenFunc(app.entry))
-	router.Handler("GET", "/my-slideshows", authHs.ThenFunc(app.slideshowsOwn))
-	router.Handler("GET", "/slideshows-user/:nUser", authHs.ThenFunc(app.slideshowsUser))
-	router.Handler("GET", "/topic-user/:nShow/:nUser", dynHs.ThenFunc(app.topicUser))
-	router.Handler("GET", "/topic-contributors/:nTopic", dynHs.ThenFunc(app.topicContributors))
+	router.Handler("GET", "/slideshow/:nShow/:seq", publicHs.ThenFunc(app.slideshow))
+	router.Handler("GET", "/contributors", privateHs.ThenFunc(app.contributors))
+	router.Handler("GET", "/contributor/:nUser", privateHs.ThenFunc(app.contributor))
+	router.Handler("GET", "/entry/:nShow", privateHs.ThenFunc(app.entry))
+	router.Handler("GET", "/my-slideshow/:nShow/:seq", ownerHs.ThenFunc(app.slideshow))
+	router.Handler("GET", "/my-slideshows", ownerHs.ThenFunc(app.slideshowsOwn))
+	router.Handler("GET", "/slideshows-user/:nUser", curatorHs.ThenFunc(app.slideshowsUser))
+	router.Handler("GET", "/topic-user/:nShow/:nUser", publicHs.ThenFunc(app.topicUser))
+	router.Handler("GET", "/topic-contributors/:nTopic", publicHs.ThenFunc(app.topicContributors))
 	router.Handler("GET", "/topics", curatorHs.ThenFunc(app.topics))
 	router.Handler("GET", "/usage-days", adminHs.ThenFunc(app.usageDays))
 	router.Handler("GET", "/usage-months", adminHs.ThenFunc(app.usageMonths))
@@ -174,7 +181,7 @@ func (app *Application) Routes() http.Handler {
 	ban := app.cfg.BanBadFiles 
 	router.Handler("GET", path.Join(misc, "*filepath"), staticHs.Then(http.StripPrefix(misc, app.fileServer(fsMisc, true, app.cfg.MiscName))))
 	router.Handler("GET", "/static/*filepath", staticHs.Then(http.StripPrefix("/static", app.fileServer(fsStatic, ban, ""))))
-	router.Handler("GET", "/photos/*filepath", staticHs.Then(http.StripPrefix("/photos", app.fileServer(fsPhotos, ban, ""))))
+	router.Handler("GET", "/photos/*filepath", immutableHs.Then(http.StripPrefix("/photos", app.fileServer(fsPhotos, ban, ""))))
 
 	// files that must be in root
 	fsImages, _ := fs.Sub(app.staticFS, "images")

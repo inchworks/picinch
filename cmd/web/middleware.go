@@ -180,6 +180,40 @@ func (app *Application) geoBlock(next http.Handler) http.Handler {
 	return app.geoblocker.GeoBlock(next)
 }
 
+// ifModified returns a handler to check if a resource might have been modified since the time specified in the request.
+func (app *Application) ifModified(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// check if client's version is up to date
+		if unmodified(r, app.galleryState.lastModified) {
+
+			// #### don't need to do this?
+			h := w.Header()
+			delete(h, "Content-Type")
+			delete(h, "Content-Length")
+			delete(h, "Content-Encoding")
+			if h.Get("Etag") != "" {
+				delete(h, "Last-Modified")
+			}
+		
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// immutable returns a handler that sets Cache-Control for an immutable resource.
+func (app *Application) immutable(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		w.Header().Set("Cache-Control", "immutable, max-age=31536000") // 1 year
+		next.ServeHTTP(w, r)
+	})
+}
+
 // limitFile returns a handler to limit file requests, per user.
 func (app *Application) limitFile(next http.Handler) http.Handler {
 
@@ -362,6 +396,8 @@ func (app *Application) public(next http.Handler) http.Handler {
 		}
 
 		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -387,7 +423,7 @@ func (app *Application) recoverPanic() func(http.ResponseWriter, *http.Request, 
 // reqAuth returns a handler that checks if the user has at least the specified role, or is owner of the data requested.
 // It also sets cache control, so should not be bypassed on any successful authentications.
 // ## Is it?
-func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http.Handler {
+func (app *Application) reqAuth(minRole int, orUser int, cache bool, next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -417,8 +453,15 @@ func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http
 			return
 		}
 
-		// pages that require authentication should not be cached by browser
-		w.Header().Set("Cache-Control", "no-store")
+		// Pages that require authentication should only be cached per-user by browsers,
+		// while pages that change on every access shouldn't be cached at all.
+		// Note that "no-cache" means cache but revalidate on every access.
+		if cache {
+			w.Header().Set("Cache-Control", "no-cache, private")
+			w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+		} else {
+			w.Header().Set("Cache-Control", "no-store")
+		}
 
 		next.ServeHTTP(w, r)
 	})
@@ -427,26 +470,32 @@ func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http
 // requireAdmin specifies that administrator authentication is needed for access to this page.
 func (app *Application) requireAdmin(next http.Handler) http.Handler {
 
-	return app.reqAuth(models.UserAdmin, 0, next)
+	return app.reqAuth(models.UserAdmin, 0, false, next)
 }
 
 // requireAuthentication specifies that minimum authentication is needed, for access to a page,
 // or to log out.
 func (app *Application) requireAuthentication(next http.Handler) http.Handler {
 
-	return app.reqAuth(models.UserFriend, 0, next)
+	return app.reqAuth(models.UserFriend, 0, false, next)
 }
 
 // requireCurator specifies that curator authentication is needed for access to this page.
 func (app *Application) requireCurator(next http.Handler) http.Handler {
 
-	return app.reqAuth(models.UserCurator, 0, next)
+	return app.reqAuth(models.UserCurator, 0, false, next)
 }
 
 // requireOwner specifies that the page is for a specified member, otherwise curator authentication is needed.
 func (app *Application) requireOwner(next http.Handler) http.Handler {
 
-	return app.reqAuth(models.UserCurator, models.UserMember, next)
+	return app.reqAuth(models.UserCurator, models.UserMember, false, next)
+}
+
+// requirePrivate specifies that minimum authentication is needed for access to a page, but it may be cached privately.
+func (app *Application) requirePrivate(next http.Handler) http.Handler {
+
+	return app.reqAuth(models.UserFriend, 0, true, next)
 }
 
 // routeNotFound returns a handler that logs and rate limits HTTP requests to non-existent routes.
@@ -506,6 +555,7 @@ func secureHeaders(next http.Handler) http.Handler {
 func (app *Application) shared(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -606,6 +656,29 @@ func (app *Application) threat(event string, r *http.Request) {
 	if ip := usage.FormatIPSeen("S", r.RemoteAddr); ip != "" {
 		app.usage.Seen(ip, "suspect-" + server.Country(r))
 	}
+}
+
+// unmodified returns true if the requested resource has not been modified later than the client's version.
+// modtime must be specified without sub-second precision.
+func unmodified (r *http.Request, modtime time.Time) bool {
+
+	// Implementation adapted from http.fs.
+
+	if r.Method != "GET" && r.Method != "HEAD" {
+		return false
+	}
+	ims := r.Header.Get("If-Modified-Since")
+	if ims == "" {
+		return false
+	}
+	t, err := http.ParseTime(ims)
+	if err != nil {
+		return false
+	}
+	if ret := modtime.Compare(t); ret <= 0 {
+		return true
+	}
+	return false
 }
 
 // A statusWriter is a ResponseWriter that saves the response status.

@@ -51,7 +51,9 @@ func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
 	// template and data for contributor
 	data := app.galleryState.DisplayContributor(userId, app.isAuthenticated(r, models.UserFriend))
 	if data == nil {
-		httpNotFound(w)
+		// polite rejection because this could have come from a cached slideshow.
+		app.session.Put(r, "flash", "Contributor removed.")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
@@ -79,7 +81,7 @@ func (app *Application) entry(w http.ResponseWriter, r *http.Request) {
 
 	// allow access to show?
 	// ## reads show, and DisplaySlideshow will read it again
-	isVisible, _ := app.allowViewShow(r, id)
+	isVisible, _, _ := app.allowViewShow(r, id)
 
 	if !isVisible {
 		httpUnauthorized(w)
@@ -187,11 +189,19 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 
 	// allow access to show?
 	// ## reads show, and DisplaySlideshow will read it again
-	isVisible, isTopic := app.allowViewShow(r, id)
+	isVisible, isPublic, isTopic := app.allowViewShow(r, id)
 
 	if !isVisible {
 		httpUnauthorized(w)
 		return
+	}
+
+	// set caching, with limit to private cache for non-public pages
+	maxAge := strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
+	if isPublic {
+		w.Header().Set("Cache-Control", "max-age="+maxAge)
+	} else {
+		w.Header().Set("Cache-Control", "max-age="+maxAge+", private")
 	}
 
 	var template string
@@ -200,8 +210,9 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 		// template and data for topic
 		template, data = app.galleryState.DisplayTopicHome(id, int(seq), "/")
 		if data == nil {
-			app.session.Put(r, "flash", "No contributions to this topic yet.")
-			http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+			// polite rejection because this could have come from a cached slideshow.
+			app.session.Put(r, "flash", "No contribution to this topic.")
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 	} else {
@@ -317,7 +328,9 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 	// template and data for slides
 	data := app.galleryState.DisplayTopicContributors(topicId)
 	if data == nil {
-		httpNotFound(w) // no such topic
+		// polite rejection because this could have come from a cached slideshow.
+		app.session.Put(r, "flash", "Topic removed.")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 

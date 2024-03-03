@@ -612,7 +612,7 @@ func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq in
 	// get N'th slideshow in sequence
 	show := s.app.SlideshowStore.ForTopicSeq(id, seq-1)
 	if show == nil {
-		return "", nil // no contributions yet, ## or could be because user removed a slideshow
+		return "", nil // no contributions yet, or user removed a slideshow
 	}
 
 	// slides and user
