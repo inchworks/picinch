@@ -24,9 +24,8 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
-	"time"
 
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/users"
 
 	"inchworks.com/picinch/internal/form"
 	"inchworks.com/picinch/internal/models"
@@ -165,7 +164,7 @@ func (app *Application) getUserIf(id int64) *users.User {
 	// package with a slightly different interface to the store :-(.
 
 	u, err := app.userStore.Get(id)
-	if err != nil {
+	if err != nil && err != models.ErrNoRecord {
 		app.log(err)
 	}
 	return u
@@ -202,16 +201,6 @@ func httpTooLarge(w http.ResponseWriter) {
 func httpUnauthorized(w http.ResponseWriter) {
 
 	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-}
-
-// Date in user-friendly format
-
-func humanDate(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-
-	return t.UTC().Format("02 Jan 2006 at 15:04")
 }
 
 // isAuthenticated checks if the request is by an authenticated active user (saved in context from session),

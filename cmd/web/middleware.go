@@ -31,8 +31,8 @@ import (
 	"time"
 
 	"github.com/inchworks/usage"
-	"github.com/inchworks/webparts/server"
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/server"
+	"github.com/inchworks/webparts/v2/users"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 
@@ -89,6 +89,127 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 		}
 		ctx := context.WithValue(r.Context(), contextKeyUser, auth)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// ccCache returns a handler that sets Cache-Control for a resource that may be cached by the client for all users.
+// It might also be cached by an intermediate in the chain to the client browser.
+func (app *Application) ccCache(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// check if client's version is up to date
+		if unmodified(r, app.galleryState.lastModified) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		// maximum age
+		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccImmutable returns a handler that sets Cache-Control for a resource that never changes.
+func (app *Application) ccImmutable(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		w.Header().Set("Cache-Control", "immutable, max-age=31536000") // 1 year
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccNoCache returns a handler that sets Cache-Control for a resource that should not be cached.
+// Note that the client may still have a copy, but it will be checked on every reference.
+func (app *Application) ccNoCache(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// check if client's version is up to date
+		if unmodified(r, app.galleryState.lastModified) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccNoStore returns a handler that sets Cache-Control for a resource that must not be stored by the client.
+// This is for resources that are either confidential, or certain to be different next time.
+func (app *Application) ccNoStore(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// maximum age
+		w.Header().Set("Cache-Control", "no-store")
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccPrivate returns a handler that sets Cache-Control for a resource that may be cached by the client,
+// but restricted to the current user.
+func (app *Application) ccPrivateCache(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// check if client's version is up to date
+		if unmodified(r, app.galleryState.lastModified) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))+", private")
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccNoCache returns a handler that sets Cache-Control for a resource that should not be cached.
+// Note that the client may still have a private copy, to be checked on every reference.
+func (app *Application) ccPrivateNoCache(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// check if client's version is up to date
+		if unmodified(r, app.galleryState.lastModified) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-cache, private")
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccSpecific returns a handler for a resource where Cache-Control depends on the specific resource.
+// It check if a resource might have been modified since the time specified in the request.
+func (app *Application) ccSpecific(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// check if client's version is up to date
+		if unmodified(r, app.galleryState.lastModified) {
+
+			// ## don't need to do this?
+			h := w.Header()
+			delete(h, "Content-Type")
+			delete(h, "Content-Length")
+			delete(h, "Content-Encoding")
+			if h.Get("Etag") != "" {
+				delete(h, "Last-Modified")
+			}
+
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -168,7 +289,7 @@ func (app *Application) geoBlock(next http.Handler) http.Handler {
 	app.geoblocker.Reporter = func(r *http.Request, location string, _ net.IP) string {
 
 		if ip := usage.FormatIPSeen("B", r.RemoteAddr); ip != "" {
-			app.usage.Seen(ip, "blocked-" + location)
+			app.usage.Seen(ip, "blocked-"+location)
 		}
 
 		// allow a few unsuccessful attempts and then switch to a general ban on the IP
@@ -178,40 +299,6 @@ func (app *Application) geoBlock(next http.Handler) http.Handler {
 	}
 
 	return app.geoblocker.GeoBlock(next)
-}
-
-// ifModified returns a handler to check if a resource might have been modified since the time specified in the request.
-func (app *Application) ifModified(next http.Handler) http.Handler {
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		// check if client's version is up to date
-		if unmodified(r, app.galleryState.lastModified) {
-
-			// #### don't need to do this?
-			h := w.Header()
-			delete(h, "Content-Type")
-			delete(h, "Content-Length")
-			delete(h, "Content-Encoding")
-			if h.Get("Etag") != "" {
-				delete(h, "Last-Modified")
-			}
-		
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// immutable returns a handler that sets Cache-Control for an immutable resource.
-func (app *Application) immutable(next http.Handler) http.Handler {
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		w.Header().Set("Cache-Control", "immutable, max-age=31536000") // 1 year
-		next.ServeHTTP(w, r)
-	})
 }
 
 // limitFile returns a handler to limit file requests, per user.
@@ -297,7 +384,7 @@ func (app *Application) logRequest(next http.Handler) http.Handler {
 			app.usage.Seen(app.usage.FormatID("U", userId), "user")
 		} else {
 			if ip := usage.FormatIPSeen("V", r.RemoteAddr); ip != "" {
-				app.usage.Seen(ip, "visitor-" + server.Country(r))
+				app.usage.Seen(ip, "visitor-"+server.Country(r))
 			}
 		}
 
@@ -395,17 +482,6 @@ func (app *Application) public(next http.Handler) http.Handler {
 			w.Header().Set("Link", `<`+u.String()+`>; rel="canonical"`)
 		}
 
-		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
-		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-// publicComp sets headers for user-specific competition pages
-func (app *Application) publicComp(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -421,9 +497,7 @@ func (app *Application) recoverPanic() func(http.ResponseWriter, *http.Request, 
 }
 
 // reqAuth returns a handler that checks if the user has at least the specified role, or is owner of the data requested.
-// It also sets cache control, so should not be bypassed on any successful authentications.
-// ## Is it?
-func (app *Application) reqAuth(minRole int, orUser int, cache bool, next http.Handler) http.Handler {
+func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -453,16 +527,6 @@ func (app *Application) reqAuth(minRole int, orUser int, cache bool, next http.H
 			return
 		}
 
-		// Pages that require authentication should only be cached per-user by browsers,
-		// while pages that change on every access shouldn't be cached at all.
-		// Note that "no-cache" means cache but revalidate on every access.
-		if cache {
-			w.Header().Set("Cache-Control", "no-cache, private")
-			w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
-		} else {
-			w.Header().Set("Cache-Control", "no-store")
-		}
-
 		next.ServeHTTP(w, r)
 	})
 }
@@ -470,32 +534,26 @@ func (app *Application) reqAuth(minRole int, orUser int, cache bool, next http.H
 // requireAdmin specifies that administrator authentication is needed for access to this page.
 func (app *Application) requireAdmin(next http.Handler) http.Handler {
 
-	return app.reqAuth(models.UserAdmin, 0, false, next)
+	return app.reqAuth(models.UserAdmin, 0, next)
 }
 
 // requireAuthentication specifies that minimum authentication is needed, for access to a page,
 // or to log out.
 func (app *Application) requireAuthentication(next http.Handler) http.Handler {
 
-	return app.reqAuth(models.UserFriend, 0, false, next)
+	return app.reqAuth(models.UserFriend, 0, next)
 }
 
 // requireCurator specifies that curator authentication is needed for access to this page.
 func (app *Application) requireCurator(next http.Handler) http.Handler {
 
-	return app.reqAuth(models.UserCurator, 0, false, next)
+	return app.reqAuth(models.UserCurator, 0, next)
 }
 
 // requireOwner specifies that the page is for a specified member, otherwise curator authentication is needed.
 func (app *Application) requireOwner(next http.Handler) http.Handler {
 
-	return app.reqAuth(models.UserCurator, models.UserMember, false, next)
-}
-
-// requirePrivate specifies that minimum authentication is needed for access to a page, but it may be cached privately.
-func (app *Application) requirePrivate(next http.Handler) http.Handler {
-
-	return app.reqAuth(models.UserFriend, 0, true, next)
+	return app.reqAuth(models.UserCurator, models.UserMember, next)
 }
 
 // routeNotFound returns a handler that logs and rate limits HTTP requests to non-existent routes.
@@ -547,15 +605,6 @@ func secureHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("X-Frame-Options", "deny")
 
-		next.ServeHTTP(w, r)
-	})
-}
-
-// shared sets headers for shared topic and slideshows
-func (app *Application) shared(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
-		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -654,13 +703,13 @@ func (app *Application) threat(event string, r *http.Request) {
 
 	// count suspects
 	if ip := usage.FormatIPSeen("S", r.RemoteAddr); ip != "" {
-		app.usage.Seen(ip, "suspect-" + server.Country(r))
+		app.usage.Seen(ip, "suspect-"+server.Country(r))
 	}
 }
 
 // unmodified returns true if the requested resource has not been modified later than the client's version.
 // modtime must be specified without sub-second precision.
-func unmodified (r *http.Request, modtime time.Time) bool {
+func unmodified(r *http.Request, modtime time.Time) bool {
 
 	// Implementation adapted from http.fs.
 

@@ -22,7 +22,7 @@ package mysql
 import (
 	"log"
 
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/users"
 	"github.com/jmoiron/sqlx"
 
 	"inchworks.com/picinch/internal/models"

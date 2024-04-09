@@ -32,13 +32,13 @@ import (
 	"github.com/golangcollege/sessions"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/inchworks/usage"
-	"github.com/inchworks/webparts/etx"
-	"github.com/inchworks/webparts/limithandler"
-	"github.com/inchworks/webparts/multiforms"
-	"github.com/inchworks/webparts/server"
-	"github.com/inchworks/webparts/stack"
-	"github.com/inchworks/webparts/uploader"
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/etx"
+	"github.com/inchworks/webparts/v2/limithandler"
+	"github.com/inchworks/webparts/v2/multiforms"
+	"github.com/inchworks/webparts/v2/server"
+	"github.com/inchworks/webparts/v2/stack"
+	"github.com/inchworks/webparts/v2/uploader"
+	"github.com/inchworks/webparts/v2/users"
 	"github.com/jmoiron/sqlx"
 	"github.com/justinas/nosurf"
 	"github.com/microcosm-cc/bluemonday"
@@ -110,12 +110,12 @@ type Configuration struct {
 	AdminPassword string `yaml:"admin-password" env:"admin-password" env-default:"<your-password>"`
 
 	// image sizes
-	MaxW        int `yaml:"image-width" env-default:"1600"` // maximum stored image dimensions
-	MaxH        int `yaml:"image-height" env-default:"1200"`
-	MaxAV int `yaml:"max-audio-visual" env-default:"16"`       // maximum stored AV file size
-	ThumbW      int `yaml:"thumbnail-width" env-default:"278"` // thumbnail size
-	ThumbH      int `yaml:"thumbnail-height" env-default:"208"`
-	MaxUpload   int `yaml:"max-upload" env-default:"64"` // maximum file upload (megabytes)
+	MaxW      int `yaml:"image-width" env-default:"1600"` // maximum stored image dimensions
+	MaxH      int `yaml:"image-height" env-default:"1200"`
+	MaxAV     int `yaml:"max-audio-visual" env-default:"16"` // maximum stored AV file size (megabytes)
+	ThumbW    int `yaml:"thumbnail-width" env-default:"278"` // thumbnail size
+	ThumbH    int `yaml:"thumbnail-height" env-default:"208"`
+	MaxUpload int `yaml:"max-upload" env-default:"64"` // maximum file upload (megabytes)
 
 	// total limits
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
@@ -134,7 +134,7 @@ type Configuration struct {
 	AllowedQueries    []string        `yaml:"allowed-queries" env-default:"fbclid"`                            // URL query names allowed
 	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing files
 	GeoBlock          []string        `yaml:"geo-block" env:"geo-block" env-default:""`                        // blocked countries (ISO 3166-1 alpha-2 codes)
-	MaxCacheAge       time.Duration   `yaml:"max-cache-age" env:"max-cache-age" env-default:"10m"`             // browser cache control, maximum age. Units s, m or h.
+	MaxCacheAge       time.Duration   `yaml:"max-cache-age" env:"max-cache-age" env-default:"1h"`              // browser cache control, maximum age. Units s, m or h.
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
 	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env:"max-upload-age" env-default:"8h"`            // maximum time for a slideshow update. Units m or h.
 	SiteRefresh       time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`                             // refresh interval for topic thumbnails. Units m or h.
@@ -168,7 +168,7 @@ type OpUpdateShow struct {
 type OpUpdateTopic struct {
 	TopicId int64
 	Revised bool
-	tx etx.TxId
+	tx      etx.TxId
 }
 
 // Application struct supplies application-wide dependencies.
@@ -437,7 +437,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// combine embedded static files with site customisation
-	// ## perhaps site resources should be under "static"?
 	app.staticFS, err = stack.NewFS(staticForms, staticUploader, staticApp, os.DirFS(SitePath))
 	if err != nil {
 		errorLog.Fatal(err)

@@ -247,6 +247,7 @@ func (app *Application) slideshowsOwn(w http.ResponseWriter, r *http.Request) {
 	data := app.galleryState.ForMyGallery(userId)
 	if data == nil {
 		httpServerError(w)
+		return
 	}
 
 	app.render(w, r, "my-gallery.page.tmpl", data)
@@ -260,6 +261,7 @@ func (app *Application) slideshowsUser(w http.ResponseWriter, r *http.Request) {
 	data := app.galleryState.ForMyGallery(userId)
 	if data == nil {
 		httpNotFound(w)
+		return
 	}
 
 	app.render(w, r, "my-gallery.page.tmpl", data)

@@ -20,11 +20,12 @@ package main
 import (
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/inchworks/usage"
-	"github.com/inchworks/webparts/multiforms"
-	"github.com/inchworks/webparts/uploader"
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/multiforms"
+	"github.com/inchworks/webparts/v2/uploader"
+	"github.com/inchworks/webparts/v2/users"
 	"github.com/justinas/nosurf"
 
 	"inchworks.com/picinch/internal/form"
@@ -250,6 +251,7 @@ type usersFormData struct {
 
 var templateFuncs = template.FuncMap{
 	"checked":    checked,
+	"isWorking":  isWorking,
 	"humanDate":  humanDate,
 	"thumbnail":  thumbnail,
 	"userStatus": userStatus,
@@ -264,6 +266,20 @@ func checked(isChecked bool) string {
 	} else {
 		return ""
 	}
+}
+
+// humanDate returns the date in a user-friendly format.
+func humanDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	return t.UTC().Format("02 Jan 2006 at 15:04")
+}
+
+// isWorking returns true if a media file is not ready to be viewed.
+func isWorking(image string) bool {
+	return uploader.Status(image) < 100
 }
 
 // thumbnail returns a path to a thumbnail image
@@ -302,7 +318,7 @@ func userStatus(n int) (s string) {
 
 // viewable returns the version of a media file that is ready to be viewed.
 func viewable(image string) string {
-	
+
 	s := uploader.Status(image)
 
 	if s == 0 {

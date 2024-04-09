@@ -27,8 +27,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/inchworks/webparts/etx"
-	"github.com/inchworks/webparts/uploader"
+	"github.com/inchworks/webparts/v2/etx"
+	"github.com/inchworks/webparts/v2/uploader"
 
 	"inchworks.com/picinch/internal/models"
 )
@@ -44,10 +44,10 @@ type validationData struct {
 
 // Operation types (keep unchanges)
 const (
-	OpComp = 0
+	OpComp   = 0
 	OpShowV1 = 1
-	OpTopic = 2
-	OpShow = 3
+	OpTopic  = 2
+	OpShow   = 3
 )
 
 // We need an arbitary status code for rollback(). This one is ideal!
@@ -103,7 +103,7 @@ func (s *GalleryState) Operation(id etx.TxId, opType int, op etx.Op) {
 
 // worker does timer processing for PicInch.
 func (s *GalleryState) worker(
-	chTopic <- chan OpUpdateTopic,
+	chTopic <-chan OpUpdateTopic,
 	chRefresh <-chan time.Time,
 	chPurge <-chan time.Time,
 	done <-chan bool) {
@@ -117,7 +117,7 @@ func (s *GalleryState) worker(
 
 		select {
 
-		case op := <- chTopic:
+		case op := <-chTopic:
 			// a topic slideshow has been updated or removed
 			s.onUpdateTopic(op.TopicId, op.tx, op.Revised)
 			s.app.tm.Do(op.tx)
@@ -166,7 +166,7 @@ func (s *GalleryState) onBindShow(showId int64, topicId int64, revised bool, tx 
 	if err := s.updateHighlights(showId); err != nil {
 		s.app.log(err)
 	}
- 
+
 	// all bound
 	if err := bind.End(); err != nil {
 		s.app.log(err)
@@ -521,15 +521,16 @@ func (s *GalleryState) updateTopic(t *models.Slideshow, revised bool) error {
 	// exclude hidden topics and fixed image competition categories
 	if t.Visible >= models.SlideshowClub && t.Format != "F" {
 		images := s.app.SlideStore.ImagesForTopic(t.Id)
-
-		// skip 
 		nImages := len(images)
+		img := ""
 
-		// (beware empty topic)
 		if nImages > 0 {
 			// select random image for topic thumbnail
 			i := int(rand.Float32() * float32(nImages))
-			t.Image = images[i]
+			img = images[i]
+		}
+		if t.Image != img {
+			t.Image = img
 			update = true
 		}
 	}

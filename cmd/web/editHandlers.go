@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/inchworks/webparts/etx"
-	"github.com/inchworks/webparts/multiforms"
+	"github.com/inchworks/webparts/v2/etx"
+	"github.com/inchworks/webparts/v2/multiforms"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 
@@ -167,6 +167,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	tx, err := etx.Id(f.Get("timestamp"))
 	if err != nil {
 		app.httpBadRequest(w, errors.New("Wrong number of slides for competition."))
+		return
 	}
 
 	// redisplay form if data invalid
@@ -299,6 +300,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		app.log(err)
 		httpServerError(w)
+		return
 	}
 
 	var s string
@@ -366,14 +368,17 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	nShow, err := strconv.ParseInt(f.Get("nShow"), 36, 64)
 	if err != nil {
 		app.httpBadRequest(w, err)
+		return
 	}
 	nUser, err := strconv.ParseInt(f.Get("nUser"), 36, 64)
 	if err != nil {
 		app.httpBadRequest(w, err)
+		return
 	}
 	tx, err := etx.Id(f.Get("timestamp"))
 	if err != nil {
 		app.httpBadRequest(w, err)
+		return
 	}
 
 	// allow access to slideshow?
@@ -395,6 +400,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		// allow access for user?
 		if !app.allowAccessUser(r, nUser) {
 			httpUnauthorized(w)
+			return
 		}
 	}
 

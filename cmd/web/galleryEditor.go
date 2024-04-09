@@ -32,10 +32,10 @@ import (
 	"inchworks.com/picinch/internal/models"
 	"inchworks.com/picinch/internal/picinch"
 
-	"github.com/inchworks/webparts/etx"
-	"github.com/inchworks/webparts/multiforms"
-	"github.com/inchworks/webparts/uploader"
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/etx"
+	"github.com/inchworks/webparts/v2/multiforms"
+	"github.com/inchworks/webparts/v2/uploader"
+	"github.com/inchworks/webparts/v2/users"
 	"inchworks.com/picinch/internal/tags"
 )
 
@@ -198,7 +198,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (status int, f
 
 	// add slides to form
 	for i, sl := range slides {
-		_, image := uploader.NameFromFile(sl.Image)
+		image := uploader.NameFromFile(sl.Image)
 		f.Add(i, sl.ShowOrder, sl.Title, image, sl.Caption)
 	}
 
@@ -336,7 +336,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				iDest++
 
 			} else {
-				// out of sequence question index
+				// out of sequence slide index
 				return s.rollback(http.StatusBadRequest, nil), 0
 			}
 		}
@@ -378,15 +378,14 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 						TopicId: topicId,
 						Revised: false,
 					}); err != nil {
-						return s.rollback(http.StatusInternalServerError, err), 0
-					}
+					return s.rollback(http.StatusInternalServerError, err), 0
+				}
 			} else {
 				// remove empty show for topic
 				// ### beware race with user re-opening show to add back an image
 				s.app.SlideshowStore.DeleteId(showId)
 				showId = 0
 			}
-
 		}
 	}
 
@@ -519,7 +518,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 				iDest++
 
 			} else {
-				// out of sequence round index
+				// out of sequence slideshow index
 				return s.rollback(http.StatusBadRequest, nil), 0
 			}
 		}
@@ -543,6 +542,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (st
 	if show == nil {
 		topic := s.app.SlideshowStore.GetIf(topicId)
 		if topic == nil {
+			status = s.rollback(http.StatusBadRequest, nil)
 			return
 		}
 		title = topic.Title
@@ -574,7 +574,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (st
 
 	// add slides to form
 	for i, sl := range slides {
-		_, image := uploader.NameFromFile(sl.Image)
+		image := uploader.NameFromFile(sl.Image)
 		f.Add(i, sl.ShowOrder, sl.Title, image, sl.Caption)
 	}
 
@@ -696,7 +696,7 @@ func (s *GalleryState) OnEditTopics(rsSrc []*form.SlideshowFormData) (int, etx.T
 				iDest++
 
 			} else {
-				// out of sequence index
+				// out of sequence slideshow index
 				return s.rollback(http.StatusBadRequest, nil), 0
 
 			}
@@ -828,9 +828,9 @@ func (s *GalleryState) onEnterComp(classId int64, tx etx.TxId, name string, emai
 
 	// request worker to generate media version, remove unused images, and send validation email
 	if err := s.app.tm.AddNext(tx, s, OpComp, &OpUpdateShow{
-			ShowId: show.Id,
-			Revised: false,
-		}); err != nil {
+		ShowId:  show.Id,
+		Revised: false,
+	}); err != nil {
 		return s.rollback(http.StatusInternalServerError, err), -1
 	}
 
@@ -868,7 +868,7 @@ func (s *GalleryState) onUpdateUser(tx etx.TxId, from *users.User, to *users.Use
 	for _, show := range shows {
 
 		// request to change topic thumbnail
-		err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{ TopicId: show.Topic, Revised: false })
+		err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{TopicId: show.Topic, Revised: false})
 		if err != nil {
 			s.app.log(err)
 		}
@@ -1044,7 +1044,7 @@ func (s *GalleryState) onRemoveTopic(t *models.Slideshow) {
 		store.Update(s)
 	}
 
-	s.app.SlideshowStore.DeleteId(t.Id)
+	store.DeleteId(t.Id)
 }
 
 // Sanitize HTML for reuse

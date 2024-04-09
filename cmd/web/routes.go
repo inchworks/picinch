@@ -29,33 +29,30 @@ import (
 // Note that for caching we're using a few different patterns.
 //
 // 0: Specify nothing, leaving it to the browser, because I don't know what else to do.
-// Last-Modified is set and If-Modified-Since is supported.
 // Used for favicons, files with standard names that must be in root, and embedded images.
+// Also used for CSS and JS, so that site customisation can overlay them without them being immutable.
 //
-// 1: Immutable content with one year max-age. Used for images.
+// 1: Immutable content. One year max-age and "immutable" set.
+// Used for images.
 //
-// 2: Mutable content with access controls, always server-revalidated.
-// "no-store" (not "no-cache") because access to these pages is controlled, and caching likely to be ineffective anyway.
-// Used for all editing and configuration pages, including user listing of own slideshows etc.
-//
-// 3: Mutable public content.
-// "no-cache" because referenced content (contributors and slideshows) may be deleted.
-// Used for home, contributor and topic-contributors pages.
+// 2: Mutable content with references (contributors and slideshows) that may be deleted, always server-revalidated.
+// "no-store" for editing and configuration pages that are likely to be different on every access.
+// "no-cache, private" on pages with access controls that don't change often.
 // Also used for a user's own slideshows, so that they see updates immediately.
+// "no-cache" on mutable public content: (home, contributor and topic-contributors pages).
 //
-// 4: Mutable public pages, with configurable "max-age", default 1 hour.
-// Used for slideshows.
+// 3: Mutable content with only references to images and other slideshows.
+// Configurable "max-age", default 1 hour, for slideshows. "private" for slideshows with access controls.
 // Needs care when referenced content (that might not be cached) is deleted.
 // - Image deletions are deferred for longer than the page max-age.
 // - "from", "prev" and "next" could be incorrect. Missing pages (for slideshow, contributor 
 // and topic-contributors) are reported politely.
 //
-// 5: Mutable pages as 4, with access controls.
-// "private" to restrict caching to the user's browser.
-// Used for user-access slideshows.
-//
-// For patterns 3 to 5, "If-Modified-Since" is checked on requests, and a StatusNotModified header
+// For patterns 0, 2 and 3, "If-Modified-Since" is checked on requests, and a StatusNotModified header
 // returned if there have been no changes to the gallery.
+
+// ## For content with significant confidentiality, "no-store" should be used instead of "no-cache, private",
+// ## so that the browser cache stays clean, but we don't currently have any such content.
 
 // Register handlers for routes
 
@@ -68,16 +65,27 @@ func (app *Application) Routes() http.Handler {
 	// access to page
 	adminHs := dynHs.Append(app.requireAdmin)
 	authHs := dynHs.Append(app.requireAuthentication) // friend authenticated, may be further restriction by application logic
-	compHs := dynHs.Append(app.publicComp)
 	curatorHs := dynHs.Append(app.requireCurator)
 	ownerHs := dynHs.Append(app.requireOwner)
-	privateHs := dynHs.Append(app.requirePrivate, app.ifModified) // as authHs but may be cached privately
+	
+	sharedHs := dynHs.Append(app.ccCache)
 
-	publicHs := dynHs.Append(app.public, app.ifModified)
-	sharedHs := dynHs.Append(app.shared, app.ifModified)
+	// cache-control settings
+	adminCacheHs := adminHs.Append(app.ccPrivateCache)
+	adminNoStoreHs := adminHs.Append(app.ccNoStore)
+	authNoCacheHs := authHs.Append(app.ccPrivateNoCache)
+	authNoStoreHs := authHs.Append(app.ccNoStore)
+	compNoStoreHs := dynHs.Append(app.ccNoStore)
+	curatorNoCacheHs := curatorHs.Append(app.ccPrivateNoCache)
+	curatorNoStoreHs := curatorHs.Append(app.ccNoStore)
+	ownerNoCacheHs := ownerHs.Append(app.ccPrivateNoCache)
+	ownerNoStoreHs := ownerHs.Append(app.ccNoStore)
+	publicCacheHs := dynHs.Append(app.public, app.ccCache)
+	publicNoCacheHs := dynHs.Append(app.public, app.ccNoCache)
+	specificHs := dynHs.Append(app.public, app.ccSpecific)
 
 	// files
-	immutableHs := staticHs.Append(app.immutable)
+	immutableHs := staticHs.Append(app.ccImmutable)
 
 	// HttpRouter wrapped to allow middleware handlers
 	router := httprouter.New()
@@ -89,81 +97,81 @@ func (app *Application) Routes() http.Handler {
 	router.NotFound = app.routeNotFound()
 
 	// public pages
-	router.Handler("GET", "/", publicHs.ThenFunc(app.home))
-	router.Handler("GET", "/info/:page", publicHs.ThenFunc(app.info))
+	router.Handler("GET", "/", publicNoCacheHs.ThenFunc(app.home))
+	router.Handler("GET", "/info/:page", publicCacheHs.ThenFunc(app.info))
 
 	// public competition
 	if app.cfg.Options == "main-comp" {
-		router.Handler("GET", "/classes", publicHs.ThenFunc(app.classes))
-		router.Handler("GET", "/enter-comp/:nClass", compHs.ThenFunc(app.getFormEnterComp))
-		router.Handler("POST", "/enter-comp", compHs.ThenFunc(app.postFormEnterComp))
-		router.Handler("GET", "/validate/:code", compHs.ThenFunc(app.validate))
+		router.Handler("GET", "/classes", publicCacheHs.ThenFunc(app.classes))
+		router.Handler("GET", "/enter-comp/:nClass", publicCacheHs.ThenFunc(app.getFormEnterComp))
+		router.Handler("POST", "/enter-comp", dynHs.ThenFunc(app.postFormEnterComp))
+		router.Handler("GET", "/validate/:code", compNoStoreHs.ThenFunc(app.validate))
 	}
 
 	// pages shared with an access code
 	router.Handler("GET", "/shared/:code/:seq", sharedHs.ThenFunc(app.slideshowShared))
 
 	// embedding
-	router.Handler("GET", "/highlight/:prefix/:nImage", publicHs.ThenFunc(app.highlight))
-	router.Handler("GET", "/highlights/:nImages", publicHs.ThenFunc(app.highlights))
+	router.Handler("GET", "/highlight/:prefix/:nImage", publicCacheHs.ThenFunc(app.highlight))
+	router.Handler("GET", "/highlights/:nImages", publicCacheHs.ThenFunc(app.highlights))
 
 	// setup
-	router.Handler("GET", "/setup", adminHs.ThenFunc(app.getFormGallery))
+	router.Handler("GET", "/setup", adminNoStoreHs.ThenFunc(app.getFormGallery))
 	router.Handler("POST", "/setup", adminHs.ThenFunc(app.postFormGallery))
-	router.Handler("GET", "/edit-tags", adminHs.ThenFunc(app.getFormTags))
+	router.Handler("GET", "/edit-tags", adminNoStoreHs.ThenFunc(app.getFormTags))
 	router.Handler("POST", "/edit-tags", adminHs.ThenFunc(app.postFormTags))
 
-	router.Handler("GET", "/edit-topics", curatorHs.ThenFunc(app.getFormTopics))
+	router.Handler("GET", "/edit-topics", curatorNoStoreHs.ThenFunc(app.getFormTopics))
 	router.Handler("POST", "/edit-topics", curatorHs.ThenFunc(app.postFormTopics))
 
 	// edit slideshows
-	router.Handler("GET", "/edit-slides/:nShow", authHs.ThenFunc(app.getFormSlides))
+	router.Handler("GET", "/edit-slides/:nShow", authNoStoreHs.ThenFunc(app.getFormSlides))
 	router.Handler("POST", "/edit-slides", authHs.ThenFunc(app.postFormSlides))
-	router.Handler("GET", "/edit-slideshows/:nUser", ownerHs.ThenFunc(app.getFormSlideshows))
+	router.Handler("GET", "/edit-slideshows/:nUser", ownerNoStoreHs.ThenFunc(app.getFormSlideshows))
 	router.Handler("POST", "/edit-slideshows/:nUser", ownerHs.ThenFunc(app.postFormSlideshows))
 
 	// edit topics
-	router.Handler("GET", "/assign-slideshows", curatorHs.ThenFunc(app.getFormAssignShows))
+	router.Handler("GET", "/assign-slideshows", curatorNoStoreHs.ThenFunc(app.getFormAssignShows))
 	router.Handler("POST", "/assign-slideshows", curatorHs.ThenFunc(app.postFormAssignShows))
-	router.Handler("GET", "/edit-topic/:nShow/:nUser", ownerHs.ThenFunc(app.getFormTopic))
+	router.Handler("GET", "/edit-topic/:nShow/:nUser", ownerNoStoreHs.Append(app.ccNoStore).ThenFunc(app.getFormTopic))
 
 	// upload media files
 	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))
 
 	// displays
-	router.Handler("GET", "/slideshow/:nShow/:seq", publicHs.ThenFunc(app.slideshow))
-	router.Handler("GET", "/contributors", privateHs.ThenFunc(app.contributors))
-	router.Handler("GET", "/contributor/:nUser", privateHs.ThenFunc(app.contributor))
-	router.Handler("GET", "/entry/:nShow", privateHs.ThenFunc(app.entry))
-	router.Handler("GET", "/my-slideshow/:nShow/:seq", ownerHs.ThenFunc(app.slideshow))
-	router.Handler("GET", "/my-slideshows", ownerHs.ThenFunc(app.slideshowsOwn))
-	router.Handler("GET", "/slideshows-user/:nUser", curatorHs.ThenFunc(app.slideshowsUser))
-	router.Handler("GET", "/topic-user/:nShow/:nUser", publicHs.ThenFunc(app.topicUser))
-	router.Handler("GET", "/topic-contributors/:nTopic", publicHs.ThenFunc(app.topicContributors))
-	router.Handler("GET", "/topics", curatorHs.ThenFunc(app.topics))
-	router.Handler("GET", "/usage-days", adminHs.ThenFunc(app.usageDays))
-	router.Handler("GET", "/usage-months", adminHs.ThenFunc(app.usageMonths))
-	router.Handler("GET", "/users-curator", curatorHs.ThenFunc(app.usersCurator))
+	router.Handler("GET", "/slideshow/:nShow/:seq", specificHs.ThenFunc(app.slideshow))
+	router.Handler("GET", "/contributors", authNoCacheHs.ThenFunc(app.contributors))
+	router.Handler("GET", "/contributor/:nUser", authNoCacheHs.ThenFunc(app.contributor))
+	router.Handler("GET", "/entry/:nShow", authNoCacheHs.ThenFunc(app.entry))
+	router.Handler("GET", "/my-slideshow/:nShow/:seq", ownerNoCacheHs.ThenFunc(app.slideshow))
+	router.Handler("GET", "/my-slideshows", ownerNoCacheHs.ThenFunc(app.slideshowsOwn))
+	router.Handler("GET", "/slideshows-user/:nUser", curatorNoCacheHs.ThenFunc(app.slideshowsUser))
+	router.Handler("GET", "/topic-user/:nShow/:nUser", publicNoCacheHs.ThenFunc(app.topicUser))
+	router.Handler("GET", "/topic-contributors/:nTopic", publicNoCacheHs.ThenFunc(app.topicContributors))
+	router.Handler("GET", "/topics", curatorNoStoreHs.ThenFunc(app.topics))
+	router.Handler("GET", "/usage-days", adminCacheHs.ThenFunc(app.usageDays))
+	router.Handler("GET", "/usage-months", adminCacheHs.ThenFunc(app.usageMonths))
+	router.Handler("GET", "/users-curator", curatorNoCacheHs.ThenFunc(app.usersCurator))
 
 	// selections
-	router.Handler("GET", "/select-slideshow", authHs.ThenFunc(app.getFormSelectSlideshow))
+	router.Handler("GET", "/select-slideshow", authNoStoreHs.ThenFunc(app.getFormSelectSlideshow))
 	router.Handler("POST", "/select-slideshow", authHs.ThenFunc(app.postFormSelectSlideshow))
-	router.Handler("GET", "/slideshows-tagged/:nTopic/:nRoot/:nTag/:nUser/:nMax", authHs.ThenFunc(app.slideshowsTagged))
-	router.Handler("GET", "/user-tags", authHs.ThenFunc(app.userTags))
+	router.Handler("GET", "/slideshows-tagged/:nTopic/:nRoot/:nTag/:nUser/:nMax", authNoStoreHs.ThenFunc(app.slideshowsTagged))
+	router.Handler("GET", "/user-tags", authNoCacheHs.ThenFunc(app.userTags))
 
 	// set tags
-	router.Handler("GET", "/tag-slideshow/:nShow/:nRoot/:nUser", authHs.ThenFunc(app.getFormTagSlideshow))
+	router.Handler("GET", "/tag-slideshow/:nShow/:nRoot/:nUser", authNoStoreHs.ThenFunc(app.getFormTagSlideshow))
 	router.Handler("POST", "/tag-slideshow", authHs.ThenFunc(app.postFormTagSlideshow))
 
 	// user management
-	router.Handler("GET", "/edit-users", adminHs.ThenFunc(app.users.GetFormEdit))
+	router.Handler("GET", "/edit-users", adminNoStoreHs.ThenFunc(app.users.GetFormEdit))
 	router.Handler("POST", "/edit-users", adminHs.ThenFunc(app.users.PostFormEdit))
 
 	// user authentication
-	router.Handler("GET", "/user/login", dynHs.ThenFunc(app.users.GetFormLogin))
+	router.Handler("GET", "/user/login", publicCacheHs.ThenFunc(app.users.GetFormLogin))
 	router.Handler("POST", "/user/login", dynHs.Append(app.limitLogin).ThenFunc(app.users.PostFormLogin))
 	router.Handler("POST", "/user/logout", authHs.ThenFunc(app.logout))
-	router.Handler("GET", "/user/signup", dynHs.ThenFunc(app.users.GetFormSignup))
+	router.Handler("GET", "/user/signup", publicCacheHs.ThenFunc(app.users.GetFormSignup))
 	router.Handler("POST", "/user/signup", dynHs.Append(app.limitLogin).ThenFunc(app.users.PostFormSignup))
 
 	// these are just a courtesy, say no immediately instead of redirecting to "/path/" first

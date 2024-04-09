@@ -55,15 +55,7 @@ const (
 		INNER JOIN slideshow ON slideshow.id = slide.slideshow
 		INNER JOIN user ON user.id = slideshow.user
 		WHERE slideshow.topic = ? AND slide.image LIKE 'P%' AND user.status > 0
-	`
-
-	slidesWhereTopic = `
-		SELECT slide.format, slide.title, slide.caption, slide.image, user.name as name FROM slide
-		INNER JOIN slideshow ON slideshow.id = slide.slideshow
-		INNER JOIN user ON user.id = slideshow.user
-		WHERE slideshow.topic = ? AND slide.image <> ''
-		ORDER BY slide.created DESC, slide.id DESC LIMIT ?
-	`
+		`
 
 	// most recent slides for a topic, excluding suspended users
 	slidesRecentTopic = `
@@ -112,20 +104,6 @@ func (st *SlideStore) ForSlideshow(showId int64, max int) []*models.Slide {
 		st.logError(err)
 		return nil
 	}
-	return slides
-}
-
-// Slides for topic, in recent order
-
-func (st *SlideStore) ForTopic(topicId int64, max int) []*models.TopicSlide {
-
-	var slides []*models.TopicSlide
-
-	if err := st.DBX.Select(&slides, slidesWhereTopic, topicId, max); err != nil {
-		st.logError(err)
-		return nil
-	}
-
 	return slides
 }
 

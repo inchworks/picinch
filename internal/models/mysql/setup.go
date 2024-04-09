@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/users"
 	"github.com/jmoiron/sqlx"
 
 	"inchworks.com/picinch/internal/models"
@@ -396,7 +396,7 @@ func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *Sl
 	return nil
 }
 
-// MigrateWebparts1 upgrades the database with changes needed by inchworks/webparts,
+// MigrateWebparts1 upgrades the database with changes needed by inchworks/webparts/v2,
 // before first table access. Needed for version 0.9.4.
 func MigrateWebparts1(tx *sqlx.Tx) error {
 
@@ -425,7 +425,7 @@ func MigrateWebparts1(tx *sqlx.Tx) error {
 	return err
 }
 
-// MigrateWebparts2 upgrades the database with changes needed by inchworks/webparts,
+// MigrateWebparts2 upgrades the database with changes needed by inchworks/webparts/v2,
 // after stores are ready. Needed for version 0.9.4.
 func MigrateWebparts2(stUser *UserStore, tx *sqlx.Tx) error {
 
