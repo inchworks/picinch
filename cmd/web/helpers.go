@@ -31,9 +31,9 @@ import (
 	"inchworks.com/picinch/internal/models"
 )
 
-// allow access/update as requested user?
-
-func (app *Application) allowAccessUser(r *http.Request, userId int64) bool {
+// allowAccessUser returns true if access/update to data owned by userId is allowed for the current user.
+// If asCurator is true, access by curator is allowed.
+func (app *Application) allowAccessUser(r *http.Request, userId int64, asCurator bool) bool {
 
 	auth, ok := r.Context().Value(contextKeyUser).(AuthenticatedUser)
 	if !ok {
@@ -41,7 +41,7 @@ func (app *Application) allowAccessUser(r *http.Request, userId int64) bool {
 	}
 
 	// access allowed to own data, or by curator
-	return auth.id == userId || auth.role >= models.UserCurator
+	return auth.id == userId || (asCurator && auth.role >= models.UserCurator)
 }
 
 // allowEnterClass checks that a slideshow is a genuine competition class, available to the user, and returns the slideshow.
@@ -78,7 +78,7 @@ func (app *Application) allowUpdateShow(r *http.Request, showId int64) bool {
 		return false
 	}
 
-	return app.allowAccessUser(r, s.User.Int64) // owner or curator
+	return app.allowAccessUser(r, s.User.Int64, true) // owner or curator
 }
 
 // allowViewShow returns whether the specified slideshow can be viewed by the current user,
@@ -134,7 +134,7 @@ func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bo
 		canView = app.isAuthenticated(r, models.UserCurator)
 		return // curator or admin
 	} else {
-		canView = app.allowAccessUser(r, s.User.Int64)
+		canView = app.allowAccessUser(r, s.User.Int64, true)
 		return // owner or curator
 	}
 }

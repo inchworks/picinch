@@ -398,7 +398,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// allow access for user?
-		if !app.allowAccessUser(r, nUser) {
+		if !app.allowAccessUser(r, nUser, true) {
 			httpUnauthorized(w)
 			return
 		}
@@ -424,7 +424,11 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		app.tm.Do(tx)
 
 		app.session.Put(r, "flash", "Slide changes saved.")
-		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
+		if app.allowAccessUser(r, userId, false) {
+			http.Redirect(w, r, "/my-slideshows", http.StatusSeeOther)
+		} else {
+			http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
+		}
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -492,7 +496,11 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 		app.tm.Do(tx)
 
 		app.session.Put(r, "flash", "Slideshow changes saved.")
-		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
+		if app.allowAccessUser(r, userId, false) {
+			http.Redirect(w, r, "/my-slideshows", http.StatusSeeOther)
+		} else {
+			http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
+		}
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
