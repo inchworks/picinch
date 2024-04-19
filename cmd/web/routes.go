@@ -59,8 +59,9 @@ import (
 func (app *Application) Routes() http.Handler {
 
 	commonHs := alice.New(secureHeaders, app.noBanned, app.geoBlock, app.noQuery, wwwRedirect)
-	dynHs := alice.New(app.limitPage, app.session.Enable, noSurf, app.authenticate, app.logRequest) // dynamic page handlers
-	staticHs := alice.New(app.limitFile)
+	dynHs := alice.New(app.timeout, app.limitPage, app.session.Enable, noSurf, app.authenticate, app.logRequest) // dynamic page handlers
+	immutableHs := alice.New(app.timeoutMedia, app.limitFile, app.ccImmutable)
+	staticHs := alice.New(app.timeout, app.limitFile)
 
 	// access to page
 	adminHs := dynHs.Append(app.requireAdmin)
@@ -81,10 +82,7 @@ func (app *Application) Routes() http.Handler {
 	ownerNoStoreHs := ownerHs.Append(app.ccNoStore)
 	publicCacheHs := dynHs.Append(app.public, app.ccCache)
 	publicNoCacheHs := dynHs.Append(app.public, app.ccNoCache)
-	specificHs := dynHs.Append(app.public, app.ccSpecific)
-
-	// files
-	immutableHs := staticHs.Append(app.ccImmutable)
+	slideshowHs := dynHs.Append(app.public, app.ccSlideshow) // caching varies with slideshow
 
 	// HttpRouter wrapped to allow middleware handlers
 	router := httprouter.New()
@@ -138,11 +136,11 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))
 
 	// displays
-	router.Handler("GET", "/slideshow/:nShow/:seq", specificHs.ThenFunc(app.slideshow))
+	router.Handler("GET", "/slideshow/:nShow/:seq", slideshowHs.ThenFunc(app.slideshowCache))
 	router.Handler("GET", "/contributors", authNoCacheHs.ThenFunc(app.contributors))
 	router.Handler("GET", "/contributor/:nUser", authNoCacheHs.ThenFunc(app.contributor))
 	router.Handler("GET", "/entry/:nShow", authNoCacheHs.ThenFunc(app.entry))
-	router.Handler("GET", "/my-slideshow/:nShow/:seq", authNoCacheHs.ThenFunc(app.slideshow))
+	router.Handler("GET", "/my-slideshow/:nShow/:seq", authNoCacheHs.ThenFunc(app.slideshowOwn))
 	router.Handler("GET", "/my-slideshows", authNoCacheHs.ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/slideshows-user/:nUser", curatorNoCacheHs.ThenFunc(app.slideshowsUser))
 	router.Handler("GET", "/topic-user/:nShow/:nUser", publicNoCacheHs.ThenFunc(app.topicUser))

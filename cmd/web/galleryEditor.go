@@ -272,7 +272,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 		if iSrc == nSrc {
 			// no more source slides - delete from destination
 			// ## errors ignored - better to aggregate and report them
-			s.app.uploader.Delete(tx, qsDest[iDest].Image)
+			s.app.uploader.Remove(tx, qsDest[iDest].Image)
 			s.app.SlideStore.DeleteId(qsDest[iDest].Id)
 			updated = true
 			iDest++
@@ -303,7 +303,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			ix := qsSrc[iSrc].ChildIndex
 			if ix > iDest {
 				// source slide removed - delete from destination
-				s.app.uploader.Delete(tx, qsDest[iDest].Image)
+				s.app.uploader.Remove(tx, qsDest[iDest].Image)
 				s.app.SlideStore.DeleteId(qsDest[iDest].Id)
 				updated = true
 				iDest++
@@ -325,7 +325,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 					if qsSrc[iSrc].Version != 0 {
 						// replace media file
-						s.app.uploader.Delete(tx, qsDest[iDest].Image)
+						s.app.uploader.Remove(tx, qsDest[iDest].Image)
 						qDest.Image = uploader.FileFromName(tx, qsSrc[iSrc].Version, mediaName)
 					}
 
@@ -853,7 +853,16 @@ func (s *GalleryState) onRemoveUser(tx etx.TxId, user *users.User) {
 		}
 	}
 
-	// slideshows and slides will be removed by cascade delete in caller
+	// set deletion in progress
+	user.Status = users.UserRemoved
+	if err := s.app.userStore.Update(user); err != nil {
+		s.app.log(err)
+	}
+
+	// request delayed deletion
+	if err := s.app.tm.AddTimed(tx, s, OpDelUser, &OpDelete{Id: user.Id}, s.app.deleteAfter); err != nil {
+		s.app.log(err)
+	}
 }
 
 // onUpdateUser updates topics when a user is suspended.
@@ -890,28 +899,33 @@ func (s *GalleryState) UserDisplayName(userId int64) string {
 	return u.Name
 }
 
-// removeSlideshow removes media for a slideshow, optionally deletes it, and initiates cleanup.
+// removeSlideshow hides a slideshow, initiates cleanup, and optionally requests deferred deletion.
 func (s *GalleryState) removeSlideshow(tx etx.TxId, slideshow *models.Slideshow, delete bool) error {
 
-	topicId := slideshow.Topic
-
-	// delayed deletion of all media
-	s.app.deleteImages(tx, slideshow.Id)
-
-	// delete slideshow (slides will be removed by cascade delete)
-	var err error
-	if delete {
-		err = s.app.SlideshowStore.DeleteId(slideshow.Id)
+	// set deletion in progress
+	slideshow.Visible = models.SlideshowRemoved
+	if err := s.app.SlideshowStore.Update(slideshow); err != nil {
+		return err
 	}
 
 	// request to change topic thumbnail
-	if err == nil && topicId != 0 {
-		err = s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{
-			TopicId: topicId,
+	if slideshow.Topic != 0 {
+		if err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateTopic{
+			TopicId: slideshow.Topic,
 			Revised: false,
-		})
+		}); err != nil {
+			return err
+		}
 	}
-	return err
+
+	if delete {
+		// request delayed deletion
+		if err := s.app.tm.AddTimed(tx, s, OpDelShow, &OpDelete{Id: slideshow.Id}, s.app.deleteAfter); err != nil {
+			return err
+		}
+	}
+		
+	return nil
 }
 
 // validate tags an entry as validated and returns 0, a template and data to confirm a validated entry on success.
@@ -970,17 +984,6 @@ func (s *GalleryState) validate(code int64) (int, string, *dataValidated) {
 }
 
 // INTERNAL FUNCTIONS
-
-// deleteImages requests delayed deletion of all images for a slideshow
-func (app *Application) deleteImages(tx etx.TxId, showId int64) {
-	for _, slide := range app.SlideStore.ForSlideshow(showId, 1000) {
-		if slide.Image != "" {
-			if err := app.uploader.Delete(tx, slide.Image); err != nil {
-				app.log(err)
-			}
-		}
-	}
-}
 
 // editTags recursively processes tag changes.
 func (app *Application) editTags(f *multiforms.Form, userId int64, slideshowId int64, tags []*tags.ItemTag) bool {

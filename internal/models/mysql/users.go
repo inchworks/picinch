@@ -47,23 +47,23 @@ const (
 	userOrderName = ` ORDER BY name, id`
 
 	userWhereId       = userSelect + ` WHERE id = ?`
-	userWhereName     = userSelect + ` WHERE parent = ? AND username = ?`
-	usersWhereGallery = userSelect + ` WHERE parent = ?`
+	userWhereName     = userSelect + ` WHERE parent = ? AND username = ? AND status > -10`
+	usersWhereGallery = userSelect + ` WHERE parent = ?  AND status > -10`
 
 	usersByName = usersWhereGallery + userOrderName
 
-	userCount = `SELECT COUNT(*) FROM user WHERE parent = ?`
+	userCount = `SELECT COUNT(*) FROM user WHERE parent = ? AND status > -10`
 
 	usersHavingSlideshows = `
 		SELECT * FROM user
-			WHERE user.parent = ? AND EXISTS
+			WHERE user.parent = ? AND user.status > -10 AND EXISTS
 				  ( SELECT * FROM slideshow WHERE slideshow.user = user.id )
 			ORDER BY user.name ASC
 	`
 
 	usersHavingTags = `
 		SELECT * FROM user
-		WHERE EXISTS ( SELECT * FROM tag WHERE tag.gallery = ? AND tag.user = user.id )
+		WHERE status > -10 AND EXISTS ( SELECT * FROM tag WHERE tag.gallery = ? AND tag.user = user.id )
 	`
 
 	// Users ordered by most recent published slideshow, excluding suspended users.
@@ -91,7 +91,7 @@ const (
 	usersWhereTag = `
 		SELECT user.* FROM tagref
 		JOIN user ON user.id = tagref.user
-		WHERE tagref.tag = ? AND tagref.item IS NULL
+		WHERE tagref.tag = ? AND tagref.item IS NULL AND user.status > -10
 	`
 
 	usersWhereTagName = `
@@ -99,6 +99,7 @@ const (
 		JOIN tagref ON tagref.tag = tag.id 
 		JOIN user ON user.id = tagref.user
 		WHERE tag.gallery = ? AND tag.name = ? AND tag.parent = 0 AND tagref.item IS NULL
+		AND user.status > -10
 	`
 )
 

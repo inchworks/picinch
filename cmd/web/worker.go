@@ -44,10 +44,12 @@ type validationData struct {
 
 // Operation types (keep unchanges)
 const (
-	OpComp   = 0
-	OpShowV1 = 1
-	OpTopic  = 2
-	OpShow   = 3
+	OpComp    = 0
+	OpShowV1  = 1
+	OpTopic   = 2
+	OpShow    = 3
+	OpDelShow = 4
+	OpDelUser = 5
 )
 
 // We need an arbitary status code for rollback(). This one is ideal!
@@ -65,6 +67,8 @@ func (s *GalleryState) ForOperation(opType int) etx.Op {
 		return &OpUpdateShow{}
 	case OpTopic:
 		return &OpUpdateTopic{}
+	case OpDelShow, OpDelUser:
+		return &OpDelete{}
 	default:
 		var unknown struct{}
 		return &unknown
@@ -75,6 +79,18 @@ func (s *GalleryState) ForOperation(opType int) etx.Op {
 func (s *GalleryState) Operation(id etx.TxId, opType int, op etx.Op) {
 
 	switch req := op.(type) {
+
+	case *OpDelete:
+		switch opType {
+		case OpDelShow:
+			// final deletion of slideshow
+			s.onDeleteShow(req.Id)
+
+		case OpDelUser:
+			// final deletion of user
+			s.onDeleteUser(req.Id)
+		}
+
 	case *OpUpdateShow:
 		switch opType {
 		case OpComp:
@@ -88,7 +104,6 @@ func (s *GalleryState) Operation(id etx.TxId, opType int, op etx.Op) {
 		case OpShowV1:
 			// a slideshow has been updated or removed
 			s.onUpdateShowV1(req.ShowId, req.TopicId, id, req.Revised)
-
 		}
 
 	case *OpUpdateTopic:
@@ -240,6 +255,40 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) int 
 	return 0
 }
 
+// onDeleteShow deletes a slideshow and its images, deferred to support caching.
+func (s *GalleryState) onDeleteShow(id int64) {
+
+	defer s.updatesGallery()()
+
+	s.app.deleteImages(id)
+
+	err := s.app.SlideshowStore.DeleteId(id)
+	if err != nil {
+		s.app.log(err)
+	}
+}
+
+// onDeleteUser deletes a user, their slideshows and all their images, deferred to support caching.
+func (s *GalleryState) onDeleteUser(id int64) {
+
+	// #### did we change status for slideshows?
+
+	// delete all slideshow images
+	shows := s.app.SlideshowStore.ForUser(id, models.SlideshowRemoved)
+	for _, show := range shows {
+
+		s.app.deleteImages(show.Id)
+	}
+
+	// slideshows and slides will be removed by cascade delete in caller
+
+	err := s.app.userStore.DeleteId(id)
+	if err != nil {
+		s.app.log(err)
+	}
+}
+
+
 // onPurge removes old unvalidated competition entries.
 // It returns the ID of a following transaction to remove media files.
 func (s *GalleryState) onPurge(t time.Time) etx.TxId {
@@ -266,8 +315,8 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 			entries[uId] = entries[uId] - 1
 		}
 
-		// delayed deletion of all media files
-		s.app.deleteImages(tx, show.Id)
+		// delete all media files
+		s.app.deleteImages(show.Id)
 
 		// remove competition slideshow
 		// (slides removed by on delete cascade)
@@ -508,6 +557,17 @@ func (s *GalleryState) claimFiles(showId int64, claim *uploader.Claim, process b
 				claim.File(slide.Image)
 			} else {
 				claim.FileV1(slide.Image)
+			}
+		}
+	}
+}
+
+// deleteImages performs immediate deletion of all images for a slideshow.
+func (app *Application) deleteImages(showId int64) {
+	for _, slide := range app.SlideStore.ForSlideshow(showId, 1000) {
+		if slide.Image != "" {
+			if err := app.uploader.Delete(slide.Image); err != nil {
+				app.log(err)
 			}
 		}
 	}

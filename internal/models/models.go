@@ -38,6 +38,7 @@ const (
 	SlideVideo = 8
 
 	// slideshow visibility
+	SlideshowRemoved = -10 // deletion in progress but cached access allowed
 	SlideshowTopic   = -1
 	SlideshowPrivate = 0
 	SlideshowClub    = 1

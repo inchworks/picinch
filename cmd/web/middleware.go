@@ -98,15 +98,16 @@ func (app *Application) ccCache(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		// maximum age
+		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
+
 		// check if client's version is up to date
 		if unmodified(r, app.galleryState.lastModified) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
-		// maximum age
-		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
-		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -127,14 +128,15 @@ func (app *Application) ccNoCache(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		w.Header().Set("Cache-Control", "no-cache")
+
 		// check if client's version is up to date
 		if unmodified(r, app.galleryState.lastModified) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
-		w.Header().Set("Cache-Control", "no-cache")
-		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -147,7 +149,6 @@ func (app *Application) ccNoStore(next http.Handler) http.Handler {
 
 		// maximum age
 		w.Header().Set("Cache-Control", "no-store")
-
 		next.ServeHTTP(w, r)
 	})
 }
@@ -158,14 +159,16 @@ func (app *Application) ccPrivateCache(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		// maximum age
+		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))+", private")
+
 		// check if client's version is up to date
 		if unmodified(r, app.galleryState.lastModified) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
-		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))+", private")
-		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -176,39 +179,54 @@ func (app *Application) ccPrivateNoCache(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		w.Header().Set("Cache-Control", "no-cache, private")
+
 		// check if client's version is up to date
 		if unmodified(r, app.galleryState.lastModified) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
-		w.Header().Set("Cache-Control", "no-cache, private")
-		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 		next.ServeHTTP(w, r)
 	})
 }
 
-// ccSpecific returns a handler for a resource where Cache-Control depends on the specific resource.
+// ccSlideshow returns a handler for a resource where Cache-Control depends on the specific slideshow.
 // It check if a resource might have been modified since the time specified in the request.
-func (app *Application) ccSpecific(next http.Handler) http.Handler {
+func (app *Application) ccSlideshow(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		// serialisation
+		gs := &app.galleryState
+		gs.muCache.RLock()
+		
 		// check if client's version is up to date
 		if unmodified(r, app.galleryState.lastModified) {
 
-			// ## don't need to do this?
-			h := w.Header()
-			delete(h, "Content-Type")
-			delete(h, "Content-Length")
-			delete(h, "Content-Encoding")
-			if h.Get("Etag") != "" {
-				delete(h, "Last-Modified")
-			}
+			// cache control depends on the specific slideshow, and we should have that cached
+			ps := httprouter.ParamsFromContext(r.Context())
+			id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
 
-			w.WriteHeader(http.StatusNotModified)
-			return
+			// 
+			public, ok := gs.publicSlideshow[id]
+			if ok {
+				gs.muCache.RUnlock()
+			
+				cc := "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
+				if !public {
+					cc += ", private"
+				}
+				w.Header().Set("Cache-Control", cc)
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+	
 		}
+
+		// non-cached read
+		gs.muCache.RUnlock()
 		next.ServeHTTP(w, r)
 	})
 }
@@ -609,6 +627,53 @@ func secureHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// timeout specifies a time limit on request + response handling, to mitigate DoS attacks, such as R.U.D.Y.
+// It must be called before any handler that extends ResponseWriter, such as a session manager.
+func (app *Application) timeout(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Method == "POST" && r.URL.Path == "/upload" {
+			rc := http.NewResponseController(w)
+
+			// need more read time for file uploads
+			if err := rc.SetReadDeadline(time.Now().Add(app.cfg.TimeoutUpload)); err != nil {
+				app.log(err)
+				httpServerError(w)
+				return
+			}
+
+			// write time includes read time for HTTPS
+			if err := rc.SetWriteDeadline(time.Now().Add(app.cfg.TimeoutUpload).Add(app.cfg.TimeoutWeb)); err != nil {
+				app.log(err)
+				httpServerError(w)
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// timeoutMedia specifies a default time limit on media download requests
+// It must be called before any handler that extends ResponseWriter, such as a session manager.
+func (app *Application) timeoutMedia(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		rc := http.NewResponseController(w)
+
+		// need more write time for file downloads
+		if err := rc.SetWriteDeadline(time.Now().Add(app.cfg.TimeoutWeb).Add(app.cfg.TimeoutDownload)); err != nil {
+			app.log(err)
+			httpServerError(w)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 // wwwRedirect redirects a request for the www sub-domain to the parent domain.
 func wwwRedirect(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -676,7 +741,7 @@ func (nfs noDirFileSystem) Open(path string) (http.File, error) {
 }
 
 // optional records a legitimate request for something we don't have
-func (app *Application) optional(event string, r *http.Request) {
+func (app *Application) optional(_ string, _ *http.Request) {
 
 	app.usage.Count("allowed", "bad-req")
 }

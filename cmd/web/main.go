@@ -138,6 +138,9 @@ type Configuration struct {
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
 	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env:"max-upload-age" env-default:"8h"`            // maximum time for a slideshow update. Units m or h.
 	SiteRefresh       time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`                             // refresh interval for topic thumbnails. Units m or h.
+	TimeoutDownload   time.Duration   `yaml:"timeout-download" env-default:"2m"`                               // maximum time for file download. Units m.
+	TimeoutUpload     time.Duration   `yaml:"timeout-upload" env-default:"5m"`                                 // maximum time for file upload. Units m.
+	TimeoutWeb        time.Duration   `yaml:"timeout-web" env-default:"20s"`                                   // maximum time for web request, same for response (default). Units s or m.
 	UsageAnonymised   usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 
 	// variants
@@ -157,6 +160,11 @@ type Configuration struct {
 	ReplyTo       string `yaml:"reply-to" env:"reply-to" env-default:""`
 }
 
+// Operation to delete slideshow or user.
+type OpDelete struct {
+	Id  int64
+}
+
 // Operation to claim slideshow images.
 type OpUpdateShow struct {
 	ShowId  int64
@@ -173,7 +181,8 @@ type OpUpdateTopic struct {
 
 // Application struct supplies application-wide dependencies.
 type Application struct {
-	cfg *Configuration
+	cfg         *Configuration
+	deleteAfter time.Duration
 
 	errorLog      *log.Logger
 	infoLog       *log.Logger
@@ -312,6 +321,8 @@ func main() {
 		// port addresses
 		AddrHTTP:  cfg.AddrHTTP,
 		AddrHTTPS: cfg.AddrHTTPS,
+
+		Timeout: cfg.TimeoutWeb,
 	}
 
 	srv.Serve(app)
@@ -353,7 +364,7 @@ func (app *Application) OnRemoveUser(tx etx.TxId, user *users.User) {
 	app.galleryState.onRemoveUser(tx, user)
 }
 
-// OnRemoveUser is called to delete any application data for a user.
+// OnUpdateUser is called to change any application data for a modified user.
 func (app *Application) OnUpdateUser(tx etx.TxId, from *users.User, to *users.User) {
 
 	app.galleryState.onUpdateUser(tx, from, to)
@@ -379,6 +390,14 @@ func (app *Application) Serialise(updates bool) func() {
 // Token returns a token to be added to the form as the hidden field csrf_token.
 func (app *Application) Token(r *http.Request) string {
 	return nosurf.Token(r)
+}
+
+type UserNoDelete struct {
+	*mysql.UserStore
+}
+
+func (st *UserNoDelete) DeleteId(id int64) error {
+	return nil // deletion of users is deferred
 }
 
 // Initialisation, common to live and test
@@ -411,6 +430,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	// dependency injection
 	app := &Application{
 		cfg:           cfg,
+		deleteAfter:   time.Duration(float64(cfg.MaxCacheAge) * 1.2), // longer than Cache-Control max-age
 		errorLog:      errorLog,
 		infoLog:       infoLog,
 		threatLog:     threatLog,
@@ -478,7 +498,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		MaxSize:      app.cfg.MaxAV * 1024 * 1024,
 		ThumbW:       app.cfg.ThumbW,
 		ThumbH:       app.cfg.ThumbH,
-		DeleteAfter:  time.Duration(float64(app.cfg.MaxCacheAge) * 1.2), // longer than Cache-Control max-age
+		DeleteAfter:  app.deleteAfter,
 		MaxAge:       app.cfg.MaxUploadAge,
 		SnapshotAt:   app.cfg.VideoSnapshot,
 		VideoPackage: app.cfg.VideoPackage,
@@ -510,7 +530,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.users = users.Users{
 		App:   app,
 		Roles: []string{"unknown", "friend", "member", "curator", "admin"},
-		Store: app.userStore,
+		Store: &UserNoDelete{UserStore: app.userStore}, // ignores DeleteId
 		TM:    app.tm,
 	}
 

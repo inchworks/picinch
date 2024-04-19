@@ -179,8 +179,21 @@ func (app *Application) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// slideshow handles a request to view a slideshow, or a topic
-func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
+// slideshowOwn handles a request by a member to view their own slideshow
+func (app *Application) slideshowOwn(w http.ResponseWriter, r *http.Request) {
+
+	// not cached so that changes are visible immediately
+	app.slideshow(w, r, false)
+}
+
+// slideshowPublic handles a request to view a slideshow or a topic, by any user or the public
+func (app *Application) slideshowCache(w http.ResponseWriter, r *http.Request) {
+
+	// cached
+	app.slideshow(w, r, true)
+}
+
+func (app *Application) slideshow(w http.ResponseWriter, r *http.Request, setCache bool) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
@@ -192,16 +205,25 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 	isVisible, isPublic, isTopic := app.allowViewShow(r, id)
 
 	if !isVisible {
-		httpUnauthorized(w)
+		// polite rejection because this could have come from a cached page.
+		app.session.Put(r, "flash", "Slideshow or topic is being removed.")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
 	// set caching, with limit to private cache for non-public pages
-	maxAge := strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
-	if isPublic {
-		w.Header().Set("Cache-Control", "max-age="+maxAge)
-	} else {
-		w.Header().Set("Cache-Control", "max-age="+maxAge+", private")
+	if setCache {
+		cc := "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
+		if !isPublic {
+			cc += ", private"
+		}
+		w.Header().Set("Cache-Control", cc)
+
+		// save cache information (serialised)
+		gs := &app.galleryState
+		gs.muCache.Lock()
+		gs.publicSlideshow[id] = isPublic
+		gs.muCache.Unlock()
 	}
 
 	var template string
@@ -330,8 +352,8 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 	// template and data for slides
 	data := app.galleryState.DisplayTopicContributors(topicId)
 	if data == nil {
-		// polite rejection because this could have come from a cached slideshow.
-		app.session.Put(r, "flash", "Topic removed.")
+		// polite rejection because this could have come from a cached page.
+		app.session.Put(r, "flash", "Topic is being removed.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}

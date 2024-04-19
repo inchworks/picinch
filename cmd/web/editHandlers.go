@@ -261,6 +261,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 // postFormImage handles an uploaded media file
 func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 
+
 	timestamp := r.FormValue("timestamp")
 
 	vs := r.FormValue("version")
@@ -291,7 +292,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	fh := f[0]
 	sz := (fh.Size + (1 << 19)) >> 20
 	if sz > int64(app.cfg.MaxUpload) {
-		httpTooLarge(w)
+		app.reply(w, RepUpload{Error: "Upload too large at server."})
 		return
 	}
 

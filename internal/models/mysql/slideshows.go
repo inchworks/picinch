@@ -50,16 +50,15 @@ const (
 	slideshowOrderRevised = ` ORDER BY gallery_order DESC, revised DESC, id`
 	slideshowOrderTitle   = ` ORDER BY title, id`
 
-	slideshowCountForUser  = `SELECT COUNT(*) FROM slideshow WHERE user = ?`
+	slideshowCountForUser  = `SELECT COUNT(*) FROM slideshow WHERE user = ? AND  visible > -10`
 
 	slideshowWhereId       = slideshowSelect + ` WHERE id = ?`
 	slideshowWhereTopic    = slideshowSelect + ` WHERE topic = ? AND user = ?`
 
-	slideshowsWhereTopic     = slideshowSelect + ` WHERE topic = ?`
-	slideshowsWhereTopicUser = slideshowSelect + ` WHERE topic = ? AND user = ?`
+	slideshowsWhereTopic     = slideshowSelect + ` WHERE topic = ? AND  visible > -10`
+	slideshowsWhereTopicUser = slideshowSelect + ` WHERE topic = ? AND user = ? AND  visible > -10`
 	slideshowsWhereUser      = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
-	slideshowsWhereGallery   = slideshowSelect + ` WHERE gallery = ?` + slideshowOrderTitle
-	slideshowsNotTopics      = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL` + slideshowOrderTitle
+	slideshowsNotTopics      = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL AND  visible > -10` + slideshowOrderTitle
 
 	slideshowWhereShared = slideshowSelect + ` WHERE shared = ?`
 
@@ -67,14 +66,14 @@ const (
 	slideshowCountForTopic = `
 		SELECT COUNT(*) FROM slideshow
 		JOIN user ON user.id = slideshow.user
-		WHERE topic = ? AND user.status > 0
+		WHERE topic = ? AND visible > -10 AND user.status > 0
 	`
 
 	// slideshow in sequence for a topic, excluding suspended users
 	slideshowWhereTopicSeq = `
 		SELECT slideshow.* FROM slideshow
 		JOIN user ON user.id = slideshow.user
-		WHERE topic = ? AND user.status > 0
+		WHERE topic = ? AND visible > -10 AND user.status > 0
 		ORDER BY revised ASC LIMIT ?,1
 	`
 
@@ -82,7 +81,7 @@ const (
 	slideshowWhereTopicVisible = `
 		SELECT slideshow.* FROM slideshow
 		JOIN slideshow AS topic ON topic.id = slideshow.topic
-		WHERE slideshow.topic = ? AND slideshow.user = ? AND topic.visible >= ?
+		WHERE slideshow.topic = ? AND visible > -10 AND slideshow.user = ? AND topic.visible >= ?
 	`
 
 	// tagged slideshows
@@ -90,7 +89,7 @@ const (
 		SELECT slideshow.* FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
-		WHERE tag.parent = ? AND tag.name = ?
+		WHERE tag.parent = ? AND tag.name = ? AND slideshow.visible > -10
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -99,7 +98,8 @@ const (
 		SELECT slideshow.* FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
-		WHERE tag.gallery = ? AND tag.parent = ? AND tag.name = ? AND slideshow.revised < ?
+		WHERE tag.gallery = ? AND tag.parent = ? AND tag.name = ?
+		AND slideshow.revised < ? AND slideshow.visible > -10
 	`
 
 	slideshowsWhereTagSystem = `
@@ -107,6 +107,7 @@ const (
 		FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
 		WHERE tagref.tag = ? AND tagref.user IS NULL
+		AND slideshow.visible > -10
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -115,7 +116,8 @@ const (
 		SELECT slideshow.* FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
-		WHERE tag.parent = ? AND tag.name = ? AND slideshow.topic = ?
+		WHERE tag.parent = ? AND tag.name = ?
+		AND slideshow.topic = ? AND slideshow.visible > -10
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -124,7 +126,7 @@ const (
 		SELECT slideshow.*, tagref.id AS tagrefid
 		FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
-		WHERE tagref.tag = ? AND tagref.user = ?
+		WHERE tagref.tag = ? AND tagref.user = ? AND slideshow.visible > -10
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -133,7 +135,9 @@ const (
 	slideshowsUserPublished = `
 		SELECT slideshow.* FROM slideshow
 		LEFT JOIN slideshow AS topic ON topic.id = slideshow.topic
-		WHERE slideshow.user = ? AND (slideshow.visible >= ? OR slideshow.visible = -1 AND topic.visible >= ?) AND slideshow.image <> ""
+		WHERE slideshow.user = ?
+		AND (slideshow.visible >= ? OR slideshow.visible = -1 AND topic.visible >= ?)
+		AND slideshow.image <> ""
 		ORDER BY slideshow.created DESC
 	`
 
@@ -161,7 +165,7 @@ const (
 		SELECT slideshow.id, slideshow.title, slideshow.image, user.name 
 		FROM slideshow
 		INNER JOIN user ON user.id = slideshow.user
-		WHERE slideshow.topic = ? AND slideshow.visible <> 0 AND slideshow.image <> "" AND user.status > 0
+		WHERE slideshow.topic = ? AND slideshow.visible > 0 AND slideshow.image <> "" AND user.status > 0
 		ORDER BY slideshow.revised`
 )
 
@@ -183,19 +187,6 @@ func NewSlideshowStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *SlideshowSto
 			sqlUpdate: slideshowUpdate,
 		},
 	}
-}
-
-// All slideshows
-
-func (st *SlideshowStore) All() []*models.Slideshow {
-
-	var slideshows []*models.Slideshow
-
-	if err := st.DBX.Select(&slideshows, slideshowsWhereGallery, st.GalleryId); err != nil {
-		st.logError(err)
-		return nil
-	}
-	return slideshows
 }
 
 // AllForUsers returns all slideshows except topics.

@@ -40,10 +40,11 @@ type GalleryState struct {
 	gallery       *models.Gallery
 	highlights    []string  // highlighted images
 
-	// last gallery modification time, for browser caching
-	// (truncated to one second precision because HTTP Last-Modified header truncates sub-second precision)
-	lastModified  time.Time
-	lastModifiedS string    // formatted for HTTP headers
+	// for browser caching
+	muCache       sync.RWMutex
+	lastModified  time.Time         // (truncated to one second precision for HTTP Last-Modified header)
+	lastModifiedS string            // formatted for HTTP headers
+	publicSlideshow map[int64]bool  // true for public cache, false for private
 }
 
 // Initialisation
@@ -112,9 +113,17 @@ func (s *GalleryState) save() {
 // setLastModified saves the last gallery update time for browser caching.
 func (s *GalleryState) setLastModified() {
 
+	// serialised
+	s.muCache.Lock()
+
 	// truncated to remove sub-second resolution so that it matches HTTP If-Modified-Since
 	s.lastModified = time.Now().Truncate(time.Second)
 	s.lastModifiedS = s.lastModified.UTC().Format(http.TimeFormat)
+
+	// reset slideshow information
+	s.publicSlideshow = make(map[int64]bool, 20)
+
+	s.muCache.Unlock()
 }
 
 // Setup cached context

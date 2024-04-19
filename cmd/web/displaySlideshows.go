@@ -33,13 +33,14 @@ import (
 // Copyright © Rob Burke inchworks.com, 2020.
 
 // displayClasses returns data for competition classes.
-func (s *GalleryState) displayClasses(member bool) *dataCompetition {
+func (s *GalleryState) displayClasses(_ bool) *dataCompetition {
 
 	defer s.updatesNone()()
 
 	a := s.app
 
 	// ## restrict to published categories
+	// ## could have unrestricted list for members
 	dShows := s.dataShowsPublished(
 		a.SlideshowStore.AllTopicsFormatted("C%"), a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
 
