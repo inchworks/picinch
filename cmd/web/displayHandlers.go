@@ -51,7 +51,7 @@ func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
 	// template and data for contributor
 	data := app.galleryState.DisplayContributor(userId, app.isAuthenticated(r, models.UserFriend))
 	if data == nil {
-		// polite rejection because this could have come from a cached slideshow.
+		// polite rejection because this could have come from browser history or the current page read long ago.
 		app.session.Put(r, "flash", "Contributor removed.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
@@ -130,8 +130,15 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "highlights.page.tmpl", data)
 }
 
-// home serves the main page for the website.
+// home serves the main page for the public.
 func (app *Application) home(w http.ResponseWriter, r *http.Request) {
+
+	member := app.isAuthenticated(r, models.UserFriend)
+	if member {
+		// show members home page if logged in
+		http.Redirect(w, r, "/members", http.StatusSeeOther)
+		return
+	}
 
 	hs := app.cfg.HomeSwitch
 	if hs != "" {
@@ -140,7 +147,27 @@ func (app *Application) home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// default home page
-	data := app.galleryState.DisplayHome(app.isAuthenticated(r, models.UserFriend))
+	data := app.galleryState.DisplayHome(false)
+	if data == nil {
+		httpServerError(w)
+		return
+	}
+
+	app.render(w, r, "home.page.tmpl", data)
+}
+
+// homeMembers serves the main page for members.
+func (app *Application) homeMembers(w http.ResponseWriter, r *http.Request) {
+
+	member := app.isAuthenticated(r, models.UserFriend)
+	if !member {
+		// show public home page if logged out
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	// default home page
+	data := app.galleryState.DisplayHome(true)
 	if data == nil {
 		httpServerError(w)
 		return
@@ -186,7 +213,7 @@ func (app *Application) slideshowOwn(w http.ResponseWriter, r *http.Request) {
 	app.slideshow(w, r, false)
 }
 
-// slideshowPublic handles a request to view a slideshow or a topic, by any user or the public
+// slideshowcache handles a request to view a slideshow or a topic, by any user or the public
 func (app *Application) slideshowCache(w http.ResponseWriter, r *http.Request) {
 
 	// cached
@@ -198,15 +225,15 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request, setCac
 	ps := httprouter.ParamsFromContext(r.Context())
 
 	id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
-	seq, _ := strconv.ParseInt(ps.ByName("seq"), 10, 32)
+	sec, _ := strconv.ParseInt(ps.ByName("nSec"), 10, 64)
 
 	// allow access to show?
 	// ## reads show, and DisplaySlideshow will read it again
 	isVisible, isPublic, isTopic := app.allowViewShow(r, id)
 
 	if !isVisible {
-		// polite rejection because this could have come from a cached page.
-		app.session.Put(r, "flash", "Slideshow or topic is being removed.")
+		// polite rejection because this could have come from browser history or the current page read long ago.
+		app.session.Put(r, "flash", "Slideshow or topic removed.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -230,10 +257,10 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request, setCac
 	var data *DataSlideshow
 	if isTopic {
 		// template and data for topic
-		template, data = app.galleryState.DisplayTopicHome(id, int(seq), "/")
+		template, data = app.galleryState.DisplayTopicHome(id, sec, "/")
 		if data == nil {
-			// polite rejection because this could have come from a cached slideshow.
-			app.session.Put(r, "flash", "No contribution to this topic.")
+			// polite rejection because this could have come from browser history or the current page read long ago.
+			app.session.Put(r, "flash", "Contributions to this topic removed.")
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
@@ -302,10 +329,10 @@ func (app *Application) slideshowShared(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	seq, _ := strconv.ParseInt(ps.ByName("seq"), 10, 32)
+	sec, _ := strconv.ParseInt(ps.ByName("nSec"), 10, 64)
 
 	// template and data for slides
-	template, data := app.galleryState.DisplayShared(code, int(seq))
+	template, data := app.galleryState.DisplayShared(code, sec)
 	if template == "" {
 		app.wrongCode.ServeHTTP(w, r)
 		return
@@ -352,8 +379,8 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 	// template and data for slides
 	data := app.galleryState.DisplayTopicContributors(topicId)
 	if data == nil {
-		// polite rejection because this could have come from a cached page.
-		app.session.Put(r, "flash", "Topic is being removed.")
+		// polite rejection because this could have come from browser history or the current page read long ago.
+		app.session.Put(r, "flash", "Topic removed.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}

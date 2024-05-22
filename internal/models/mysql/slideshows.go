@@ -30,18 +30,18 @@ const (
 	slideshowDelete = `DELETE FROM slideshow WHERE id = ?`
 
 	slideshowInsert = `
-		INSERT INTO slideshow (gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image)
-		VALUES (:gallery, :gallery_order, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image)`
+		INSERT INTO slideshow (gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image)
+		VALUES (:gallery, :gallery_order, :access, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image)`
 
 	slideshowUpdate = `
 		UPDATE slideshow
-		SET gallery_order=:gallery_order, visible=:visible, shared=:shared, topic=:topic, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
+		SET gallery_order=:gallery_order, access=:access, visible=:visible, shared=:shared, topic=:topic, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
 		WHERE id = :id
 	`
 
 	slideshowSet = `
-		INSERT INTO slideshow (id, gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image)
-		VALUES (:id, :gallery, :gallery_order, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image)`
+		INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image)
+		VALUES (:id, :gallery, :gallery_order, :access, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image)`
 )
 
 const (
@@ -53,14 +53,14 @@ const (
 	slideshowCountForUser  = `SELECT COUNT(*) FROM slideshow WHERE user = ? AND  visible > -10`
 
 	slideshowWhereId       = slideshowSelect + ` WHERE id = ?`
-	slideshowWhereTopic    = slideshowSelect + ` WHERE topic = ? AND user = ?`
+	slideshowWhereTopic    = slideshowSelect + ` WHERE topic = ? AND user = ? AND  visible > -10`
 
 	slideshowsWhereTopic     = slideshowSelect + ` WHERE topic = ? AND  visible > -10`
 	slideshowsWhereTopicUser = slideshowSelect + ` WHERE topic = ? AND user = ? AND  visible > -10`
 	slideshowsWhereUser      = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
-	slideshowsNotTopics      = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL AND  visible > -10` + slideshowOrderTitle
+	slideshowsNotTopics      = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL AND visible > -10` + slideshowOrderTitle
 
-	slideshowWhereShared = slideshowSelect + ` WHERE shared = ?`
+	slideshowWhereShared = slideshowSelect + ` WHERE shared = ? AND visible > -10`
 
 	// number of slideshows for topic, excluding suspended users
 	slideshowCountForTopic = `
@@ -68,9 +68,24 @@ const (
 		JOIN user ON user.id = slideshow.user
 		WHERE topic = ? AND visible > -10 AND user.status > 0
 	`
+	// next slideshow in sequence for a topic, excluding suspended users
+	slideshowWhereTopicAfter = `
+		SELECT slideshow.* FROM slideshow
+		JOIN user ON user.id = slideshow.user
+		WHERE topic = ? AND revised > ? AND visible > -10 AND user.status > 0
+		ORDER BY revised ASC LIMIT 1
+	`
+
+	// previous slideshow in sequence for a topic, excluding suspended users
+	slideshowWhereTopicBefore = `
+		SELECT slideshow.* FROM slideshow
+		JOIN user ON user.id = slideshow.user
+		WHERE topic = ? AND revised < ? AND visible > -10 AND user.status > 0
+		ORDER BY revised DESC LIMIT 1
+	`
 
 	// slideshow in sequence for a topic, excluding suspended users
-	slideshowWhereTopicSeq = `
+	slideshowWhereTopicSeq0 = `
 		SELECT slideshow.* FROM slideshow
 		JOIN user ON user.id = slideshow.user
 		WHERE topic = ? AND visible > -10 AND user.status > 0
@@ -141,9 +156,9 @@ const (
 		ORDER BY slideshow.created DESC
 	`
 
-	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ?` + slideshowOrderTitle
-	topicsWhereFormat   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ?` + slideshowOrderTitle
-	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL` + slideshowOrderRevised
+	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ? AND slideshow.visible > -10` + slideshowOrderTitle
+	topicsWhereFormat   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ? AND slideshow.visible > -10` + slideshowOrderTitle
+	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND slideshow.visible > -10` + slideshowOrderRevised
 
 	// most recent visible topics and slideshows, with a per-user limit, excluding suspended users
 	slideshowsRecentPublished = `
@@ -165,7 +180,7 @@ const (
 		SELECT slideshow.id, slideshow.title, slideshow.image, user.name 
 		FROM slideshow
 		INNER JOIN user ON user.id = slideshow.user
-		WHERE slideshow.topic = ? AND slideshow.visible > 0 AND slideshow.image <> "" AND user.status > 0
+		WHERE slideshow.topic = ? AND slideshow.visible = -1 AND slideshow.image <> "" AND user.status > 0
 		ORDER BY slideshow.revised`
 )
 
@@ -187,6 +202,19 @@ func NewSlideshowStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *SlideshowSto
 			sqlUpdate: slideshowUpdate,
 		},
 	}
+}
+
+// All returns all slideshows for all galleries, unordered and ignoring access.
+// It is used only for migrations.
+func (st *SlideshowStore) All() []*models.Slideshow {
+
+	var slideshows []*models.Slideshow
+
+	if err := st.DBX.Select(&slideshows, slideshowSelect); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
 }
 
 // AllForUsers returns all slideshows except topics.
@@ -240,7 +268,7 @@ func (st *SlideshowStore) AllTopicsFormatted(like string) []*models.Slideshow {
 
 // Count of slideshows for topic
 
-func (st *SlideshowStore) CountForTopic(topicId int64) int {
+func (st *SlideshowStore) CountForTopic0(topicId int64) int {
 
 	var n int
 
@@ -361,13 +389,37 @@ func (st *SlideshowStore) ForTopicPublished(topicId int64, latest bool) []*model
 	return shows
 }
 
-// Slideshow in sequence for topic
-
-func (st *SlideshowStore) ForTopicSeq(topicId int64, seq int) *models.Slideshow {
+// ForTopicSeq returns the next or previous slideshow in sequence for a topic.
+// #### Perhaps just ID.
+func (st *SlideshowStore) ForTopicSeq(topicId int64, current time.Time, after bool) *models.Slideshow {
 
 	var r models.Slideshow
 
-	if err := st.DBX.Get(&r, slideshowWhereTopicSeq, topicId, seq); err != nil {
+	var q string
+	if after {
+		q = slideshowWhereTopicAfter
+	} else {
+		q = slideshowWhereTopicBefore
+	}
+
+	if err := st.DBX.Get(&r, q, topicId, current); err != nil {
+		err = st.convertError(err)
+		if err != models.ErrNoRecord {
+			st.logError(err)
+		}
+		return nil
+	}
+
+	return &r
+}
+
+// Slideshow in sequence for topic
+
+func (st *SlideshowStore) ForTopicSeq0(topicId int64, seq int) *models.Slideshow {
+
+	var r models.Slideshow
+
+	if err := st.DBX.Get(&r, slideshowWhereTopicSeq0, topicId, seq); err != nil {
 		err = st.convertError(err)
 		if err != models.ErrNoRecord {
 			st.logError(err)

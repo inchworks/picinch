@@ -77,14 +77,20 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// save changes
-	if app.galleryState.OnAssignShows(slideshows) {
+	// save changes (no synchronous operations to be done)
+	status, _ := app.galleryState.OnAssignShows(slideshows)
+	switch status {
+	case 0:
 		app.session.Put(r, "flash", "Topic assignments saved.")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 
-	} else {
+	case http.StatusConflict:
 		app.session.Put(r, "flash", "Slideshow or topic deleted - check.")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+
+	default:
+		http.Error(w, http.StatusText(status), status)
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // getFormEnterComp serves the form to enter a competition.

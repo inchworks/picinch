@@ -26,6 +26,7 @@ import (
 	"io/fs"
 	"os"
 	"strconv"
+	"time"
 
 	"inchworks.com/picinch/internal/models"
 )
@@ -153,7 +154,7 @@ func (s *GalleryState) DisplayHome(member bool) *DataHome {
 }
 
 // DisplayTopicShared selects a template and data for a shared slideshow or topic
-func (s *GalleryState) DisplayShared(code int64, seq int) (string, *DataSlideshow) {
+func (s *GalleryState) DisplayShared(code int64, secId int64) (string, *DataSlideshow) {
 
 	defer s.updatesNone()()
 
@@ -175,9 +176,9 @@ func (s *GalleryState) DisplayShared(code int64, seq int) (string, *DataSlidesho
 	// this is a topic
 	topic := slideshow
 
-	if seq == 0 {
+	if secId == 0 {
 		// next is first user's slides
-		after, before := s.topicHRefs(topic, 0, true, from)
+		after, before := s.topicHRefs(topic, time.Time{}, true, true, from)
 
 		// home page for topic
 		// Annoyingly, the slideshow must have at least two slides,
@@ -193,7 +194,7 @@ func (s *GalleryState) DisplayShared(code int64, seq int) (string, *DataSlidesho
 		}
 	} else {
 		// contribution to topic
-		return s.displayTopic(topic, true, seq, from)
+		return s.displayTopic(topic, secId, true, from)
 	}
 }
 
@@ -213,7 +214,7 @@ func (s *GalleryState) DisplaySlideshow(id int64, forRole int, from string) *Dat
 }
 
 // DisplayTopicHome returns a template and data for a topic shown on a website page.
-func (s *GalleryState) DisplayTopicHome(id int64, seq int, from string) (string, *DataSlideshow) {
+func (s *GalleryState) DisplayTopicHome(id int64, secId int64, from string) (string, *DataSlideshow) {
 
 	defer s.updatesNone()()
 
@@ -229,7 +230,25 @@ func (s *GalleryState) DisplayTopicHome(id int64, seq int, from string) (string,
 		return s.displayHighlights(topic, from, max)
 	}
 
-	return s.displayTopic(topic, false, seq, from)
+	if secId == 0 {
+		// next is first user's slides
+		after, before := s.topicHRefs(topic, time.Time{}, true, false, from)
+
+		// home page for topic
+		// Annoyingly, the slideshow must have at least two slides,
+		// otherwise Bootstrap Carousel doesn't give any events to trigger loading of the first user's slideshow.
+		return "carousel-topic.page.tmpl", &DataSlideshow{
+			Title:      topic.Title,
+			Caption:    topic.Caption,
+			AfterHRef:  after,
+			BeforeHRef: before,
+			DataCommon: DataCommon{
+				ParentHRef: from,
+			},
+		}
+	} else {
+		return s.displayTopic(topic, secId, false, from)
+	}
 }
 
 // DisplayTopicContributors returns the slideshows contributed to a topic.
@@ -255,6 +274,7 @@ func (s *GalleryState) DisplayTopicContributors(id int64) *DataSlideshows {
 
 	for _, s := range slideshows {
 		dShows = append(dShows, &DataPublished{
+			NTopic:      id,
 			Id:          s.Id,
 			Title:       s.Title,
 			Image:       s.Image,
@@ -600,9 +620,8 @@ func (s *GalleryState) displaySlides(show *models.Slideshow, forRole int, from s
 
 // displayTopic returns a template and data for a section of a topic.
 // It is called for topics on the home page and for shared topics. from specifies the parent URL.
-func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq int, from string) (string, *DataSlideshow) {
+func (s *GalleryState) displayTopic(topic *models.Slideshow, secId int64, shared bool, from string) (string, *DataSlideshow) {
 
-	id := topic.Id
 	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlides)
 
 	// special selection and ordering for highlights
@@ -610,10 +629,15 @@ func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq in
 		return s.displayHighlights(topic, from, max)
 	}
 
-	// get N'th slideshow in sequence
-	show := s.app.SlideshowStore.ForTopicSeq(id, seq-1)
+	// get slideshow section
+	show := s.app.SlideshowStore.GetIf(secId)
 	if show == nil {
 		return "", nil // no contributions yet, or user removed a slideshow
+	}
+	if show.Topic != topic.Id {
+		// doesn't belong to topic?
+		// #### is there one that does - redirect
+		return "", nil // slideshow removed
 	}
 
 	// slides and user
@@ -636,7 +660,7 @@ func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq in
 	}
 
 	// next and previous user's slides
-	after, before := s.topicHRefs(topic, seq, shared, from)
+	after, before := s.topicHRefs(topic, show.Revised, false, shared, from)
 
 	// select template
 	var template string
@@ -646,7 +670,7 @@ func (s *GalleryState) displayTopic(topic *models.Slideshow, shared bool, seq in
 		fallthrough
 
 	default:
-		template = "carousel-topic.page.tmpl"
+		template = "carousel-section.page.tmpl"
 	}
 
 	// template and its data
@@ -672,32 +696,40 @@ func (s *GalleryState) formatShared(code int64) string {
 }
 
 // href returns the path to a slideshow.
-func href(shared bool, slideshow *models.Slideshow, seq int) string {
+func href(shared bool, slideshow *models.Slideshow, secId int64) string {
 
 	if shared {
 		// base-36 access code
-		return fmt.Sprintf("/shared/%s/%d", strconv.FormatInt(slideshow.Shared, 36), seq)
+		return fmt.Sprintf("/shared/%s/%d", strconv.FormatInt(slideshow.Shared, 36), secId)
 	} else {
 		// decimal topic number
-		return fmt.Sprintf("/slideshow/%d/%d", slideshow.Id, seq)
+		return fmt.Sprintf("/slideshow/%d/%d", slideshow.Id, secId)
 	}
 }
 
 // topicHRefs returns links to the next and previous slideshows for a topic.
-func (s *GalleryState) topicHRefs(topic *models.Slideshow, seq int, shared bool, from string) (after string, before string) {
+func (s *GalleryState) topicHRefs(topic *models.Slideshow, current time.Time, first bool, shared bool, from string) (after string, before string) {
+
+	// #### Do we need more than the ID?
 
 	// next user's slides
-	if seq < s.app.SlideshowStore.CountForTopic(topic.Id) {
-		after = href(shared, topic, seq+1)
+	show := s.app.SlideshowStore.ForTopicSeq(topic.Id, current, true)
+	if show != nil {
+		after = href(shared, topic, show.Id)
 	} else {
-		after = from
+		after = from // parent
 	}
 
 	// previous user's slides
-	if seq == 0 {
-		before = from
+	if first {
+		before = from // parent
 	} else {
-		before = href(shared, topic, seq-1)
+		show = s.app.SlideshowStore.ForTopicSeq(topic.Id, current, false)
+		if show != nil {
+			before = href(shared, topic, show.Id)
+		} else {
+			before = href(shared, topic, 0) // header
+		}
 	}
 	return
 }

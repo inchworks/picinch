@@ -74,6 +74,7 @@ func (app *Application) Routes() http.Handler {
 	// cache-control settings
 	adminCacheHs := adminHs.Append(app.ccPrivateCache)
 	adminNoStoreHs := adminHs.Append(app.ccNoStore)
+	authCacheHs := authHs.Append(app.ccPrivateCache)
 	authNoCacheHs := authHs.Append(app.ccPrivateNoCache)
 	authNoStoreHs := authHs.Append(app.ccNoStore)
 	compNoStoreHs := dynHs.Append(app.ccNoStore)
@@ -94,7 +95,7 @@ func (app *Application) Routes() http.Handler {
 	router.NotFound = app.routeNotFound()
 
 	// public pages
-	router.Handler("GET", "/", publicNoCacheHs.ThenFunc(app.home))
+	router.Handler("GET", "/", publicCacheHs.ThenFunc(app.home))
 	router.Handler("GET", "/info/:page", publicCacheHs.ThenFunc(app.info))
 
 	// public competition
@@ -106,7 +107,7 @@ func (app *Application) Routes() http.Handler {
 	}
 
 	// pages shared with an access code
-	router.Handler("GET", "/shared/:code/:seq", sharedHs.ThenFunc(app.slideshowShared))
+	router.Handler("GET", "/shared/:code/:nSec", sharedHs.ThenFunc(app.slideshowShared))
 
 	// embedding
 	router.Handler("GET", "/highlight/:prefix/:nImage", publicCacheHs.ThenFunc(app.highlight))
@@ -136,12 +137,13 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))
 
 	// displays
-	router.Handler("GET", "/slideshow/:nShow/:seq", slideshowHs.ThenFunc(app.slideshowCache))
 	router.Handler("GET", "/contributors", authNoCacheHs.ThenFunc(app.contributors))
 	router.Handler("GET", "/contributor/:nUser", authNoCacheHs.ThenFunc(app.contributor))
 	router.Handler("GET", "/entry/:nShow", authNoCacheHs.ThenFunc(app.entry))
-	router.Handler("GET", "/my-slideshow/:nShow/:seq", authNoCacheHs.ThenFunc(app.slideshowOwn))
+	router.Handler("GET", "/members", authCacheHs.ThenFunc(app.homeMembers))
+	router.Handler("GET", "/my-slideshow/:nShow/:nSec", authNoCacheHs.ThenFunc(app.slideshowOwn))
 	router.Handler("GET", "/my-slideshows", authNoCacheHs.ThenFunc(app.slideshowsOwn))
+	router.Handler("GET", "/slideshow/:nShow/:nSec", slideshowHs.ThenFunc(app.slideshowCache))
 	router.Handler("GET", "/slideshows-user/:nUser", curatorNoCacheHs.ThenFunc(app.slideshowsUser))
 	router.Handler("GET", "/topic-user/:nShow/:nUser", publicNoCacheHs.ThenFunc(app.topicUser))
 	router.Handler("GET", "/topic-contributors/:nTopic", publicNoCacheHs.ThenFunc(app.topicContributors))
@@ -183,10 +185,9 @@ func (app *Application) Routes() http.Handler {
 	fsMisc := noDirFileSystem{http.Dir(MiscPath)}
 
 	// serve static files and content (Alice doesn't seem to simplify these)
-	ban := app.cfg.BanBadFiles 
-	router.Handler("GET", path.Join(misc, "*filepath"), staticHs.Then(http.StripPrefix(misc, app.fileServer(fsMisc, true, app.cfg.MiscName))))
-	router.Handler("GET", "/static/*filepath", staticHs.Then(http.StripPrefix("/static", app.fileServer(fsStatic, ban, ""))))
-	router.Handler("GET", "/photos/*filepath", immutableHs.Then(http.StripPrefix("/photos", app.fileServer(fsPhotos, ban, ""))))
+	router.Handler("GET", path.Join(misc, "*filepath"), staticHs.Then(http.StripPrefix(misc, app.fileServer(fsMisc, false, app.cfg.MiscName))))
+	router.Handler("GET", "/static/*filepath", staticHs.Then(http.StripPrefix("/static", app.fileServer(fsStatic, true, ""))))
+	router.Handler("GET", "/photos/*filepath", immutableHs.Then(http.StripPrefix("/photos", app.fileServer(fsPhotos, app.cfg.BanBadFiles, ""))))
 
 	// files that must be in root
 	fsImages, _ := fs.Sub(app.staticFS, "images")

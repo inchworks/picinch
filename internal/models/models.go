@@ -95,7 +95,8 @@ type Slideshow struct {
 	Id           int64
 	Gallery      int64
 	GalleryOrder int `db:"gallery_order"`
-	Visible      int
+	Access       int           // permitted access (changes deferred for caching)
+	Visible      int		   // visible for listing (changes immediate) 
 	User         sql.NullInt64 // null for a topic
 	Shared       int64         // link for external access
 	Topic        int64         // parent topic, 0 for a normal slideshow
@@ -123,20 +124,6 @@ type TagRef struct {
 	User      sql.NullInt64 // null for a system tag
 	Added     time.Time
 	Detail    string
-}
-
-type Topic struct {
-	Id           int64
-	Gallery      int64
-	GalleryOrder int `db:"gallery_order"`
-	Visible      int
-	Shared       int64 // link for external access
-	Created      time.Time
-	Revised      time.Time
-	Title        string
-	Caption      string
-	Format       string
-	Image        string
 }
 
 // Join results
@@ -190,11 +177,6 @@ func Nl2br(str string) template.HTML {
 // Code to string conversions
 
 func (s *Slideshow) VisibleStr() string {
-
-	return VisibleOpts[s.Visible]
-}
-
-func (s *Topic) VisibleStr() string {
 
 	return VisibleOpts[s.Visible]
 }

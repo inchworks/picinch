@@ -29,6 +29,7 @@ import (
 
 	"github.com/inchworks/webparts/v2/etx"
 	"github.com/inchworks/webparts/v2/uploader"
+	"github.com/inchworks/webparts/v2/users"
 
 	"inchworks.com/picinch/internal/models"
 )
@@ -42,14 +43,15 @@ type validationData struct {
 
 // Implement RM interface for webparts.etx.
 
-// Operation types (keep unchanges)
+// Operation types (keep unchanged)
 const (
 	OpComp    = 0
 	OpShowV1  = 1
 	OpTopic   = 2
 	OpShow    = 3
-	OpDelShow = 4
-	OpDelUser = 5
+	OpDropShow = 4
+	OpDropUser = 5
+	OpRelease = 6
 )
 
 // We need an arbitary status code for rollback(). This one is ideal!
@@ -65,10 +67,12 @@ func (s *GalleryState) ForOperation(opType int) etx.Op {
 	switch opType {
 	case OpComp, OpShow, OpShowV1:
 		return &OpUpdateShow{}
+	case OpRelease:
+		return &OpReleaseShow{}
 	case OpTopic:
 		return &OpUpdateTopic{}
-	case OpDelShow, OpDelUser:
-		return &OpDelete{}
+	case OpDropShow, OpDropUser:
+		return &OpDrop{}
 	default:
 		var unknown struct{}
 		return &unknown
@@ -80,16 +84,20 @@ func (s *GalleryState) Operation(id etx.TxId, opType int, op etx.Op) {
 
 	switch req := op.(type) {
 
-	case *OpDelete:
+	case *OpDrop:
 		switch opType {
-		case OpDelShow:
+		case OpDropShow:
 			// final deletion of slideshow
-			s.onDeleteShow(req.Id)
+			s.onDropShow(req.Id, req.Access)
 
-		case OpDelUser:
+		case OpDropUser:
 			// final deletion of user
-			s.onDeleteUser(req.Id)
+			s.onDropUser(req.Id, req.Access)
 		}
+
+	case *OpReleaseShow:
+		// final release of show from topic
+		s.onReleaseShow(req.ShowId, req.TopicId)
 
 	case *OpUpdateShow:
 		switch opType {
@@ -255,39 +263,77 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) int 
 	return 0
 }
 
-// onDeleteShow deletes a slideshow and its images, deferred to support caching.
-func (s *GalleryState) onDeleteShow(id int64) {
+// onDropShow reduces access a slideshow, or deletes it with its images, deferred to support caching.
+func (s *GalleryState) onDropShow(id int64, access int) {
 
 	defer s.updatesGallery()()
+	st := s.app.SlideshowStore
 
-	s.app.deleteImages(id)
+	show, err := st.Get(id)
+	if err != nil {
+		s.app.log(err)
+		return
+	}
 
-	err := s.app.SlideshowStore.DeleteId(id)
+	// nothing to do if visibility has been increased in the meantime
+	if show.Visible >= access {
+		return
+	}
+
+	if access == models.SlideshowRemoved {
+		if show.User.Valid {
+			// delete images
+			s.app.deleteImages(id)
+		} else {
+				// release topic slideshows
+				s.app.deleteTopic(show)
+			}
+		err = st.DeleteId(id) // delete slideshow or topic
+	} else {
+		// reduce access
+		show.Access = access
+		err = st.Update(show)
+	}
+
 	if err != nil {
 		s.app.log(err)
 	}
 }
 
-// onDeleteUser deletes a user, their slideshows and all their images, deferred to support caching.
-func (s *GalleryState) onDeleteUser(id int64) {
+// onDropUser reduces visibility of a user's slideshows, or deletes the user, their slideshows and all their images, deferred to support caching.
+func (s *GalleryState) onDropUser(id int64, status int) {
 
-	// #### did we change status for slideshows?
+	defer s.updatesGallery()()
+	st := s.app.userStore
 
-	// delete all slideshow images
-	shows := s.app.SlideshowStore.ForUser(id, models.SlideshowRemoved)
-	for _, show := range shows {
-
-		s.app.deleteImages(show.Id)
+	u, err := st.Get(id)
+	if err != nil {
+		s.app.log(err)
+		return
 	}
 
-	// slideshows and slides will be removed by cascade delete in caller
+	if status == users.UserRemoved {
+		// delete all slideshow images
+		shows := s.app.SlideshowStore.ForUser(id, models.SlideshowRemoved)
+		for _, show := range shows {
+			s.app.deleteImages(show.Id)
+		}
 
-	err := s.app.userStore.DeleteId(id)
+		// slideshows and slides will be removed by cascade delete in caller
+		err = s.app.userStore.DeleteId(id)
+
+	} else {
+		// reduce access
+		// #### broken because we don't have a separate access state for users
+		u.Status = status
+		err = st.Update(u)
+	}
+
 	if err != nil {
 		s.app.log(err)
 	}
-}
 
+}
 
 // onPurge removes old unvalidated competition entries.
 // It returns the ID of a following transaction to remove media files.
@@ -367,6 +413,26 @@ func (s *GalleryState) onRefresh() int {
 	}
 
 	return 0
+}
+
+// onReleaseShow removes the owning topic from a slideshow
+func (s *GalleryState) onReleaseShow(showId int64, topicId int64) {
+	defer s.updatesGallery()()
+	st := s.app.SlideshowStore
+
+	show, err := st.Get(showId)
+	if err != nil {
+		s.app.log(err)
+		return
+	}
+
+	// check that show hasn't already been assigned to another topic
+	if show.Topic == topicId {
+		show.Topic = 0
+		if err = st.Update(show); err != nil {
+			s.app.log(err)
+		}
+	}
 }
 
 // onUpdateShow processes an updated or deleted slideshow.
@@ -566,10 +632,25 @@ func (s *GalleryState) claimFiles(showId int64, claim *uploader.Claim, process b
 func (app *Application) deleteImages(showId int64) {
 	for _, slide := range app.SlideStore.ForSlideshow(showId, 1000) {
 		if slide.Image != "" {
-			if err := app.uploader.Delete(slide.Image); err != nil {
+			if err := app.uploader.DeleteNow(slide.Image); err != nil {
 				app.log(err)
 			}
 		}
+	}
+}
+
+// deleteTopic releases the contributing slideshows from the topic.
+func (app *Application) deleteTopic(t *models.Slideshow) {
+
+	// give the users back their own slideshows
+	store := app.SlideshowStore
+	slideshows := store.ForTopic(t.Id)
+	for _, s := range slideshows {
+		s.Topic = 0
+		s.Title = t.Title // with current topic title
+		s.Access = models.SlideshowPrivate
+		s.Visible = models.SlideshowPrivate
+		store.Update(s)
 	}
 }
 

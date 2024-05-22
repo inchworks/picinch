@@ -132,7 +132,8 @@ type Configuration struct {
 
 	// operational settings
 	AllowedQueries    []string        `yaml:"allowed-queries" env-default:"fbclid"`                            // URL query names allowed
-	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing files
+	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing media files
+	DropDelay         time.Duration   `yaml:"drop-delay" env:"drop-delay" env-default:"24h"`                   // delay before access drops and deletes are finalised. Units h.
 	GeoBlock          []string        `yaml:"geo-block" env:"geo-block" env-default:""`                        // blocked countries (ISO 3166-1 alpha-2 codes)
 	MaxCacheAge       time.Duration   `yaml:"max-cache-age" env:"max-cache-age" env-default:"1h"`              // browser cache control, maximum age. Units s, m or h.
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
@@ -160,9 +161,16 @@ type Configuration struct {
 	ReplyTo       string `yaml:"reply-to" env:"reply-to" env-default:""`
 }
 
-// Operation to delete slideshow or user.
-type OpDelete struct {
-	Id  int64
+// Operation to finalise deletion or reduction in access of a slideshow or user.
+type OpDrop struct {
+	Id      int64
+	Access  int
+}
+
+// Operation to release slideshow from topic.
+type OpReleaseShow struct {
+	ShowId  int64
+	TopicId int64
 }
 
 // Operation to claim slideshow images.
@@ -181,8 +189,7 @@ type OpUpdateTopic struct {
 
 // Application struct supplies application-wide dependencies.
 type Application struct {
-	cfg         *Configuration
-	deleteAfter time.Duration
+	cfg *Configuration
 
 	errorLog      *log.Logger
 	infoLog       *log.Logger
@@ -341,7 +348,7 @@ func (app *Application) Flash(r *http.Request, msg string) {
 }
 
 // GetRedirect returns the next page after log-in, probably from a session key.
-func (app *Application) GetRedirect(r *http.Request) string { return "/" }
+func (app *Application) GetRedirect(r *http.Request) string { return "/members" }
 
 // Log optionally records an error.
 func (app *Application) Log(err error) {
@@ -427,10 +434,14 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	session := sessions.New([]byte(cfg.Secret))
 	session.Lifetime = 12 * time.Hour
 
+	// access to items removed should be for longer than the cache time
+	if cfg.DropDelay < cfg.MaxCacheAge {
+		cfg.DropDelay = cfg.MaxCacheAge * 2
+	}
+
 	// dependency injection
 	app := &Application{
 		cfg:           cfg,
-		deleteAfter:   time.Duration(float64(cfg.MaxCacheAge) * 1.2), // longer than Cache-Control max-age
 		errorLog:      errorLog,
 		infoLog:       infoLog,
 		threatLog:     threatLog,
@@ -498,7 +509,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		MaxSize:      app.cfg.MaxAV * 1024 * 1024,
 		ThumbW:       app.cfg.ThumbW,
 		ThumbH:       app.cfg.ThumbH,
-		DeleteAfter:  app.deleteAfter,
+		DeleteAfter:  app.cfg.DropDelay,
 		MaxAge:       app.cfg.MaxUploadAge,
 		SnapshotAt:   app.cfg.VideoSnapshot,
 		VideoPackage: app.cfg.VideoPackage,
@@ -587,18 +598,13 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.SlideshowStore.HighlightsId = 1
 
 	// database changes from previous version(s)
-	topicStore := mysql.NewTopicStore(app.db, &app.tx, app.errorLog)
-	topicStore.GalleryId = g.Id
-	if err = mysql.MigrateTopics(topicStore, app.SlideshowStore, app.SlideStore); err != nil {
-		app.errorLog.Fatal(err)
-	}
 	if err = mysql.MigrateWebparts2(app.userStore, app.tx); err != nil {
 		app.errorLog.Fatal(err)
 	}
 	if err = mysql.MigrateTags(app.tagger.TagStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
-	if err = mysql.MigrateRedo2(app.redoStore); err != nil {
+	if err = mysql.MigrateRedo2(app.redoStore, app.SlideshowStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
 	if !mysql.MigrateRedoV1(app.redoV1Store) {

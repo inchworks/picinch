@@ -103,6 +103,7 @@ type DataPublished struct {
 	Id          int64
 	Title       string
 	Caption     template.HTML
+	NTopic      int64
 	NUser       int64
 	DisplayName string
 	Image       string

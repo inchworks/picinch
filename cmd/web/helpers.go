@@ -94,7 +94,8 @@ func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bo
 	// is this a topic
 	isTopic = !s.User.Valid
 
-	switch s.Visible {
+	// checking Access not Visible allows viewing from cached pages
+	switch s.Access {
 
 	case models.SlideshowPublic:
 		canView = true
@@ -105,28 +106,6 @@ func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bo
 		if app.isAuthenticated(r, models.UserFriend) {
 			canView = true
 			return // all club members and friends
-		}
-
-	case models.SlideshowTopic:
-		// depends on topic visibility
-		t := app.SlideshowStore.GetIf(s.Topic)
-		if t == nil {
-			canView = false
-			return
-		}
-
-		switch t.Visible {
-
-		case models.SlideshowPublic:
-			canView = true
-			isPublic = true
-			return // public topic
-
-		case models.SlideshowClub:
-			if app.isAuthenticated(r, models.UserFriend) {
-				canView = true
-				return // all club members and friends
-			}
 		}
 	}
 

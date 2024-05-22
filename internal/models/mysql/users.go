@@ -48,7 +48,7 @@ const (
 
 	userWhereId       = userSelect + ` WHERE id = ?`
 	userWhereName     = userSelect + ` WHERE parent = ? AND username = ? AND status > -10`
-	usersWhereGallery = userSelect + ` WHERE parent = ?  AND status > -10`
+	usersWhereGallery = userSelect + ` WHERE parent = ? AND status > -10`
 
 	usersByName = usersWhereGallery + userOrderName
 
@@ -123,13 +123,13 @@ func NewUserStore(db *sqlx.DB, tx **sqlx.Tx, errorLog *log.Logger) *UserStore {
 	}
 }
 
-// All users, unordered
-
+// All returns all users for all galleries, unordered and including removed users.
+// It is used only for migrations.
 func (st *UserStore) All() []*users.User {
 
 	var users []*users.User
 
-	if err := st.DBX.Select(&users, usersWhereGallery, st.GalleryId); err != nil {
+	if err := st.DBX.Select(&users, userSelect); err != nil {
 		st.logError(err)
 		return nil
 	}
