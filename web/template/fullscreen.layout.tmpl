@@ -67,7 +67,7 @@
 
 {{define "fullscreenScripts"}}
 	{{template "bootstrapScript" .}}
-   	<script type="text/javascript" src='/static/js/carousel-03.js'></script>
+   	<script type="text/javascript" src='/static/js/carousel-04.js'></script>
 	{{block "pagescripts" .}}
 	{{end}}
 
@@ -76,6 +76,7 @@
 		gblAfter = "{{ .AfterHRef }}";
 		gblBefore = "{{ .BeforeHRef }}";
 		gblParent = "{{ .ParentHRef }}";
+		gblSingle = "{{ .Single }}";
 
 		// Buttons displayed?
 		gblButtons = true;

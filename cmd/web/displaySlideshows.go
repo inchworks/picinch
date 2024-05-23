@@ -181,13 +181,14 @@ func (s *GalleryState) DisplayShared(code int64, secId int64) (string, *DataSlid
 		after, before := s.topicHRefs(topic, time.Time{}, true, true, from)
 
 		// home page for topic
-		// Annoyingly, the slideshow must have at least two slides,
+		// Note that the slideshow must have at least two slides,
 		// otherwise Bootstrap Carousel doesn't give any events to trigger loading of the first user's slideshow.
 		return "carousel-shared.page.tmpl", &DataSlideshow{
 			Title:      topic.Title,
 			Caption:    s.app.galleryState.gallery.Organiser,
 			AfterHRef:  after,
 			BeforeHRef: before,
+			Single:     "Y",
 			DataCommon: DataCommon{
 				ParentHRef: from,
 			},
@@ -235,13 +236,14 @@ func (s *GalleryState) DisplayTopicHome(id int64, secId int64, from string) (str
 		after, before := s.topicHRefs(topic, time.Time{}, true, false, from)
 
 		// home page for topic
-		// Annoyingly, the slideshow must have at least two slides,
+		// Note that the slideshow must have at least two slides,
 		// otherwise Bootstrap Carousel doesn't give any events to trigger loading of the first user's slideshow.
 		return "carousel-topic.page.tmpl", &DataSlideshow{
 			Title:      topic.Title,
 			Caption:    topic.Caption,
 			AfterHRef:  after,
 			BeforeHRef: before,
+			Single:     "Y",
 			DataCommon: DataCommon{
 				ParentHRef: from,
 			},

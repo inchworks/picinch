@@ -119,6 +119,7 @@ type DataSlideshow struct {
 	Reference   string
 	AfterHRef   string
 	BeforeHRef  string
+	Single      string
 	Slides      []*DataSlide
 	DataCommon
 }

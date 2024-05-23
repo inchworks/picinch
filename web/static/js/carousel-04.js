@@ -78,6 +78,9 @@ jQuery(document).ready(function() {
         if (e.from === 0 && e.direction === 'right') {
             window.location.href = gblBefore;
         }
+        else if (e.to === 1 && e.direction === 'left' && gblSingle) {
+            window.location.href = gblAfter;
+        }
         else if (e.to === 0 && e.direction === 'left') {
             window.location.href = gblAfter;
         }

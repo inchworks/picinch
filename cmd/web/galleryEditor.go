@@ -913,6 +913,7 @@ func (s *GalleryState) onRemoveUser(tx etx.TxId, user *users.User) {
 
 	// set deletion in progress
 	user.Status = users.UserRemoved
+	user.Role = models.UserUnknown
 	if err := s.app.userStore.Update(user); err != nil {
 		s.app.log(err)
 	}

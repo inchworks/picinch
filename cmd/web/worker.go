@@ -304,14 +304,8 @@ func (s *GalleryState) onDropShow(id int64, access int) {
 func (s *GalleryState) onDropUser(id int64, status int) {
 
 	defer s.updatesGallery()()
-	st := s.app.userStore
 
-	u, err := st.Get(id)
-	if err != nil {
-		s.app.log(err)
-		return
-	}
-
+	var err error
 	if status == users.UserRemoved {
 		// delete all slideshow images
 		shows := s.app.SlideshowStore.ForUser(id, models.SlideshowRemoved)
@@ -321,18 +315,12 @@ func (s *GalleryState) onDropUser(id int64, status int) {
 
 		// slideshows and slides will be removed by cascade delete in caller
 		err = s.app.userStore.DeleteId(id)
-
-	} else {
-		// reduce access
-		// #### broken because we don't have a separate access state for users
-		u.Status = status
-		err = st.Update(u)
 	}
+	// ## cannot implement deferred reduction in status because we don't have a separate visibility field
 
 	if err != nil {
 		s.app.log(err)
 	}
-
 }
 
 // onPurge removes old unvalidated competition entries.
