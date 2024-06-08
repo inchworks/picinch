@@ -84,14 +84,6 @@ const (
 		ORDER BY revised DESC LIMIT 1
 	`
 
-	// slideshow in sequence for a topic, excluding suspended users
-	slideshowWhereTopicSeq0 = `
-		SELECT slideshow.* FROM slideshow
-		JOIN user ON user.id = slideshow.user
-		WHERE topic = ? AND visible > -10 AND user.status > 0
-		ORDER BY revised ASC LIMIT ?,1
-	`
-
 	// a user's slideshow for a topic, if visible
 	slideshowWhereTopicVisible = `
 		SELECT slideshow.* FROM slideshow
@@ -177,7 +169,7 @@ const (
 		ORDER BY s1.created DESC
 	`
 	slideshowsTopicPublished = `
-		SELECT slideshow.id, slideshow.title, slideshow.image, user.name 
+		SELECT slideshow.id, slideshow.title, slideshow.image, user.id AS userid, user.name 
 		FROM slideshow
 		INNER JOIN user ON user.id = slideshow.user
 		WHERE slideshow.topic = ? AND slideshow.visible = -1 AND slideshow.image <> "" AND user.status > 0
@@ -390,7 +382,6 @@ func (st *SlideshowStore) ForTopicPublished(topicId int64, latest bool) []*model
 }
 
 // ForTopicSeq returns the next or previous slideshow in sequence for a topic.
-// #### Perhaps just ID.
 func (st *SlideshowStore) ForTopicSeq(topicId int64, current time.Time, after bool) *models.Slideshow {
 
 	var r models.Slideshow
@@ -403,23 +394,6 @@ func (st *SlideshowStore) ForTopicSeq(topicId int64, current time.Time, after bo
 	}
 
 	if err := st.DBX.Get(&r, q, topicId, current); err != nil {
-		err = st.convertError(err)
-		if err != models.ErrNoRecord {
-			st.logError(err)
-		}
-		return nil
-	}
-
-	return &r
-}
-
-// Slideshow in sequence for topic
-
-func (st *SlideshowStore) ForTopicSeq0(topicId int64, seq int) *models.Slideshow {
-
-	var r models.Slideshow
-
-	if err := st.DBX.Get(&r, slideshowWhereTopicSeq0, topicId, seq); err != nil {
 		err = st.convertError(err)
 		if err != models.ErrNoRecord {
 			st.logError(err)

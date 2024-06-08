@@ -93,7 +93,7 @@ type DataMyGallery struct {
 
 type DataMySlideshow struct {
 	NShow   int64
-	NUser   int64
+	Ref     string
 	Title   string
 	Visible string
 	Shared  string
@@ -101,6 +101,7 @@ type DataMySlideshow struct {
 
 type DataPublished struct {
 	Id          int64
+	Ref         string
 	Title       string
 	Caption     template.HTML
 	NTopic      int64
@@ -112,7 +113,6 @@ type DataPublished struct {
 }
 
 type DataSlideshow struct {
-	Topic       string
 	Title       string
 	Caption     string
 	DisplayName string

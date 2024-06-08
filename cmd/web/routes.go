@@ -26,7 +26,7 @@ import (
 	"github.com/justinas/alice"
 )
 
-// Note that for caching we're using a few different patterns.
+// For caching we're using a few different patterns.
 //
 // 0: Specify nothing, leaving it to the browser, because I don't know what else to do.
 // Used for favicons, files with standard names that must be in root, and embedded images.
@@ -53,6 +53,16 @@ import (
 
 // ## For content with significant confidentiality, "no-store" should be used instead of "no-cache, private",
 // ## so that the browser cache stays clean, but we don't currently have any such content.
+
+// There are many similar slideshow paths. They have been determined by these intentions:
+// - Make each path meaningful for user’s intention, not what is delivered.
+// - Path is specific to the return path when the slideshow ends.
+// - User/topic preferred to topic/section so that user might have multiple contributions in future.
+// - Topic ID included where a segment could have moved to another topic.
+// - User and curator must access sections by topic not ID, since there needn’t be a contribution.
+// - Highlights is a regular topic with a special section.
+//   In future, we could have multiple highlight topics, or a highlights view of a normal topic.
+// - Multiple sections could be used to construct a large show, in future.
 
 // Register handlers for routes
 
@@ -82,7 +92,7 @@ func (app *Application) Routes() http.Handler {
 	curatorNoStoreHs := curatorHs.Append(app.ccNoStore)
 	ownerNoStoreHs := ownerHs.Append(app.ccNoStore)
 	publicCacheHs := dynHs.Append(app.public, app.ccCache)
-	publicNoCacheHs := dynHs.Append(app.public, app.ccNoCache)
+	// publicNoCacheHs := dynHs.Append(app.public, app.ccNoCache)
 	slideshowHs := dynHs.Append(app.public, app.ccSlideshow) // caching varies with slideshow
 
 	// HttpRouter wrapped to allow middleware handlers
@@ -107,11 +117,13 @@ func (app *Application) Routes() http.Handler {
 	}
 
 	// pages shared with an access code
-	router.Handler("GET", "/shared/:code/:nSec", sharedHs.ThenFunc(app.slideshowShared))
+	router.Handler("GET", "/shared/:code", sharedHs.ThenFunc(app.sharedSlideshow))
+	router.Handler("GET", "/shared-topic/:code", sharedHs.ThenFunc(app.sharedTopic))
+	router.Handler("GET", "/shared-slides/:code/:nSec", sharedHs.ThenFunc(app.sharedSlides))
 
 	// embedding
-	router.Handler("GET", "/highlight/:prefix/:nImage", publicCacheHs.ThenFunc(app.highlight))
-	router.Handler("GET", "/highlights/:nImages", publicCacheHs.ThenFunc(app.highlights))
+	router.Handler("GET", "/highlight/:prefix/:nImage", publicCacheHs.ThenFunc(app.embedded))
+	router.Handler("GET", "/highlights/:nImages", publicCacheHs.ThenFunc(app.embeddedImages))
 
 	// setup
 	router.Handler("GET", "/setup", adminNoStoreHs.ThenFunc(app.getFormGallery))
@@ -136,21 +148,34 @@ func (app *Application) Routes() http.Handler {
 	// upload media files
 	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))
 
-	// displays
+	// displays - general
 	router.Handler("GET", "/contributors", authNoCacheHs.ThenFunc(app.contributors))
 	router.Handler("GET", "/contributor/:nUser", authNoCacheHs.ThenFunc(app.contributor))
 	router.Handler("GET", "/entry/:nShow", authNoCacheHs.ThenFunc(app.entry))
 	router.Handler("GET", "/members", authCacheHs.ThenFunc(app.homeMembers))
-	router.Handler("GET", "/my-slideshow/:nShow/:nSec", authNoCacheHs.ThenFunc(app.slideshowOwn))
 	router.Handler("GET", "/my-slideshows", authNoCacheHs.ThenFunc(app.slideshowsOwn))
-	router.Handler("GET", "/slideshow/:nShow/:nSec", slideshowHs.ThenFunc(app.slideshowCache))
 	router.Handler("GET", "/slideshows-user/:nUser", curatorNoCacheHs.ThenFunc(app.slideshowsUser))
-	router.Handler("GET", "/topic-user/:nShow/:nUser", publicNoCacheHs.ThenFunc(app.topicUser))
-	router.Handler("GET", "/topic-contributors/:nTopic", publicNoCacheHs.ThenFunc(app.topicContributors))
+	router.Handler("GET", "/topic-contributors/:nTopic", slideshowHs.ThenFunc(app.topicContributors))
 	router.Handler("GET", "/topics", curatorNoStoreHs.ThenFunc(app.topics))
 	router.Handler("GET", "/usage-days", adminCacheHs.ThenFunc(app.usageDays))
 	router.Handler("GET", "/usage-months", adminCacheHs.ThenFunc(app.usageMonths))
 	router.Handler("GET", "/users-curator", curatorNoCacheHs.ThenFunc(app.usersCurator))
+
+	// slideshows
+	router.Handler("GET", "/show/:nShow", slideshowHs.ThenFunc(app.slideshow))
+	router.Handler("GET", "/slides/:nTopic/:nSec", slideshowHs.ThenFunc(app.slides))
+	router.Handler("GET", "/topic/:nTopic", slideshowHs.ThenFunc(app.topic))
+	router.Handler("GET", "/for-show/:nShow", slideshowHs.ThenFunc(app.forShow))
+	router.Handler("GET", "/for-topic/:nUser/:nTopic", slideshowHs.ThenFunc(app.forTopic))
+	router.Handler("GET", "/topic-user/:nTopic/:nUser", slideshowHs.ThenFunc(app.topicUser))
+	router.Handler("GET", "/my-show/:nShow", authNoCacheHs.ThenFunc(app.ownShow))
+	router.Handler("GET", "/my-topic/:nTopic", authNoCacheHs.ThenFunc(app.ownTopic))
+	router.Handler("GET", "/hilites/:nTopic", slideshowHs.ThenFunc(app.highlights))
+	router.Handler("GET", "/user-show/:nUser/:nShow", authNoCacheHs.ThenFunc(app.userShow))
+	router.Handler("GET", "/user-topic/:nUser/:nTopic", authNoCacheHs.ThenFunc(app.userTopic))
+	router.Handler("GET", "/rev-hilites/:nTopic", authNoCacheHs.ThenFunc(app.reviewHighlights))
+	router.Handler("GET", "/rev-slides/:nTopic/:nSec", authNoCacheHs.ThenFunc(app.reviewSlides))
+	router.Handler("GET", "/rev-topic/:nTopic", authNoCacheHs.ThenFunc(app.reviewTopic))
 
 	// selections
 	router.Handler("GET", "/select-slideshow", authNoStoreHs.ThenFunc(app.getFormSelectSlideshow))

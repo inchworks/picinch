@@ -19,7 +19,7 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}My Gallery{{end}}
+{{define "title"}}{{ .DisplayName }} - Gallery{{end}}
 
 {{define "pagemeta"}}
     <meta name="robots" content="noindex">
@@ -43,7 +43,7 @@
                     <a class='btn btn-primary' href='/edit-topic/{{ .NShow }}/{{ $.NUser }}'>Edit Slides</a>
                 </div>
                 <div class="col">
-                    <a class='btn btn-light' href='/my-topic/{{ .NShow }}'>View</a>
+                    <a class='btn btn-light' href='/user-topic/{{ $.NUser }}/{{ .NShow }}'>View</a>
                 </div>
             </div>
         {{end}}
@@ -63,7 +63,7 @@
                     <a class='btn btn-primary' href='/edit-slides/{{ .NShow }}'>Edit Slides</a>
                 </div>
                 <div class="col">
-                    <a class='btn btn-light' href='/my-show/{{ .NShow }}'>View</a>
+                    <a class='btn btn-light' href='/user-show/{{ $.NUser }}/{{ .NShow }}'>View</a>
                 </div>
             </div>
         {{end}}

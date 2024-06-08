@@ -32,10 +32,10 @@ import (
 
 const (
 	// slide formats
-	SlideTitle = 1
-	SlideImage = 2
+	SlideTitle   = 1
+	SlideImage   = 2
 	SlideCaption = 4
-	SlideVideo = 8
+	SlideVideo   = 8
 
 	// slideshow visibility
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
@@ -53,8 +53,8 @@ const (
 	UserAdmin   = 4
 
 	// field sizes
-	MaxName = 60
-	MaxTitle = 128
+	MaxName   = 60
+	MaxTitle  = 128
 	MaxDetail = 512
 )
 
@@ -94,9 +94,9 @@ type Slide struct {
 type Slideshow struct {
 	Id           int64
 	Gallery      int64
-	GalleryOrder int `db:"gallery_order"`
+	GalleryOrder int           `db:"gallery_order"`
 	Access       int           // permitted access (changes deferred for caching)
-	Visible      int		   // visible for listing (changes immediate) 
+	Visible      int           // visible for listing (changes immediate)
 	User         sql.NullInt64 // null for a topic
 	Shared       int64         // link for external access
 	Topic        int64         // parent topic, 0 for a normal slideshow
@@ -118,12 +118,12 @@ type Tag struct {
 }
 
 type TagRef struct {
-	Id        int64
-	Item      sql.NullInt64 // null for a user permission tag
-	Tag       int64
-	User      sql.NullInt64 // null for a system tag
-	Added     time.Time
-	Detail    string
+	Id     int64
+	Item   sql.NullInt64 // null for a user permission tag
+	Tag    int64
+	User   sql.NullInt64 // null for a system tag
+	Added  time.Time
+	Detail string
 }
 
 // Join results
@@ -134,10 +134,11 @@ type SlideshowTagRef struct {
 }
 
 type SlideshowUser struct {
-	Id    int64
-	Title string
-	Image string
-	Name  string // user's display name
+	Id     int64
+	Title  string
+	Image  string
+	UserId int64
+	Name   string // user's display name
 }
 
 type TagItem struct {
@@ -147,7 +148,7 @@ type TagItem struct {
 
 type TagUser struct {
 	Tag
-	UserId int64
+	UserId    int64
 	UsersName string
 }
 

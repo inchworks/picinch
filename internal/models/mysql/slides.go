@@ -46,7 +46,8 @@ const (
 	slideRecent = ` ORDER BY revised DESC LIMIT ?`
 
 	slideWhereId          = slideSelect + ` WHERE id = ?`
-	slidesWhereShow       = slideSelect + ` WHERE slideshow = ?` + slideOrder
+	slidesWhereShow = slideSelect + ` WHERE slideshow = ?`
+	slidesWhereShowOlder       = slideSelect + ` WHERE slideshow = ?` + slideOrder
 	slidesWhereShowRecent = slideSelect + ` WHERE slideshow = ?` + slideRecent
 
 	// all images for a topic, excluding suspended users and temporary versions
@@ -94,13 +95,12 @@ func NewSlideStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *SlideStore {
 	}
 }
 
-// All slides for slideshow, in order
-
-func (st *SlideStore) ForSlideshow(showId int64, max int) []*models.Slide {
+// ForSlideshow returns all slides for slideshow, unordered.
+func (st *SlideStore) ForSlideshow(showId int64) []*models.Slide {
 
 	var slides []*models.Slide
 
-	if err := st.DBX.Select(&slides, slidesWhereShow, showId, max); err != nil {
+	if err := st.DBX.Select(&slides, slidesWhereShow, showId); err != nil {
 		st.logError(err)
 		return nil
 	}
@@ -122,11 +122,18 @@ func (st *SlideStore) ImagesForTopic(topicId int64) []string {
 
 // Recent slides for slideshow
 
-func (st *SlideStore) RecentForSlideshow(showId int64, max int) []*models.Slide {
+func (st *SlideStore) ForSlideshowOrdered(showId int64, recent bool, max int) []*models.Slide {
 
 	var slides []*models.Slide
+	var q string
 
-	if err := st.DBX.Select(&slides, slidesWhereShowRecent, showId, max); err != nil {
+	if recent {
+		q = slidesWhereShowRecent
+	} else {
+		q = slidesWhereShowOlder
+	}
+
+	if err := st.DBX.Select(&slides, q, showId, max); err != nil {
 		st.logError(err)
 		return nil
 	}

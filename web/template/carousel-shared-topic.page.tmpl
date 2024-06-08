@@ -1,0 +1,33 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2020.
+
+  Copying and distribution of this file, with or without modification, are permitted in any
+  medium without royalty, provided the copyright notice and this notice are preserved.
+  This file is offered as-is, without any warranty.
+*/}}
+
+{{template "fullscreen" .}}
+
+{{define "title"}}{{ .Title }}{{end}}
+
+{{define "pagemeta"}}
+    <meta name="robots" content="noindex">
+{{end}}
+
+{{define "slides"}}
+	<div class="carousel-item active bg-slideshow text-slideshow">
+		<div class="d-flex flex-column vw-100 vh-100">
+			<h1 class="display-1 text-center my-auto p-4">{{ .Title }}</h1>
+			<h4 class="display-4 text-center my-auto p-4">Hosted by<br>{{ .Caption }}</h4>
+			<div class="h4 mb-4 mx-auto px-5">Click, press spacebar, or use arrow keys to view this slideshow.</div>
+			<div class="h4 mb-4 mx-auto px-5"><a href="/info/notices">Copyright and Data Privacy Notices</a></div>
+		</div>
+	</div>
+	<div class="carousel-item bg-slideshow text-slideshow">
+		<div class="d-flex flex-column vw-100 vh-100">
+			<div class="my-auto">
+				<div class="h4 mb-4 mx-auto px-5"></div>
+			</div>
+		</div>
+	</div>
+{{end}}

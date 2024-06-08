@@ -212,7 +212,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (status int, f
 		status = s.rollback(http.StatusNotFound, nil)
 		return
 	}
-	slides := s.app.SlideStore.ForSlideshow(show.Id, 100)
+	slides := s.app.SlideStore.ForSlideshowOrdered(show.Id, false, 100)
 
 	// start multi-step transaction for uploaded files
 	ts, err := s.app.uploader.Begin()
@@ -297,7 +297,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 	}
 
 	// compare modified slides against current slides, and update
-	qsDest := s.app.SlideStore.ForSlideshow(showId, 100)
+	qsDest := s.app.SlideStore.ForSlideshowOrdered(showId, false, 100)
 
 	updated := false
 	nDest := len(qsDest)
@@ -341,7 +341,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 		} else {
 			ix := qsSrc[iSrc].ChildIndex
-			if ix > iDest {
+			if ix < iDest {
 				// out of sequence slide index
 				return s.rollback(http.StatusBadRequest, nil), 0
 			}
@@ -397,7 +397,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 		s.save()
 
 		nImages := 0
-		sls := s.app.SlideStore.ForSlideshow(showId, 100)
+		sls := s.app.SlideStore.ForSlideshowOrdered(showId, false, 100)
 
 		for ix, sl := range sls {
 			nOrder := ix + 1
@@ -429,7 +429,9 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			} else {
 				// remove empty show for topic
 				// ### beware race with user re-opening show to add back an image
-				s.app.SlideshowStore.DeleteId(showId)
+				if err := s.removeSlideshow(tx, show, true); err!= nil {
+					return s.rollback(http.StatusInternalServerError, err), 0
+				}
 				showId = 0
 			}
 		}
@@ -600,7 +602,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (st
 		// user's existing contribution to topic
 		showId = show.Id
 		title = show.Title
-		slides = s.app.SlideStore.ForSlideshow(showId, 100)
+		slides = s.app.SlideStore.ForSlideshowOrdered(showId, false, 100)
 	}
 
 	// start multi-step transaction for uploaded files

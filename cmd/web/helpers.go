@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
 	"github.com/inchworks/webparts/v2/users"
@@ -81,40 +82,27 @@ func (app *Application) allowUpdateShow(r *http.Request, showId int64) bool {
 	return app.allowAccessUser(r, s.User.Int64, true) // owner or curator
 }
 
-// allowViewShow returns whether the specified slideshow can be viewed by the current user,
-// and whether it is a topic.
-func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bool, isPublic bool, isTopic bool) {
-
-	// get show user and visibility
-	s := app.SlideshowStore.GetIf(showId)
-	if s == nil {
-		return // no
-	}
-
-	// is this a topic
-	isTopic = !s.User.Valid
+// allowViewShow returns whether the specified slideshow can be viewed by the current user.
+func (app *Application) allowViewShow(r *http.Request, s *models.Slideshow) bool {
 
 	// checking Access not Visible allows viewing from cached pages
 	switch s.Access {
 
 	case models.SlideshowPublic:
-		canView = true
-		isPublic = true
-		return // everyone
+		return true // everyone
 
 	case models.SlideshowClub:
 		if app.isAuthenticated(r, models.UserFriend) {
-			canView = true
-			return // all club members and friends
+			return true // all club members and friends
 		}
 	}
 
-	if isTopic {
-		canView = app.isAuthenticated(r, models.UserCurator)
-		return // curator or admin
+	if s.User.Valid {
+		// owner or curator
+		return app.allowAccessUser(r, s.User.Int64, true)
 	} else {
-		canView = app.allowAccessUser(r, s.User.Int64, true)
-		return // owner or curator
+		// topic: curator
+		return app.isAuthenticated(r, models.UserCurator)
 	}
 }
 
@@ -254,6 +242,31 @@ func (app *Application) role(r *http.Request) int {
 	} else {
 		return 0
 	}
+}
+
+// setCache specifies caching for a public or members-only slideshow (or contributors list)
+func (app *Application) setCache(w http.ResponseWriter, id int64, visible int) {
+
+	// don't cache if slideshow is being removed
+	// otherwise we would be extending the lifetime of links from this page
+	if visible == models.SlideshowRemoved {
+		w.Header().Set("Cache-Control", "no-cache, private")
+		return
+	}
+
+	// caching is limited to private cache for non-public pages
+	isPublic := visible == models.SlideshowPublic
+	cc := "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
+	if !isPublic {
+		cc += ", private"
+	}
+	w.Header().Set("Cache-Control", cc)
+
+	// save cache information (serialised)
+	gs := &app.galleryState
+	gs.muCache.Lock()
+	gs.publicSlideshow[id] = isPublic
+	gs.muCache.Unlock()
 }
 
 // validTypeCheck returns a function to check for acceptable file types

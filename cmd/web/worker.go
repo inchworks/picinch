@@ -536,8 +536,18 @@ func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind
 	thumbnail := ""
 	nImages := 0
 
-	// check each slide for an updated media file
-	slides := s.app.SlideStore.ForSlideshow(showId, 1000)
+	// is this a contribution to highlights?
+	var recent bool
+	if show.Topic != 0 {
+		t, _ := s.app.SlideshowStore.Get(show.Topic)
+		if t != nil {
+			fmt, _ := t.ParseFormat(s.app.cfg.MaxSlides)
+			recent = fmt == "H"
+		}
+	}
+
+	// check each slide for an updated media file, with effectively no max
+	slides := s.app.SlideStore.ForSlideshowOrdered(showId, recent, 10000)
 	for _, slide := range slides {
 
 		if slide.Image != "" {
@@ -603,7 +613,7 @@ func (s *GalleryState) claimFiles(showId int64, claim *uploader.Claim, process b
 	}
 
 	// check each slide for an updated media file
-	slides := s.app.SlideStore.ForSlideshow(showId, 1000)
+	slides := s.app.SlideStore.ForSlideshow(showId)
 	for _, slide := range slides {
 
 		if slide.Image != "" {
@@ -618,7 +628,7 @@ func (s *GalleryState) claimFiles(showId int64, claim *uploader.Claim, process b
 
 // deleteImages performs immediate deletion of all images for a slideshow.
 func (app *Application) deleteImages(showId int64) {
-	for _, slide := range app.SlideStore.ForSlideshow(showId, 1000) {
+	for _, slide := range app.SlideStore.ForSlideshow(showId) {
 		if slide.Image != "" {
 			if err := app.uploader.DeleteNow(slide.Image); err != nil {
 				app.log(err)
