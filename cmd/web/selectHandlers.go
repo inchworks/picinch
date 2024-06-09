@@ -85,7 +85,7 @@ func (app *Application) postFormTagSlideshow(w http.ResponseWriter, r *http.Requ
 	status := app.galleryState.onEditSlideshowTags(showId, rootId, forUserId, app.authenticatedUser(r), app.role(r), f)
 	if status == 0 {
 		app.session.Put(r, "flash", "Tag changes saved.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/members", http.StatusSeeOther)
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -96,7 +96,7 @@ func (app *Application) postFormTagSlideshow(w http.ResponseWriter, r *http.Requ
 func (app *Application) getFormTags(w http.ResponseWriter, r *http.Request) {
 
 	app.session.Put(r, "flash", "Not implemented yet.")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/members", http.StatusSeeOther)
 }
 
 // postFormTags handles submission of a form to edit tag definitions.
@@ -109,7 +109,7 @@ func (app *Application) postFormTags(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.session.Put(r, "flash", "Not implemented yet.")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/members", http.StatusSeeOther)
 }
 
 // getFormSelectSlideshow displays a form to select a slideshow by ID.

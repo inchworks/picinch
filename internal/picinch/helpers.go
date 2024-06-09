@@ -22,27 +22,7 @@ import (
 	"net/http"
 	"math/big"
 	"os"
-	"strings"
 )
-
-// fremPage returns the referring page
-// ## Not used - it is more complex than this. Must recognise own pages and handle "/userId" etc.
-func FromPage(path string) string {
-
-	// remove trailing forward slash.
-	if strings.HasSuffix(path, "/") {
-		nLastChar := len(path) - 1
-		path = path[:nLastChar]
-	}
-	// get final element
-	els := strings.Split(path, "/")
-	final := els[len(els)-1]
-
-	if final == "" {
-		return "/"
-	}
-	return final
-}
 
 // SecureCode returns an access code for a shared slideshow, shared topic, or a validation email.
 // n pecifies the number of characters to show the code in base-36.

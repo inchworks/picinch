@@ -62,23 +62,17 @@ const (
 
 	slideshowWhereShared = slideshowSelect + ` WHERE shared = ? AND visible > -10`
 
-	// number of slideshows for topic, excluding suspended users
-	slideshowCountForTopic = `
-		SELECT COUNT(*) FROM slideshow
-		JOIN user ON user.id = slideshow.user
-		WHERE topic = ? AND visible > -10 AND user.status > 0
-	`
-	// next slideshow in sequence for a topic, excluding suspended users
+	// next slideshow ID in sequence for a topic, excluding suspended users
 	slideshowWhereTopicAfter = `
-		SELECT slideshow.* FROM slideshow
+		SELECT slideshow.id FROM slideshow
 		JOIN user ON user.id = slideshow.user
 		WHERE topic = ? AND revised > ? AND visible > -10 AND user.status > 0
 		ORDER BY revised ASC LIMIT 1
 	`
 
-	// previous slideshow in sequence for a topic, excluding suspended users
+	// previous slideshow ID in sequence for a topic, excluding suspended users
 	slideshowWhereTopicBefore = `
-		SELECT slideshow.* FROM slideshow
+		SELECT slideshow.id FROM slideshow
 		JOIN user ON user.id = slideshow.user
 		WHERE topic = ? AND revised < ? AND visible > -10 AND user.status > 0
 		ORDER BY revised DESC LIMIT 1
@@ -258,20 +252,6 @@ func (st *SlideshowStore) AllTopicsFormatted(like string) []*models.Slideshow {
 	return topics
 }
 
-// Count of slideshows for topic
-
-func (st *SlideshowStore) CountForTopic0(topicId int64) int {
-
-	var n int
-
-	if err := st.DBX.Get(&n, slideshowCountForTopic, topicId); err != nil {
-		st.logError(err)
-		return 0
-	}
-
-	return n
-}
-
 // CountForUser returns the number of slideshows for a user.
 func (st *SlideshowStore) CountForUser(userId int64) int {
 
@@ -381,10 +361,10 @@ func (st *SlideshowStore) ForTopicPublished(topicId int64, latest bool) []*model
 	return shows
 }
 
-// ForTopicSeq returns the next or previous slideshow in sequence for a topic.
-func (st *SlideshowStore) ForTopicSeq(topicId int64, current time.Time, after bool) *models.Slideshow {
+// ForTopicSeq returns the next or previous slideshow ID in sequence for a topic, or 0 if there is none.
+func (st *SlideshowStore) ForTopicSeq(topicId int64, current time.Time, after bool) int64 {
 
-	var r models.Slideshow
+	var r int64
 
 	var q string
 	if after {
@@ -398,10 +378,10 @@ func (st *SlideshowStore) ForTopicSeq(topicId int64, current time.Time, after bo
 		if err != models.ErrNoRecord {
 			st.logError(err)
 		}
-		return nil
+		return 0
 	}
 
-	return &r
+	return r
 }
 
 // ForTopicUserAll returns all slideshows for a topic and user.

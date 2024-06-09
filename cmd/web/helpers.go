@@ -269,6 +269,15 @@ func (app *Application) setCache(w http.ResponseWriter, id int64, visible int) {
 	gs.muCache.Unlock()
 }
 
+// toHome returns the home page path.
+func (app *Application) toHome(r *http.Request) string {
+	if app.isAuthenticated(r, models.UserFriend) {
+		return "/members"
+	} else {
+		return "/"
+	}
+}
+
 // validTypeCheck returns a function to check for acceptable file types
 func (app *Application) validTypeCheck() form.ValidTypeFunc {
 

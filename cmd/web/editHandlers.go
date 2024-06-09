@@ -82,11 +82,11 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 	switch status {
 	case 0:
 		app.session.Put(r, "flash", "Topic assignments saved.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/members", http.StatusSeeOther)
 
 	case http.StatusConflict:
 		app.session.Put(r, "flash", "Slideshow or topic deleted - check.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/members", http.StatusSeeOther)
 
 	default:
 		http.Error(w, http.StatusText(status), status)
@@ -257,7 +257,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	status := app.galleryState.OnEditGallery(f.Get("organiser"), nMaxSlides, nShowcased)
 	if status != 0 {
 		app.session.Put(r, "flash", "Gallery settings saved.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/members", http.StatusSeeOther)
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -587,7 +587,7 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 	if status == 0 {
 		app.tm.Do(tx)
 		app.session.Put(r, "flash", "Topic changes saved.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/members", http.StatusSeeOther)
 
 	} else {
 		http.Error(w, http.StatusText(status), status)

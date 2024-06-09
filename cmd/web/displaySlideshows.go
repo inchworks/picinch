@@ -33,8 +33,8 @@ import (
 
 // Copyright © Rob Burke inchworks.com, 2020.
 
-// displayClasses returns data for competition classes.
-func (s *GalleryState) displayClasses(_ bool) *dataCompetition {
+// DisplayClasses returns data for competition classes.
+func (s *GalleryState) DisplayClasses(_ bool) *dataCompetition {
 
 	defer s.updatesNone()()
 
@@ -74,7 +74,7 @@ func (s *GalleryState) DisplayContributor(userId int64, member bool) *DataHome {
 	var dHighlights []*DataSlide
 	show := s.app.SlideshowStore.ForTopicUserVisibleIf(s.app.SlideshowStore.HighlightsId, user.Id, visible)
 	if show != nil {
-		dHighlights = s.dataSlides(show.Id, s.app.cfg.MaxHighlightsTotal)
+		dHighlights = s.dataHighlightsUser(show.Id, s.app.cfg.MaxHighlightsTotal)
 	}
 
 	// slideshows
@@ -162,8 +162,54 @@ func (s *GalleryState) DisplayHighlights(
 	}
 
 	// data for slides
-	data = s.displayHighlights(topic, from, max)
+	data = s.dataHighlightSlides(topic, from, max)
 	return
+}
+
+// DisplayGallery returns the data for a member's or curator's view of their gallery.
+func (s *GalleryState) DisplayGallery(userId int64) *DataMyGallery {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// get user
+	user := s.app.getUserIf(userId)
+	if user == nil {
+		return nil
+	}
+
+	// get slideshows
+	slideshows := s.app.SlideshowStore.ForUser(userId, models.SlideshowPrivate)
+	var dataShows []*DataMySlideshow
+
+	for _, s := range slideshows {
+
+		dataShows = append(dataShows, &DataMySlideshow{
+			NShow:   s.Id,
+			Title:   s.Title,
+			Visible: s.VisibleStr(),
+		})
+	}
+
+	// get topics
+	topics := s.app.SlideshowStore.AllTopics()
+	var dataTopics []*DataMySlideshow
+
+	for _, t := range topics {
+
+		dataTopics = append(dataTopics, &DataMySlideshow{
+			NShow:   t.Id,
+			Title:   t.Title,
+			Visible: t.VisibleStr(),
+		})
+	}
+
+	return &DataMyGallery{
+		NUser:       user.Id,
+		DisplayName: user.Name,
+		Slideshows:  dataShows,
+		Topics:      dataTopics,
+	}
 }
 
 // DisplayHome returns the home page with slideshows
@@ -207,7 +253,7 @@ func (s *GalleryState) DisplayShared(code int64) (data *DataSlideshow, id int64)
 	from := href("shared-", true, slideshow, 0)
 
 	// this is a single slideshow
-	return s.displaySlides(slideshow, 0, from, "", s.app.cfg.MaxSlides), slideshow.Id
+	return s.dataSlides(slideshow, 0, from, "", s.app.cfg.MaxSlides), slideshow.Id
 }
 
 // DisplaySharedSlides returns the data for a section of a shared topic.
@@ -231,7 +277,7 @@ func (s *GalleryState) DisplaySharedSlides(code int64, secId int64) (data *DataS
 
 	// contribution to topic
 	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlides)
-	return s.displayTopicSection(topic, sec, "shared-", true, from, fmt, max), sec.Id
+	return s.dataSection(topic, sec, "shared-", true, from, fmt, max), sec.Id
 }
 
 // DisplaySharedTopic returns the data for a shared topic header.
@@ -292,7 +338,7 @@ func (s *GalleryState) DisplaySlides(
 	}
 
 	// data for slides
-	data = s.displayTopicSection(topic, sec, origin, false, from, fmt, max)
+	data = s.dataSection(topic, sec, origin, false, from, fmt, max)
 
 	// parent title overrides user's own
 	data.Title = topic.Title
@@ -321,7 +367,7 @@ func (s *GalleryState) DisplaySlideshow(
 
 	// data for slides
 	fmt, max := show.ParseFormat(s.app.cfg.MaxSlides)
-	data = s.displaySlides(show, forRole, from, fmt, max)
+	data = s.dataSlides(show, forRole, from, fmt, max)
 	return
 }
 
@@ -346,8 +392,42 @@ func (s *GalleryState) DisplayTopic(
 	}
 
 	// data for topic
-	data = s.displayTopic(show, origin, from)
+	data = s.dataTopic(show, origin, from)
 	return
+}
+
+// DisplayTopics returns the data for a curator's view of all topics (similar to user's view of gallery)
+func (s *GalleryState) DisplayTopics() *DataMyGallery {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// get topics
+	topics := s.app.SlideshowStore.AllTopics()
+	var dataShows []*DataMySlideshow
+
+	for _, topic := range topics {
+		fmt, _ := topic.ParseFormat(s.app.cfg.MaxSlides)
+
+		d := DataMySlideshow{
+			NShow:   topic.Id,
+			Title:   topic.Title,
+			Visible: topic.VisibleStr(),
+			Shared:  s.formatShared(topic.Shared),
+		}
+		if fmt == "H" {
+			d.Ref = "/rev-hilites/" + strconv.FormatInt(topic.Id, 10)
+		} else {
+			d.Ref = "/rev-topic/" + strconv.FormatInt(topic.Id, 10)
+		}
+
+		dataShows = append(dataShows, &d)
+	}
+
+	return &DataMyGallery{
+		DisplayName: "Topics",
+		Topics:      dataShows,
+	}
 }
 
 // DisplayTopicContributors returns the slideshows contributed to a topic.
@@ -420,92 +500,11 @@ func (s *GalleryState) DisplayUserTopic(
 	}
 
 	// .. and slides
-	return s.displaySlides(sec, 0, from, fmt, max)
+	return s.dataSlides(sec, 0, from, fmt, max)
 }
 
-// ForGallery returns the data for a member's or curator's view of gallery.
-func (s *GalleryState) ForGallery(userId int64) *DataMyGallery {
-
-	// serialisation
-	defer s.updatesNone()()
-
-	// get user
-	user := s.app.getUserIf(userId)
-	if user == nil {
-		return nil
-	}
-
-	// get slideshows
-	slideshows := s.app.SlideshowStore.ForUser(userId, models.SlideshowPrivate)
-	var dataShows []*DataMySlideshow
-
-	for _, s := range slideshows {
-
-		dataShows = append(dataShows, &DataMySlideshow{
-			NShow:   s.Id,
-			Title:   s.Title,
-			Visible: s.VisibleStr(),
-		})
-	}
-
-	// get topics
-	topics := s.app.SlideshowStore.AllTopics()
-	var dataTopics []*DataMySlideshow
-
-	for _, t := range topics {
-
-		dataTopics = append(dataTopics, &DataMySlideshow{
-			NShow:   t.Id,
-			Title:   t.Title,
-			Visible: t.VisibleStr(),
-		})
-	}
-
-	return &DataMyGallery{
-		NUser:       user.Id,
-		DisplayName: user.Name,
-		Slideshows:  dataShows,
-		Topics:      dataTopics,
-	}
-}
-
-// ForTopics returns the data for a curator's view of all topics (similar to user's view of gallery)
-func (s *GalleryState) ForTopics() *DataMyGallery {
-
-	// serialisation
-	defer s.updatesNone()()
-
-	// get topics
-	topics := s.app.SlideshowStore.AllTopics()
-	var dataShows []*DataMySlideshow
-
-	for _, topic := range topics {
-		fmt, _ := topic.ParseFormat(s.app.cfg.MaxSlides)
-
-		d := DataMySlideshow{
-			NShow:   topic.Id,
-			Title:   topic.Title,
-			Visible: topic.VisibleStr(),
-			Shared:  s.formatShared(topic.Shared),
-		}
-		if fmt == "H" {
-			d.Ref = "/rev-hilites/" + strconv.FormatInt(topic.Id, 10)
-		} else {
-			d.Ref = "/rev-topic/" + strconv.FormatInt(topic.Id, 10)
-		}
-
-		dataShows = append(dataShows, &d)
-	}
-
-	return &DataMyGallery{
-		DisplayName: "Topics",
-		Topics:      dataShows,
-	}
-}
-
-// Curator's view of users
-
-func (s *GalleryState) ForUsers() *DataUsers {
+// DisplayUsers returns the data for a curator's view of the users.
+func (s *GalleryState) DisplayUsers() *DataUsers {
 
 	// serialisation
 	defer s.updatesNone()()
@@ -539,8 +538,7 @@ func (s *GalleryState) Highlighted(prefix string, nImage int) (fs.FS, string) {
 	}
 }
 
-// Get slideshow title
-
+// SlideshowTitle returns the title for a slideshow.
 func (s *GalleryState) SlideshowTitle(showId int64) string {
 
 	// serialisation
@@ -554,8 +552,37 @@ func (s *GalleryState) SlideshowTitle(showId int64) string {
 	return r.Title
 }
 
-// Highlights for home page or embedded page
+// dataHighlightSlides returns the latest slides for a topic.
+func (s *GalleryState) dataHighlightSlides(topic *models.Slideshow, from string, perUser int) *DataSlideshow {
 
+	// get slides for topic
+	slides := s.app.SlideStore.RecentForTopic(topic.Id, perUser, s.app.cfg.MaxHighlightsTopic)
+
+	// replace slide data with HTML formatted fields
+	var dataSlides []*DataSlide
+	for _, slide := range slides {
+		dataSlides = append(dataSlides, &DataSlide{
+			Title:       models.Nl2br(slide.Title),
+			Caption:     models.Nl2br(slide.Caption),
+			DisplayName: slide.Name,
+			Image:       slide.Image,
+			Format:      slide.Format,
+		})
+	}
+
+	// template and its data
+	return &DataSlideshow{
+		Title:      topic.Title,
+		AfterHRef:  from,
+		BeforeHRef: from,
+		Slides:     dataSlides,
+		DataCommon: DataCommon{
+			ParentHRef: from,
+		},
+	}
+}
+
+// dataHighlights returns data for highlight images on the home page or am embedded page.
 func (s *GalleryState) dataHighlights(nImages int) []*DataSlide {
 
 	// get slides for highlights topic
@@ -576,11 +603,8 @@ func (s *GalleryState) dataHighlights(nImages int) []*DataSlide {
 	return dataSlides
 }
 
-// Recent slides for a slideshow
-
-// Highlights for home page or embedded page
-
-func (s *GalleryState) dataSlides(showId int64, max int) []*DataSlide {
+// dataHighlightsUser returns highlight slides for a user.
+func (s *GalleryState) dataHighlightsUser(showId int64, max int) []*DataSlide {
 
 	// get slides for highlights topic s.highlightsId
 	slides := s.app.SlideStore.ForSlideshowOrdered(showId, true, max)
@@ -597,6 +621,51 @@ func (s *GalleryState) dataSlides(showId int64, max int) []*DataSlide {
 	}
 
 	return dataSlides
+}
+
+// dataSection returns data for a section of a topic.
+// It is called for topics on the home page and for shared topics. from specifies the parent URL.
+func (s *GalleryState) dataSection(topic *models.Slideshow, section *models.Slideshow, origin string, code bool, from string, fmt string, max int) *DataSlideshow {
+
+	if section.Topic != topic.Id {
+		// doesn't belong to topic?
+		// #### if is there one that does - redirect
+		return nil // slideshow removed
+	}
+
+	// slides and user
+	slides := s.app.SlideStore.ForSlideshowOrdered(section.Id, fmt == "H", max)
+	user := s.app.getUserIf(section.User.Int64)
+	if user == nil {
+		return nil
+	}
+
+	// replace slide data with HTML formatted fields
+	var dataSlides []*DataSlide
+	for _, slide := range slides {
+		dataSlides = append(dataSlides, &DataSlide{
+			Title:       slide.TitleBr(),
+			Caption:     slide.CaptionBr(),
+			DisplayName: user.Name,
+			Image:       slide.Image,
+			Format:      slide.Format,
+		})
+	}
+
+	// next and previous user's slides
+	after, before := s.topicHRefs(topic, section.Revised, false, origin, code, from)
+
+	// template and its data
+	return &DataSlideshow{
+		Title:       topic.Title,
+		AfterHRef:   after,
+		BeforeHRef:  before,
+		DisplayName: user.Name,
+		Slides:      dataSlides,
+		DataCommon: DataCommon{
+			ParentHRef: from,
+		},
+	}
 }
 
 // dataShowsPublished returns public or club slideshows and topics for home page.
@@ -665,39 +734,8 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 	return data
 }
 
-// Display highlights : latest slides
-
-func (s *GalleryState) displayHighlights(topic *models.Slideshow, from string, perUser int) *DataSlideshow {
-
-	// get slides for topic
-	slides := s.app.SlideStore.RecentForTopic(topic.Id, perUser, s.app.cfg.MaxHighlightsTopic)
-
-	// replace slide data with HTML formatted fields
-	var dataSlides []*DataSlide
-	for _, slide := range slides {
-		dataSlides = append(dataSlides, &DataSlide{
-			Title:       models.Nl2br(slide.Title),
-			Caption:     models.Nl2br(slide.Caption),
-			DisplayName: slide.Name,
-			Image:       slide.Image,
-			Format:      slide.Format,
-		})
-	}
-
-	// template and its data
-	return &DataSlideshow{
-		Title:      topic.Title,
-		AfterHRef:  from,
-		BeforeHRef: from,
-		Slides:     dataSlides,
-		DataCommon: DataCommon{
-			ParentHRef: from,
-		},
-	}
-}
-
-// displaySlides returns slides, not part of topic.
-func (s *GalleryState) displaySlides(show *models.Slideshow, forRole int, from string, fmt string, max int) *DataSlideshow {
+// dataSlides returns data for slides, not as part of topic.
+func (s *GalleryState) dataSlides(show *models.Slideshow, forRole int, from string, fmt string, max int) *DataSlideshow {
 
 	slides := s.app.SlideStore.ForSlideshowOrdered(show.Id, fmt == "H", max)
 	user := s.app.getUserIf(show.User.Int64)
@@ -746,8 +784,8 @@ func (s *GalleryState) displaySlides(show *models.Slideshow, forRole int, from s
 	return data
 }
 
-// displayTopic returns a template and data for a topic shown on a website page.
-func (s *GalleryState) displayTopic(topic *models.Slideshow, origin string, from string) *DataSlideshow {
+// dataTopic returns the data for a topic.
+func (s *GalleryState) dataTopic(topic *models.Slideshow, origin string, from string) *DataSlideshow {
 
 	// special selection for highlights
 	var after, before string
@@ -770,51 +808,6 @@ func (s *GalleryState) displayTopic(topic *models.Slideshow, origin string, from
 		AfterHRef:  after,
 		BeforeHRef: before,
 		Single:     "Y",
-		DataCommon: DataCommon{
-			ParentHRef: from,
-		},
-	}
-}
-
-// displayTopicSection returns data for a section of a topic.
-// It is called for topics on the home page and for shared topics. from specifies the parent URL.
-func (s *GalleryState) displayTopicSection(topic *models.Slideshow, section *models.Slideshow, origin string, code bool, from string, fmt string, max int) *DataSlideshow {
-
-	if section.Topic != topic.Id {
-		// doesn't belong to topic?
-		// #### if is there one that does - redirect
-		return nil // slideshow removed
-	}
-
-	// slides and user
-	slides := s.app.SlideStore.ForSlideshowOrdered(section.Id, fmt == "H", max)
-	user := s.app.getUserIf(section.User.Int64)
-	if user == nil {
-		return nil
-	}
-
-	// replace slide data with HTML formatted fields
-	var dataSlides []*DataSlide
-	for _, slide := range slides {
-		dataSlides = append(dataSlides, &DataSlide{
-			Title:       slide.TitleBr(),
-			Caption:     slide.CaptionBr(),
-			DisplayName: user.Name,
-			Image:       slide.Image,
-			Format:      slide.Format,
-		})
-	}
-
-	// next and previous user's slides
-	after, before := s.topicHRefs(topic, section.Revised, false, origin, code, from)
-
-	// template and its data
-	return &DataSlideshow{
-		Title:       topic.Title,
-		AfterHRef:   after,
-		BeforeHRef:  before,
-		DisplayName: user.Name,
-		Slides:      dataSlides,
 		DataCommon: DataCommon{
 			ParentHRef: from,
 		},
@@ -855,9 +848,9 @@ func href(origin string, code bool, slideshow *models.Slideshow, secId int64) st
 func (s *GalleryState) topicHRefs(topic *models.Slideshow, current time.Time, first bool, origin string, code bool, from string) (after string, before string) {
 
 	// next user's slides
-	show := s.app.SlideshowStore.ForTopicSeq(topic.Id, current, true)
-	if show != nil {
-		after = href(origin, code, topic, show.Id)
+	id := s.app.SlideshowStore.ForTopicSeq(topic.Id, current, true)
+	if id != 0 {
+		after = href(origin, code, topic, id)
 	} else {
 		after = from // parent
 	}
@@ -866,9 +859,9 @@ func (s *GalleryState) topicHRefs(topic *models.Slideshow, current time.Time, fi
 	if first {
 		before = from // parent
 	} else {
-		show = s.app.SlideshowStore.ForTopicSeq(topic.Id, current, false)
-		if show != nil {
-			before = href(origin, code, topic, show.Id)
+		id = s.app.SlideshowStore.ForTopicSeq(topic.Id, current, false)
+		if id != 0 {
+			before = href(origin, code, topic, id)
 		} else {
 			before = href(origin, code, topic, 0) // header
 		}

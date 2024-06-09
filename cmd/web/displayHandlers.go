@@ -33,7 +33,7 @@ import (
 // classes serves the home page for a competition.
 func (app *Application) classes(w http.ResponseWriter, r *http.Request) {
 
-	data := app.galleryState.displayClasses(app.isAuthenticated(r, models.UserFriend))
+	data := app.galleryState.DisplayClasses(app.isAuthenticated(r, models.UserFriend))
 	if data == nil {
 		httpServerError(w)
 		return
@@ -200,7 +200,7 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 		func(t *models.Slideshow) string {
 			if app.allowViewShow(r, t) {
 				app.setCache(w, t.Id, t.Access)
-				return "/"
+				return app.toHome(r)
 			} else {
 				return ""
 			}
@@ -543,7 +543,7 @@ func (app *Application) slides(w http.ResponseWriter, r *http.Request) {
 		func(s *models.Slideshow, _ string) string {
 			if app.allowViewShow(r, s) {
 				app.setCache(w, sec, s.Access)
-				return "/"
+				return app.toHome(r)
 			} else {
 				return ""
 			}
@@ -572,7 +572,7 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 		func(s *models.Slideshow, _ int64) string {
 			if app.allowViewShow(r, s) {
 				app.setCache(w, s.Id, s.Access)
-				return "/"
+				return app.toHome(r)
 			} else {
 				return ""
 			}
@@ -599,7 +599,7 @@ func (app *Application) slideshowsOwn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := app.galleryState.ForGallery(userId)
+	data := app.galleryState.DisplayGallery(userId)
 	if data == nil {
 		httpServerError(w)
 		return
@@ -614,7 +614,7 @@ func (app *Application) slideshowsUser(w http.ResponseWriter, r *http.Request) {
 	ps := httprouter.ParamsFromContext(r.Context())
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
-	data := app.galleryState.ForGallery(userId)
+	data := app.galleryState.DisplayGallery(userId)
 	if data == nil {
 		httpNotFound(w)
 		return
@@ -635,7 +635,7 @@ func (app *Application) topic(w http.ResponseWriter, r *http.Request) {
 		func(t *models.Slideshow, _ int64) string {
 			if app.allowViewShow(r, t) {
 				app.setCache(w, id, t.Access)
-				return "/"
+				return app.toHome(r)
 			} else {
 				return ""
 			}
@@ -664,7 +664,7 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 	data := app.galleryState.DisplayTopicContributors(topicId, func(t *models.Slideshow) string {
 		if app.allowViewShow(r, t) {
 			app.setCache(w, t.Id, t.Visible)
-			return "/"
+			return app.toHome(r)
 		} else {
 			return ""
 		}
@@ -720,7 +720,7 @@ func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 // topics handles a request by the curator to see the topics.
 func (app *Application) topics(w http.ResponseWriter, r *http.Request) {
 
-	data := app.galleryState.ForTopics()
+	data := app.galleryState.DisplayTopics()
 
 	app.render(w, r, "topics.page.tmpl", data)
 }
@@ -804,7 +804,7 @@ func (app *Application) userTopic(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) usersCurator(w http.ResponseWriter, r *http.Request) {
 
-	data := app.galleryState.ForUsers()
+	data := app.galleryState.DisplayUsers()
 
 	app.render(w, r, "users-curator.page.tmpl", data)
 }
