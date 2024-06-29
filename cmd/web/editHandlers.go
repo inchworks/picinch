@@ -48,7 +48,7 @@ func (app *Application) getFormAssignShows(w http.ResponseWriter, r *http.Reques
 	}
 
 	// display form
-	app.render(w, r, "assign-slideshows.page.tmpl", &slideshowsFormData{
+	app.render(w, r, "assign-slideshows.page.tmpl", &assignShowsFormData{
 		Form: f,
 	})
 }
@@ -62,8 +62,8 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 	}
 
 	// process form data
-	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
-	slideshows, err := f.GetSlideshows(true)
+	f := form.NewAssignShows(r.PostForm, nosurf.Token(r))
+	slideshows, err := f.GetAssignShows()
 	if err != nil {
 		app.httpBadRequest(w, err)
 		return
@@ -71,7 +71,7 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 
 	// redisplay form if data invalid
 	if !f.Valid() {
-		app.render(w, r, "assign-slideshows.page.tmpl", &slideshowsFormData{
+		app.render(w, r, "assign-slideshows.page.tmpl", &assignShowsFormData{
 			Form: f,
 		})
 		return
@@ -81,12 +81,12 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 	status, _ := app.galleryState.OnAssignShows(slideshows)
 	switch status {
 	case 0:
-		app.session.Put(r, "flash", "Topic assignments saved.")
-		http.Redirect(w, r, "/members", http.StatusSeeOther)
+		app.session.Put(r, "flash", "Slideshow assignments saved.")
+		http.Redirect(w, r, "/topics", http.StatusSeeOther)
 
 	case http.StatusConflict:
 		app.session.Put(r, "flash", "Slideshow or topic deleted - check.")
-		http.Redirect(w, r, "/members", http.StatusSeeOther)
+		http.Redirect(w, r, "/assign-slideshows", http.StatusSeeOther)
 
 	default:
 		http.Error(w, http.StatusText(status), status)
@@ -478,7 +478,7 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 
 	// process form data
 	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
-	slideshows, err := f.GetSlideshows(false)
+	slideshows, err := f.GetSlideshows()
 	if err != nil {
 		app.httpBadRequest(w, err)
 		return
@@ -566,7 +566,7 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 
 	// process form data
 	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
-	slideshows, err := f.GetSlideshows(false)
+	slideshows, err := f.GetSlideshows()
 	if err != nil {
 		app.httpBadRequest(w, err)
 		return

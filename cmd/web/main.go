@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.1.0"
+	version = "1.2.1"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -133,7 +133,7 @@ type Configuration struct {
 	// operational settings
 	AllowedQueries    []string        `yaml:"allowed-queries" env-default:"fbclid"`                            // URL query names allowed
 	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing media files
-	DropDelay         time.Duration   `yaml:"drop-delay" env:"drop-delay" env-default:"24h"`                   // delay before access drops and deletes are finalised. Units h.
+	DropDelay         time.Duration   `yaml:"drop-delay" env:"drop-delay" env-default:"8h"`                    // delay before access drops and deletes are finalised. Units h.
 	GeoBlock          []string        `yaml:"geo-block" env:"geo-block" env-default:""`                        // blocked countries (ISO 3166-1 alpha-2 codes)
 	MaxCacheAge       time.Duration   `yaml:"max-cache-age" env:"max-cache-age" env-default:"1h"`              // browser cache control, maximum age. Units s, m or h.
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
@@ -186,6 +186,12 @@ type OpUpdateTopic struct {
 	Revised bool
 	tx      etx.TxId
 }
+
+// Operation to validate slideshow submission.
+type OpValidate struct {
+	ShowId  int64
+}
+
 
 // Application struct supplies application-wide dependencies.
 type Application struct {

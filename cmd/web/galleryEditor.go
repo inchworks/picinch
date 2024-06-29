@@ -45,9 +45,8 @@ type userTags struct {
 	tags []*tags.ItemTag
 }
 
-// Get data to assign slideshows to topics
-
-func (s *GalleryState) ForAssignShows(tok string) (f *form.SlideshowsForm) {
+// ForAssignShows returns a form with data to assign slideshows to topics.
+func (s *GalleryState) ForAssignShows(tok string) (f *form.AssignShowsForm) {
 
 	// serialisation
 	defer s.updatesNone()()
@@ -57,12 +56,25 @@ func (s *GalleryState) ForAssignShows(tok string) (f *form.SlideshowsForm) {
 
 	// form
 	var d = make(url.Values)
-	f = form.NewSlideshows(d, tok)
+	f = form.NewAssignShows(d, tok)
 
-	// add template and slideshows to form
-	f.AddTemplate()
+	// add slideshows to form
 	for i, sh := range slideshows {
-		f.Add(i, sh.Id, sh.Topic, sh.Visible, sh.Shared != 0, sh.Title, s.app.userStore.Name(sh.User.Int64))
+		// warn if slideshow is already being assigned
+		// ## disable update somehow
+		var updating bool
+		var topic int64
+		if sh.Topic != 0 && sh.Visible != models.SlideshowTopic {
+			topic = 0
+			updating = true // removing from topic
+		} else if sh.Access != sh.Visible {
+			topic = sh.Topic
+			updating = true // adding to topic
+		} else {
+			topic = sh.Topic
+		}
+
+		f.Add(i, sh.Id, topic, sh.Shared != 0, sh.Title, s.app.userStore.Name(sh.User.Int64), updating)
 	}
 
 	return
@@ -70,7 +82,7 @@ func (s *GalleryState) ForAssignShows(tok string) (f *form.SlideshowsForm) {
 
 // OnAssignShows processes updates when slideshows are assigned to topics.
 // It returns an extended transaction ID if there are no client errors.
-func (s *GalleryState) OnAssignShows(rsSrc []*form.SlideshowFormData) (int, etx.TxId) {
+func (s *GalleryState) OnAssignShows(rsSrc []*form.AssignShowFormData) (int, etx.TxId) {
 
 	// ## I don't like using database IDs in a form, because it exposes us to a user that manipulates the form.
 	// ## In this case the user has to be authorised as a curator, and (I think) they can only make changes
@@ -97,57 +109,50 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.SlideshowFormData) (int, etx.
 			nConflicts++ // just deleted by user
 
 		} else {
-			// normalise topic and visibility
-			if rSrc.NTopic != 0 {
-				rSrc.Visible = models.SlideshowTopic
-			} else if rSrc.Visible == models.SlideshowTopic {
-				rSrc.Visible = models.SlideshowPrivate
+			// ignore in-progress removal from topic
+			if rSrc.NTopic == 0 && rDest.Visible != models.SlideshowTopic {
+				rSrc.NTopic = rDest.Topic
 			}
 
 			// check if details changed
-			if rSrc.Visible != rDest.Visible ||
-				rSrc.NTopic != rDest.Topic ||
-				rSrc.Title != rDest.Title {
+			if rSrc.NTopic != rDest.Topic || rSrc.Title != rDest.Title {
 
 				if rSrc.NTopic != 0 && s.app.SlideshowStore.GetIf(rSrc.NTopic) == nil {
 					nConflicts++ // another curator deleted the topic!
 
 				} else {
+
+					// title change is mostly useful when returning a slideshow to the user
+					rDest.Title = rSrc.Title
+
 					if rSrc.NTopic == 0 && rDest.Topic != 0 {
-						// give slideshow back to user, with specified title
-						rDest.Title = rSrc.Title
+						// give slideshow back to user
 						rDest.Access = models.SlideshowPrivate
 						rDest.Visible = models.SlideshowPrivate
 
 						// final removal from topic is deferred
-						if err := s.app.tm.AddNext(tx, s, OpRelease,
-							&OpReleaseShow{
+						if err := s.app.tm.AddTimed(tx, s, OpRelease, &OpReleaseShow{
 								ShowId:  rDest.Id,
 								TopicId: rDest.Topic,
-							}); err != nil {
+						}, s.app.cfg.DropDelay); err != nil {
 							return s.rollback(http.StatusInternalServerError, err), 0
 						}
 					} else {
-						// normalise settings
-						if rSrc.NTopic != 0 {
-							rSrc.Visible = models.SlideshowTopic
-						} else {
-							// can set title, but not hide as a topic contribution
-							rDest.Title = rSrc.Title
-							if rSrc.Visible == models.SlideshowTopic {
-								rSrc.Visible = rDest.Visible
-							}
-						}
-			
-						// add or move show to topic, or perhaps just change its visibility
+						// add or move show to topic, or perhaps just change title
+						var visible int
 						rDest.Topic = rSrc.NTopic
+						if rDest.Topic != 0 {
+							visible = models.SlideshowTopic
+						} else {
+							visible = rDest.Visible
+						}
 
 						// change slideshow visibility and access
-						if err := s.setVisible(tx, rDest, rSrc.Visible); err != nil {
+						if err := s.setVisible(tx, rDest, visible); err != nil {
 							return s.rollback(http.StatusInternalServerError, err), 0
 						}
 					}
-				
+
 					s.app.SlideshowStore.Update(rDest)
 				}
 			}
@@ -429,7 +434,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			} else {
 				// remove empty show for topic
 				// ### beware race with user re-opening show to add back an image
-				if err := s.removeSlideshow(tx, show, true); err!= nil {
+				if err := s.removeSlideshow(tx, show, true); err != nil {
 					return s.rollback(http.StatusInternalServerError, err), 0
 				}
 				showId = 0
@@ -886,18 +891,24 @@ func (s *GalleryState) onEnterComp(classId int64, tx etx.TxId, name string, emai
 		s.app.tagger.SetTagRef(show.Id, 0, "agreements", 0, strconv.Itoa(nAgreed))
 	}
 
-	// request worker to generate media version, remove unused images, and send validation email
-	if err := s.app.tm.AddNext(tx, s, OpComp, &OpUpdateShow{
+	// request worker to generate media version and remove unused images
+	if err := s.app.tm.AddNext(tx, s, OpShow, &OpUpdateShow{
 		ShowId:  show.Id,
 		Revised: false,
 	}); err != nil {
 		return s.rollback(http.StatusInternalServerError, err), -1
 	}
 
-	// auto validation is not needed if we can send emails
-	if s.app.cfg.EmailHost != "" {
+	if s.app.emailer != nil {
+		// request worker to send validation email
+		if err := s.app.tm.AddNext(tx, s, OpComp, &OpValidate{ShowId: show.Id}); err != nil {
+			return s.rollback(http.StatusInternalServerError, err), -1
+		}
+
+		// auto validation is not needed if we can send emails
 		vc = 0
 	}
+
 	return 0, vc
 }
 
@@ -922,8 +933,8 @@ func (s *GalleryState) onRemoveUser(tx etx.TxId, user *users.User) {
 
 	// request delayed deletion
 	if err := s.app.tm.AddTimed(tx, s, OpDropUser, &OpDrop{
-		Id:      user.Id,
-		Access : user.Status,
+		Id:     user.Id,
+		Access: user.Status,
 	}, s.app.cfg.DropDelay); err != nil {
 		s.app.log(err)
 	}
@@ -986,7 +997,7 @@ func (s *GalleryState) removeSlideshow(tx etx.TxId, slideshow *models.Slideshow,
 	if delete {
 		// release slideshows back to users
 		if !slideshow.User.Valid {
-			 s.app.releaseSlideshows(slideshow)
+			s.app.releaseSlideshows(slideshow)
 		}
 
 		// request delayed deletion
@@ -1141,7 +1152,7 @@ func (s *GalleryState) setVisible(tx etx.TxId, show *models.Slideshow, visible i
 		show.Visible = visible
 
 	} else {
-		// leave access unchanged for now
+		// drop visibility but leave access unchanged for now
 		show.Visible = visible
 
 		// request delayed access drop

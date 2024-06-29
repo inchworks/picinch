@@ -66,7 +66,7 @@ const (
 	slideshowWhereTopicAfter = `
 		SELECT slideshow.id FROM slideshow
 		JOIN user ON user.id = slideshow.user
-		WHERE topic = ? AND revised > ? AND visible > -10 AND user.status > 0
+		WHERE topic = ? AND revised > ? AND visible = -1 AND user.status > 0
 		ORDER BY revised ASC LIMIT 1
 	`
 
@@ -74,7 +74,7 @@ const (
 	slideshowWhereTopicBefore = `
 		SELECT slideshow.id FROM slideshow
 		JOIN user ON user.id = slideshow.user
-		WHERE topic = ? AND revised < ? AND visible > -10 AND user.status > 0
+		WHERE topic = ? AND revised < ? AND visible = -1 AND user.status > 0
 		ORDER BY revised DESC LIMIT 1
 	`
 

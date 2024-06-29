@@ -190,6 +190,13 @@ type dataValidated struct {
 
 // template data for forms
 
+type assignShowsFormData struct {
+	Form  *form.AssignShowsForm
+	User  string
+	NUser int64
+	DataCommon
+}
+
 type compFormData struct {
 	Form      *form.PublicCompForm
 	Class     string

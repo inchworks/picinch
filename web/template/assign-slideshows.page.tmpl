@@ -33,8 +33,6 @@
 		<form action='/assign-slideshows' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
-				{{ $visibleOpts := .VisibleOpts }}
-
 				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
@@ -49,22 +47,13 @@
 								<div class="col-xl-3 col-lg-3 col-md-3 col-sm-3">
 									<span class="input-group-text">{{ .DisplayName }}</span>
 								</div>
-								<div class="col-xl-2 col-lg-3 col-md-3 col-sm-4">
-									<div class="input-group">
-										<span class="input-group-text">Show</span>
-										<select class='form-select {{.ChildValid "visible"}}' data-width="fit" name="visible">
-											{{ $visible := .Visible }}
-											{{ range $i, $opt := $visibleOpts }}
-												<option value='{{ $i }}' {{ if eq $i $visible }} selected{{ end }}>{{ $opt }}</option>
-											{{end}}
-										</select>
-										<div class='invalid-feedback'>{{.ChildError "visible"}}</div>
-									</div>
-								</div>
-								<div class="col-xl-1 col-lg-1 col-md-2 col-sm-2">
+								<div class="col-xl-1 col-lg-2 col-md-2 col-sm-3">
 									<label class="visually-hidden">Topic</label>
-									<input type='text' class='form-control {{.ChildValid "topic"}}' placeholder='NTopic' name='topic' value='{{ .NTopic }}'>
+									<input type='text' class='form-control {{.ChildValid "topic"}}' placeholder='Topic' name='topic' value='{{ .NTopic }}'>
 									<div class='invalid-feedback'>{{.ChildError "topic"}}</div>
+								</div>
+								<div class="col-xl-2 col-lg-2 col-md-3 col-sm-3">
+									<span class="input-group-text">{{ .Updating }}</span>
 								</div>
 							</div>
 						</div>

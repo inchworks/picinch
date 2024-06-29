@@ -25,56 +25,52 @@ import (
 	"inchworks.com/picinch/internal/models"
 )
 
-type SlideshowsForm struct {
+type AssignShowsForm struct {
 	*multiforms.Form
-	VisibleOpts []string
-	Children    []*SlideshowFormData
+	Children    []*AssignShowFormData
 }
 
-type SlideshowFormData struct {
+type AssignShowFormData struct {
 	multiforms.Child
-	Visible     int
 	IsShared    bool
 	Title       string
-	DisplayName string // not for editing
+	NShow       int64
+	NTopic      int64
+	DisplayName string
+	Updating    string
 }
 
-// Slideshows form
-
-func NewSlideshows(data url.Values, token string) *SlideshowsForm {
-	return &SlideshowsForm{
+// NewAssignShows returns a form to assign slideshows to topics.
+func NewAssignShows(data url.Values, token string) *AssignShowsForm {
+	return &AssignShowsForm{
 		Form:        multiforms.New(data, token),
-		VisibleOpts: models.VisibleOpts,
-		Children:    make([]*SlideshowFormData, 0, 16),
+		Children:    make([]*AssignShowFormData, 0, 16),
 	}
 }
 
-// Add slideshow to form
+// Add appends a slideshow entry to the assignment form.
+func (f *AssignShowsForm) Add(index int, id int64, topicId int64, isShared bool, title string, user string, isUpdating bool) {
 
-func (f *SlideshowsForm) Add(index int, id int64, topicId int64, visible int, isShared bool, title string, user string) {
-
-	f.Children = append(f.Children, &SlideshowFormData{
+	var updating string
+	if isUpdating {
+		updating = "Updating"
+	} else {
+		updating = "-"
+	}
+	f.Children = append(f.Children, &AssignShowFormData{
 		Child:       multiforms.Child{Parent: f.Form, ChildIndex: index},
-		Visible:     visible,
 		IsShared:    isShared,
 		Title:       title,
+		NShow:       id,
+		NTopic:      topicId,
 		DisplayName: user,
+		Updating:    updating,
 	})
 }
 
-// Add slideshow template form
 
-func (f *SlideshowsForm) AddTemplate() {
-
-	f.Children = append(f.Children, &SlideshowFormData{
-		Child:   multiforms.Child{Parent: f.Form, ChildIndex: -1},
-		Visible: models.SlideshowClub,
-	})
-}
-
-// Get slideshows as structs. They are sent as arrays of values for each field name.
-
-func (f *SlideshowsForm) GetSlideshows() (items []*SlideshowFormData, err error) {
+// GetAssignShows returns form data as structs. They are sent as arrays of values for each field name.
+func (f *AssignShowsForm) GetAssignShows() (items []*AssignShowFormData, err error) {
 
 	nItems := f.NChildItems()
 
@@ -85,15 +81,16 @@ func (f *SlideshowsForm) GetSlideshows() (items []*SlideshowFormData, err error)
 			return nil, err
 		}
 
-		visible, err := f.ChildSelect("visible", i, ix, len(models.VisibleOpts))
-		if err != nil {
-			return nil, err
-		}
+		// optional topic assignment with show ID
+		showId := int64(f.ChildPositive("nShow", i, ix))
+		topicId := int64(f.ChildPositive("topic", i, ix))
 
-		items = append(items, &SlideshowFormData{
+		items = append(items, &AssignShowFormData{
+
 			Child:    multiforms.Child{Parent: f.Form, ChildIndex: ix},
-			Visible:  visible,
 			IsShared: f.ChildBool("shared", ix),
+			NShow:    showId,
+			NTopic:   topicId,
 			Title:    f.ChildText("title", i, ix, 1, models.MaxTitle),
 		})
 	}

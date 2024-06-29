@@ -65,7 +65,9 @@ func (s *GalleryState) Name() string {
 
 func (s *GalleryState) ForOperation(opType int) etx.Op {
 	switch opType {
-	case OpComp, OpShow, OpShowV1:
+	case OpComp:
+		return &OpValidate{}
+	case OpShow, OpShowV1:
 		return &OpUpdateShow{}
 	case OpRelease:
 		return &OpReleaseShow{}
@@ -80,44 +82,44 @@ func (s *GalleryState) ForOperation(opType int) etx.Op {
 }
 
 // Do operation requested via TM.
-func (s *GalleryState) Operation(id etx.TxId, opType int, op etx.Op) {
+func (s *GalleryState) Operation(tx etx.TxId, opType int, op etx.Op) {
 
 	switch req := op.(type) {
 
 	case *OpDrop:
 		switch opType {
 		case OpDropShow:
-			// final deletion of slideshow
-			s.onDropShow(req.Id, req.Access)
+			// final deletion of slideshow, or reduction in visibility
+			s.onDropShow(tx, req.Id, req.Access)
 
 		case OpDropUser:
 			// final deletion of user
-			s.onDropUser(req.Id, req.Access)
+			s.onDropUser(tx, req.Id, req.Access)
 		}
 
 	case *OpReleaseShow:
 		// final release of show from topic
-		s.onReleaseShow(req.ShowId, req.TopicId)
+		s.onReleaseShow(tx, req.ShowId, req.TopicId)
 
 	case *OpUpdateShow:
 		switch opType {
-		case OpComp:
-			// a competition entry has been added
-			s.onCompEntry(req.ShowId, id, req.Revised)
-
 		case OpShow:
 			// a slideshow has been updated or removed
-			s.onUpdateShow(req.ShowId, req.TopicId, id, req.Revised)
+			s.onUpdateShow(tx, req.ShowId, req.TopicId, req.Revised)
 
 		case OpShowV1:
 			// a slideshow has been updated or removed
-			s.onUpdateShowV1(req.ShowId, req.TopicId, id, req.Revised)
+			s.onUpdateShowV1(tx, req.ShowId, req.TopicId, req.Revised)
 		}
 
 	case *OpUpdateTopic:
 		// change topic thumbnails asynchronously
-		req.tx = id
+		req.tx = tx
 		s.app.chTopic <- *req
+	
+	case *OpValidate:
+		// a competition entry has been added
+		s.onCompEntry(req.ShowId, tx)
 
 	default:
 		s.app.errorLog.Print("Unknown TX operation")
@@ -212,33 +214,28 @@ func (s *GalleryState) onBindShow(showId int64, topicId int64, revised bool, tx 
 }
 
 // onCompEntry processes a competition entry.
-func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) int {
+func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId) {
 
 	app := s.app
-
-	// slideshow for competition
-	s.onUpdateShow(showId, 0, tx, revised)
-
-	// email configured?
-	if s.app.emailer == nil {
-		return 0
-	}
 
 	// entry and user
 	defer s.updatesGallery()()
 
 	show, err := app.SlideshowStore.Get(showId)
 	if err != nil {
-		return s.rollback(statusTeapot, err)
+		s.app.log(err)
+		return
 	} else if show == nil {
-		return s.rollback(statusTeapot, errors.New("Unknown slideshow for validation"))
+		s.app.log(errors.New("Unknown slideshow for validation"))
 	}
 
 	user, err := app.userStore.Get(show.User.Int64)
 	if err != nil {
-		return s.rollback(statusTeapot, err)
+		s.app.log(err)
+		return
 	} else if user == nil {
-		return s.rollback(statusTeapot, errors.New("Unknown user for validation"))
+		s.app.log(errors.New("Unknown user for validation"))
+		return
 	}
 
 	// validation link
@@ -258,17 +255,27 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) int 
 	})
 	if err != nil {
 		// ## Should we do more than rollback the processing if email has failed?
-		return s.rollback(statusTeapot, err)
+		s.app.log(err)
 	}
-	return 0
+
+	// terminate this operation
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+	}
 }
 
 // onDropShow reduces access a slideshow, or deletes it with its images, deferred to support caching.
-func (s *GalleryState) onDropShow(id int64, access int) {
+func (s *GalleryState) onDropShow(tx etx.TxId, id int64, access int) {
 
 	defer s.updatesGallery()()
-	st := s.app.SlideshowStore
 
+	// terminate the extended transaction
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+		return
+	}
+	
+	st := s.app.SlideshowStore
 	show, err := st.Get(id)
 	if err != nil {
 		s.app.log(err)
@@ -276,7 +283,7 @@ func (s *GalleryState) onDropShow(id int64, access int) {
 	}
 
 	// nothing to do if visibility has been increased in the meantime
-	if show.Visible >= access {
+	if show.Visible > access {
 		return
 	}
 
@@ -301,9 +308,15 @@ func (s *GalleryState) onDropShow(id int64, access int) {
 }
 
 // onDropUser reduces visibility of a user's slideshows, or deletes the user, their slideshows and all their images, deferred to support caching.
-func (s *GalleryState) onDropUser(id int64, status int) {
+func (s *GalleryState) onDropUser(tx etx.TxId, id int64, status int) {
 
 	defer s.updatesGallery()()
+
+	// terminate the extended transaction
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+		return
+	}
 
 	var err error
 	if status == users.UserRemoved {
@@ -404,8 +417,15 @@ func (s *GalleryState) onRefresh() int {
 }
 
 // onReleaseShow removes the owning topic from a slideshow
-func (s *GalleryState) onReleaseShow(showId int64, topicId int64) {
+func (s *GalleryState) onReleaseShow(tx etx.TxId, showId int64, topicId int64) {
 	defer s.updatesGallery()()
+
+	// terminate the extended transaction
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+		return
+	}
+
 	st := s.app.SlideshowStore
 
 	show, err := st.Get(showId)
@@ -424,9 +444,7 @@ func (s *GalleryState) onReleaseShow(showId int64, topicId int64) {
 }
 
 // onUpdateShow processes an updated or deleted slideshow.
-func (s *GalleryState) onUpdateShow(showId int64, topicId int64, tx etx.TxId, revised bool) {
-
-	defer s.updatesNone()()
+func (s *GalleryState) onUpdateShow(tx etx.TxId, showId int64, topicId int64, revised bool) {
 
 	// setup
 	claim := s.app.uploader.StartClaim(tx)
@@ -442,6 +460,7 @@ func (s *GalleryState) onUpdateShow(showId int64, topicId int64, tx etx.TxId, re
 	}
 
 	// identify which uploaded files are referenced
+	defer s.updatesNone()()
 	s.claimFiles(showId, claim, true)
 
 	// remove unclaimed files and continue when all uploads have been processed
@@ -456,14 +475,13 @@ func (s *GalleryState) onUpdateShow(showId int64, topicId int64, tx etx.TxId, re
 }
 
 // onUpdateShowV1 processes a V1 operation for an updated or deleted slideshow.
-func (s *GalleryState) onUpdateShowV1(showId int64, topicId int64, tx etx.TxId, revised bool) {
-
-	defer s.updatesGallery()()
+func (s *GalleryState) onUpdateShowV1(tx etx.TxId, showId int64, topicId int64, revised bool) {
 
 	// setup
 	claim := s.app.uploader.StartClaimV1(tx)
 
 	// identify which uploaded files are referenced
+	defer s.updatesGallery()()
 	s.claimFiles(showId, claim, false)
 
 	// update topic, before we remove any thumbnails it might use
@@ -494,6 +512,7 @@ func (s *GalleryState) onUpdateTopic(topicId int64, tx etx.TxId, revised bool) {
 
 	if err := s.app.tm.End(tx); err != nil {
 		s.app.log(err)
+		return
 	}
 
 	topic := s.app.SlideshowStore.GetIf(topicId)
@@ -602,7 +621,7 @@ func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind
 
 }
 
-// updateSlides claims media files for a slideshow. It also sets the slideshow revision time.
+// claimFiles claims media files for a slideshow.
 // process is set false only for V1 operations, in which case the uploaded media will have been processed already.
 func (s *GalleryState) claimFiles(showId int64, claim *uploader.Claim, process bool) {
 
