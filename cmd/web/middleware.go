@@ -102,7 +102,7 @@ func (app *Application) ccCache(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
 
 		// check if client's version is up to date
-		if unmodified(r, app.galleryState.lastModified) {
+		if app.unmodified(r, app.galleryState.lastModified) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
@@ -131,7 +131,7 @@ func (app *Application) ccNoCache(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 
 		// check if client's version is up to date
-		if unmodified(r, app.galleryState.lastModified) {
+		if app.unmodified(r, app.galleryState.lastModified) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
@@ -163,7 +163,7 @@ func (app *Application) ccPrivateCache(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))+", private")
 
 		// check if client's version is up to date
-		if unmodified(r, app.galleryState.lastModified) {
+		if app.unmodified(r, app.galleryState.lastModified) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
@@ -182,7 +182,7 @@ func (app *Application) ccPrivateNoCache(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache, private")
 
 		// check if client's version is up to date
-		if unmodified(r, app.galleryState.lastModified) {
+		if app.unmodified(r, app.galleryState.lastModified) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
@@ -203,7 +203,7 @@ func (app *Application) ccSlideshow(next http.Handler) http.Handler {
 		gs.muCache.RLock()
 		
 		// check if client's version is up to date
-		if unmodified(r, app.galleryState.lastModified) {
+		if app.unmodified(r, app.galleryState.lastModified) {
 
 			// cache control depends on the specific slideshow, and we should have that cached
 			ps := httprouter.ParamsFromContext(r.Context())
@@ -221,8 +221,9 @@ func (app *Application) ccSlideshow(next http.Handler) http.Handler {
 				w.Header().Set("Cache-Control", cc)
 				w.WriteHeader(http.StatusNotModified)
 				return
+			} else {
+				app.usage.Count("unknown", "cache")
 			}
-	
 		}
 
 		// non-cached read
@@ -774,7 +775,7 @@ func (app *Application) threat(event string, r *http.Request) {
 
 // unmodified returns true if the requested resource has not been modified later than the client's version.
 // modtime must be specified without sub-second precision.
-func unmodified(r *http.Request, modtime time.Time) bool {
+func (app *Application) unmodified(r *http.Request, modtime time.Time) bool {
 
 	// Implementation adapted from http.fs.
 
@@ -790,6 +791,7 @@ func unmodified(r *http.Request, modtime time.Time) bool {
 		return false
 	}
 	if ret := modtime.Compare(t); ret <= 0 {
+		app.usage.Count("not-modified", "cache")
 		return true
 	}
 	return false
