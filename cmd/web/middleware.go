@@ -102,7 +102,7 @@ func (app *Application) ccCache(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
 
 		// check if client's version is up to date
-		if app.unmodified(r, app.galleryState.lastModified) {
+		if app.unmodified(r, false) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
@@ -131,7 +131,7 @@ func (app *Application) ccNoCache(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 
 		// check if client's version is up to date
-		if app.unmodified(r, app.galleryState.lastModified) {
+		if app.unmodified(r, false) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
@@ -163,7 +163,7 @@ func (app *Application) ccPrivateCache(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))+", private")
 
 		// check if client's version is up to date
-		if app.unmodified(r, app.galleryState.lastModified) {
+		if app.unmodified(r, false) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
@@ -182,7 +182,7 @@ func (app *Application) ccPrivateNoCache(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache, private")
 
 		// check if client's version is up to date
-		if app.unmodified(r, app.galleryState.lastModified) {
+		if app.unmodified(r, false) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
@@ -198,36 +198,34 @@ func (app *Application) ccSlideshow(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		// serialisation
-		gs := &app.galleryState
-		gs.muCache.RLock()
-		
-		// check if client's version is up to date
-		if app.unmodified(r, app.galleryState.lastModified) {
+		// lock cache and check if client's version is up to date
+		if app.unmodified(r, true) {
+			gs := &app.galleryState
 
 			// cache control depends on the specific slideshow, and we should have that cached
 			ps := httprouter.ParamsFromContext(r.Context())
-			id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
-
-			// 
+			id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 			public, ok := gs.publicSlideshow[id]
+
+			// deserialise
+			gs.muCache.RUnlock()
+
 			if ok {
-				gs.muCache.RUnlock()
-			
-				cc := "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
+
+				cc := "max-age=" + strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
 				if !public {
 					cc += ", private"
 				}
 				w.Header().Set("Cache-Control", cc)
 				w.WriteHeader(http.StatusNotModified)
-				return
+    				return
 			} else {
 				app.usage.Count("unknown", "cache")
 			}
 		}
 
 		// non-cached read
-		gs.muCache.RUnlock()
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -773,9 +771,9 @@ func (app *Application) threat(event string, r *http.Request) {
 	}
 }
 
-// unmodified returns true if the requested resource has not been modified later than the client's version.
-// modtime must be specified without sub-second precision.
-func (app *Application) unmodified(r *http.Request, modtime time.Time) bool {
+// unmodified returns true if the gallery has not been modified later than the client's version.
+// Optionally the cache is locked for the caller to read more.
+func (app *Application) unmodified(r *http.Request, lock bool) bool {
 
 	// Implementation adapted from http.fs.
 
@@ -790,10 +788,20 @@ func (app *Application) unmodified(r *http.Request, modtime time.Time) bool {
 	if err != nil {
 		return false
 	}
-	if ret := modtime.Compare(t); ret <= 0 {
+
+	// serialised
+	gs := &app.galleryState
+	gs.muCache.RLock()
+
+	// lastModified must be specified without sub-second precision, otherwise equality comparison will usually fail.
+	if ret := app.galleryState.lastModified.Compare(t); ret <= 0 {
+		if !lock {
+			gs.muCache.RUnlock() // nothing more from cache
+		}
 		app.usage.Count("not-modified", "cache")
 		return true
 	}
+	gs.muCache.RUnlock()
 	return false
 }
 

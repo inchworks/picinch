@@ -36,7 +36,7 @@ import (
 func (app *Application) getFormTagSlideshow(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	showId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	showId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 	rootId, _ := strconv.ParseInt(ps.ByName("nRoot"), 10, 64)
 	forUserId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 	byUserId := app.authenticatedUser(r)
@@ -163,7 +163,7 @@ func (app *Application) slideshowsTagged(w http.ResponseWriter, r *http.Request)
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
-	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 	rootId, _ := strconv.ParseInt(ps.ByName("nRoot"), 10, 64)
 	tagId, _ := strconv.ParseInt(ps.ByName("nTag"), 10, 64)
 	forUserId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)

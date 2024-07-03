@@ -106,7 +106,7 @@ func (app *Application) entry(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
-	id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// template and data for slides
 	data := app.galleryState.DisplaySlideshow(id, app.role(r),
@@ -128,7 +128,7 @@ func (app *Application) forShow(w http.ResponseWriter, r *http.Request) {
 
 	// ## just one line different to slideshow()
 	ps := httprouter.ParamsFromContext(r.Context())
-	id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// cached and returns to contributor
 	data := app.galleryState.DisplaySlideshow(id, 0,
@@ -152,25 +152,25 @@ func (app *Application) forShow(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "carousel-default.page.tmpl", data)
 }
 
-// forSlides handles a request to view a contribution to a topic, by any user or the public.
+// forTopic handles a request to view a contribution to a topic, by any user or the public.
 func (app *Application) forTopic(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
-	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// cached and returns to home page
 	var tp string
 	data := app.galleryState.DisplayUserTopic(userId, topicId,
-		func(t *models.Slideshow, fmt string, sId int64) string {
+		func(t *models.Slideshow, fmt string) string {
 			if app.allowViewShow(r, t) {
-				app.setCache(w, sId, t.Access)
+				app.setCache(w, topicId, t.Access)
 				if fmt == "H" {
 					tp = "carousel-highlights.page.tmpl"
 				} else {
 					tp = "carousel-default.page.tmpl"
 				}
-	
+
 				return "/contributor/" + strconv.FormatInt(userId, 10)
 			} else {
 				return ""
@@ -193,7 +193,7 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
-	id, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// cached and returns to home page
 	data := app.galleryState.DisplayHighlights(id,
@@ -297,7 +297,7 @@ func (app *Application) logout(w http.ResponseWriter, r *http.Request) {
 func (app *Application) ownShow(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// user
 	userId := app.authenticatedUser(r)
@@ -305,7 +305,7 @@ func (app *Application) ownShow(w http.ResponseWriter, r *http.Request) {
 		httpUnauthorized(w)
 		return
 	}
-	
+
 	// not cached so that changes are visible immediately, and returns to user's list
 	data := app.galleryState.DisplaySlideshow(id, 0,
 		func(s *models.Slideshow, ownerId int64) string {
@@ -334,7 +334,7 @@ func (app *Application) ownShow(w http.ResponseWriter, r *http.Request) {
 func (app *Application) ownTopic(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// user
 	userId := app.authenticatedUser(r)
@@ -346,9 +346,9 @@ func (app *Application) ownTopic(w http.ResponseWriter, r *http.Request) {
 	// template and data for slides
 	var tp string
 	data := app.galleryState.DisplayUserTopic(userId, topicId,
-		func(_ *models.Slideshow, fmt string, _ int64) string {
+		func(_ *models.Slideshow, fmt string) string {
 			if fmt == "H" {
-				tp= "carousel-highlights.page.tmpl"
+				tp = "carousel-highlights.page.tmpl"
 			} else {
 				tp = "carousel-default.page.tmpl"
 			}
@@ -369,7 +369,7 @@ func (app *Application) reviewHighlights(w http.ResponseWriter, r *http.Request)
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
-	id, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// not cached, and returns to curator's list of topics
 	data := app.galleryState.DisplayHighlights(id,
@@ -396,7 +396,7 @@ func (app *Application) reviewHighlights(w http.ResponseWriter, r *http.Request)
 func (app *Application) reviewSlides(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	id, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 	sec, _ := strconv.ParseInt(ps.ByName("nSec"), 10, 64)
 
 	// template and data for slides
@@ -404,7 +404,7 @@ func (app *Application) reviewSlides(w http.ResponseWriter, r *http.Request) {
 	data := app.galleryState.DisplaySlides(id, sec, "rev-",
 		func(_ *models.Slideshow, fmt string) string {
 			if fmt == "H" {
-				tp= "carousel-highlights.page.tmpl"
+				tp = "carousel-highlights.page.tmpl"
 			} else {
 				tp = "carousel-section.page.tmpl"
 			}
@@ -425,7 +425,7 @@ func (app *Application) reviewSlides(w http.ResponseWriter, r *http.Request) {
 func (app *Application) reviewTopic(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	id, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// not cached, and returns to curator's list of topics
 	data := app.galleryState.DisplayTopic(id, "rev-",
@@ -535,14 +535,14 @@ func (app *Application) sharedTopic(w http.ResponseWriter, r *http.Request) {
 func (app *Application) slides(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	id, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
-	sec, _ := strconv.ParseInt(ps.ByName("nSec"), 10, 64)
+	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
+	secId, _ := strconv.ParseInt(ps.ByName("nSec"), 10, 64)
 
 	// cached and returns to home page
-	data := app.galleryState.DisplaySlides(id, sec, "",
-		func(s *models.Slideshow, _ string) string {
-			if app.allowViewShow(r, s) {
-				app.setCache(w, sec, s.Access)
+	data := app.galleryState.DisplaySlides(topicId, secId, "",
+		func(t *models.Slideshow, _ string) string {
+			if app.allowViewShow(r, t) {
+				app.setCache(w, topicId, t.Access)
 				return app.toHome(r)
 			} else {
 				return ""
@@ -565,7 +565,7 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
-	id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// cached and returns to home page
 	data := app.galleryState.DisplaySlideshow(id, 0,
@@ -628,7 +628,7 @@ func (app *Application) topic(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
-	id, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// cached and returns to home page
 	data := app.galleryState.DisplayTopic(id, "",
@@ -658,7 +658,7 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
-	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// template and data for slides
 	data := app.galleryState.DisplayTopicContributors(topicId, func(t *models.Slideshow) string {
@@ -684,23 +684,22 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 // topicUser handles a request to view a contribution to topic, by any user or the public.
 func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 
-	// ## only one line different from slides
 	ps := httprouter.ParamsFromContext(r.Context())
-	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
 	// cached and returns to home page
 	var tp string
 	data := app.galleryState.DisplayUserTopic(userId, topicId,
-		func(t *models.Slideshow, fmt string, sId int64) string {
+		func(t *models.Slideshow, fmt string) string {
 			if app.allowViewShow(r, t) {
-				app.setCache(w, sId, t.Access)
+				app.setCache(w, topicId, t.Access)
 				if fmt == "H" {
-					tp= "carousel-highlights.page.tmpl"
+					tp = "carousel-highlights.page.tmpl"
 				} else {
 					tp = "carousel-default.page.tmpl"
 				}
-					return "/topic-contributors/" + strconv.FormatInt(topicId, 10)
+				return "/topic-contributors/" + strconv.FormatInt(topicId, 10)
 			} else {
 				return ""
 			}
@@ -746,8 +745,8 @@ func (app *Application) userShow(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
-	id, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
-	
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
+
 	// not cached so that changes are visible immediately, and returns to curator's list
 	data := app.galleryState.DisplaySlideshow(id, 0,
 		func(s *models.Slideshow, ownerId int64) string {
@@ -777,14 +776,14 @@ func (app *Application) userTopic(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
-	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// template and data for slides
 	var tp string
 	data := app.galleryState.DisplayUserTopic(userId, topicId,
-		func(_ *models.Slideshow, fmt string, _ int64) string {
+		func(_ *models.Slideshow, fmt string) string {
 			if fmt == "H" {
-				tp= "carousel-highlights.page.tmpl"
+				tp = "carousel-highlights.page.tmpl"
 			} else {
 				tp = "carousel-default.page.tmpl"
 			}

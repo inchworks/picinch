@@ -267,7 +267,6 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 // postFormImage handles an uploaded media file
 func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 
-
 	timestamp := r.FormValue("timestamp")
 
 	vs := r.FormValue("version")
@@ -333,7 +332,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	showId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	showId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// allow access to show?
 	if !app.allowUpdateShow(r, showId) {
@@ -520,7 +519,7 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 
 	// requested topic and user
 	ps := httprouter.ParamsFromContext(r.Context())
-	topicId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
 	st, f, title := app.galleryState.ForEditTopic(topicId, userId, nosurf.Token(r))

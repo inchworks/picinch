@@ -30,18 +30,18 @@ const (
 	slideshowDelete = `DELETE FROM slideshow WHERE id = ?`
 
 	slideshowInsert = `
-		INSERT INTO slideshow (gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image)
-		VALUES (:gallery, :gallery_order, :access, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image)`
+		INSERT INTO slideshow (gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag)
+		VALUES (:gallery, :gallery_order, :access, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image, :etag)`
 
 	slideshowUpdate = `
 		UPDATE slideshow
-		SET gallery_order=:gallery_order, access=:access, visible=:visible, shared=:shared, topic=:topic, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image
+		SET gallery_order=:gallery_order, access=:access, visible=:visible, shared=:shared, topic=:topic, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image, etag=:etag
 		WHERE id = :id
 	`
 
 	slideshowSet = `
-		INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image)
-		VALUES (:id, :gallery, :gallery_order, :access, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image)`
+		INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag)
+		VALUES (:id, :gallery, :gallery_order, :access, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image, :etag)`
 )
 
 const (

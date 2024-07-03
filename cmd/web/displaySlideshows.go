@@ -315,7 +315,7 @@ func (s *GalleryState) DisplaySharedTopic(code int64) (data *DataSlideshow, id i
 // DisplaySlides returns data for section of a topic, displayed as part of the topic.
 func (s *GalleryState) DisplaySlides(
 	id int64, secId int64, origin string,
-	forPath func(s *models.Slideshow, fmt string) string,
+	forPath func(t *models.Slideshow, fmt string) string,
 ) (data *DataSlideshow) {
 
 	defer s.updatesNone()()
@@ -477,7 +477,7 @@ func (s *GalleryState) DisplayTopicContributors(id int64, forPath func(s *models
 // DisplayUserTopic returns slides for a user's contribution to a topic, shown separately.
 func (s *GalleryState) DisplayUserTopic(
 	userId int64, topicId int64,
-	forPath func(t *models.Slideshow, fmt string, sId int64) string,
+	forPath func(t *models.Slideshow, fmt string) string,
 ) *DataSlideshow {
 
 	defer s.updatesNone()()
@@ -494,7 +494,7 @@ func (s *GalleryState) DisplayUserTopic(
 	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlides)
 
 	// parent path (and set appropriate caching)
-	from := forPath(topic, fmt, sec.Id)
+	from := forPath(topic, fmt)
 	if from == "" {
 		return nil // no access
 	}

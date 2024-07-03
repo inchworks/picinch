@@ -106,6 +106,7 @@ type Slideshow struct {
 	Caption      string
 	Format       string
 	Image        string
+	ETag         string        `db:"etag"` // latent support: entity tag for caching
 }
 
 type Tag struct {

@@ -81,6 +81,7 @@ var cmds = [...]string{
 	caption varchar(512) COLLATE utf8_unicode_ci NOT NULL,
 	format varchar(16) COLLATE utf8_unicode_ci NOT NULL,
 	image varchar(256) COLLATE utf8_unicode_ci NOT NULL,
+	etag varchar(64) NOT NULL,
 	PRIMARY KEY (id),
 	KEY IDX_SLIDESHOW_GALLERY (gallery),
 	KEY IDX_USER (user),
@@ -134,7 +135,9 @@ var cmdsRedo = [...]string{
 		PRIMARY KEY (id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
 
-	`ALTER TABLE slideshow ADD COLUMN access smallint(6) NOT NULL;`,
+	`ALTER TABLE slideshow
+		ADD COLUMN access smallint(6) NOT NULL,
+		ADD COLUMN etag varchar(64) NOT NULL;`,
 }
 
 var cmdsTags = [...]string{
