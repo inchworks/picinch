@@ -20,6 +20,7 @@ package main
 // Requests for gallery display pages
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -587,6 +588,26 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 
 	// display page
 	app.render(w, r, "carousel-default.page.tmpl", data)
+}
+
+// slideshow redirects an old slideshow or topic path, typically from a search engine.
+func (app *Application) slideshowOld(w http.ResponseWriter, r *http.Request) {
+
+	ps := httprouter.ParamsFromContext(r.Context())
+	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
+	seq, _ := strconv.ParseInt(ps.ByName("nSeq"), 10, 64)
+
+	var to string
+	if seq == 0 {
+		// redirect to slideshow
+		to = fmt.Sprintf("/show/%d", id)
+
+	} else {
+		// redirect to topic
+		to = fmt.Sprintf("/topic/%d", id)
+
+	}
+	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
 // slideshowsOwn handles a request by a member for their own slideshows.

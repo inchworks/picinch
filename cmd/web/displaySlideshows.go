@@ -338,10 +338,10 @@ func (s *GalleryState) DisplaySlides(
 	}
 
 	// data for slides
-	data = s.dataSection(topic, sec, origin, false, from, fmt, max)
-
-	// parent title overrides user's own
-	data.Title = topic.Title
+	if data = s.dataSection(topic, sec, origin, false, from, fmt, max); data != nil {
+		// parent title overrides user's own
+		data.Title = topic.Title
+	}
 	return
 }
 

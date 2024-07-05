@@ -92,7 +92,7 @@ func (app *Application) Routes() http.Handler {
 	curatorNoStoreHs := curatorHs.Append(app.ccNoStore)
 	ownerNoStoreHs := ownerHs.Append(app.ccNoStore)
 	publicCacheHs := dynHs.Append(app.public, app.ccCache)
-	// publicNoCacheHs := dynHs.Append(app.public, app.ccNoCache)
+	publicNoCacheHs := dynHs.Append(app.public, app.ccNoCache)
 	slideshowHs := dynHs.Append(app.public, app.ccSlideshow) // caching varies with slideshow
 
 	// HttpRouter wrapped to allow middleware handlers
@@ -176,6 +176,9 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/rev-hilites/:nId", authNoCacheHs.ThenFunc(app.reviewHighlights))
 	router.Handler("GET", "/rev-slides/:nId/:nSec", authNoCacheHs.ThenFunc(app.reviewSlides))
 	router.Handler("GET", "/rev-topic/:nId", authNoCacheHs.ThenFunc(app.reviewTopic))
+
+	// redirect
+	router.Handler("GET", "/slideshow/:nId/:nSeq", publicNoCacheHs.ThenFunc(app.slideshowOld))
 
 	// selections
 	router.Handler("GET", "/select-slideshow", authNoStoreHs.ThenFunc(app.getFormSelectSlideshow))
