@@ -607,7 +607,7 @@ func (app *Application) slideshowOld(w http.ResponseWriter, r *http.Request) {
 		to = fmt.Sprintf("/topic/%d", id)
 
 	}
-	http.Redirect(w, r, to, http.StatusSeeOther)
+	http.Redirect(w, r, to, http.StatusMovedPermanently)
 }
 
 // slideshowsOwn handles a request by a member for their own slideshows.
