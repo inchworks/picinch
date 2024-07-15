@@ -32,13 +32,13 @@ import (
 	"github.com/golangcollege/sessions"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/inchworks/usage"
-	"github.com/inchworks/webparts/etx"
-	"github.com/inchworks/webparts/limithandler"
-	"github.com/inchworks/webparts/multiforms"
-	"github.com/inchworks/webparts/server"
-	"github.com/inchworks/webparts/stack"
-	"github.com/inchworks/webparts/uploader"
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/etx"
+	"github.com/inchworks/webparts/v2/limithandler"
+	"github.com/inchworks/webparts/v2/multiforms"
+	"github.com/inchworks/webparts/v2/server"
+	"github.com/inchworks/webparts/v2/stack"
+	"github.com/inchworks/webparts/v2/uploader"
+	"github.com/inchworks/webparts/v2/users"
 	"github.com/jmoiron/sqlx"
 	"github.com/justinas/nosurf"
 	"github.com/microcosm-cc/bluemonday"
@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.0.22"
+	version = "1.1.5"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -112,6 +112,7 @@ type Configuration struct {
 	// image sizes
 	MaxW      int `yaml:"image-width" env-default:"1600"` // maximum stored image dimensions
 	MaxH      int `yaml:"image-height" env-default:"1200"`
+	MaxAV     int `yaml:"max-audio-visual" env-default:"16"` // maximum stored AV file size (megabytes)
 	ThumbW    int `yaml:"thumbnail-width" env-default:"278"` // thumbnail size
 	ThumbH    int `yaml:"thumbnail-height" env-default:"208"`
 	MaxUpload int `yaml:"max-upload" env-default:"64"` // maximum file upload (megabytes)
@@ -131,11 +132,16 @@ type Configuration struct {
 
 	// operational settings
 	AllowedQueries    []string        `yaml:"allowed-queries" env-default:"fbclid"`                            // URL query names allowed
-	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing files
+	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing media files
+	DropDelay         time.Duration   `yaml:"drop-delay" env:"drop-delay" env-default:"8h"`                    // delay before access drops and deletes are finalised. Units h.
 	GeoBlock          []string        `yaml:"geo-block" env:"geo-block" env-default:""`                        // blocked countries (ISO 3166-1 alpha-2 codes)
-	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env:"max-upload-age" env-default:"8h"`            // maximum time for a slideshow update. Units m or h.
+	MaxCacheAge       time.Duration   `yaml:"max-cache-age" env:"max-cache-age" env-default:"1h"`              // browser cache control, maximum age. Units s, m or h.
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
+	MaxUploadAge      time.Duration   `yaml:"max-upload-age" env:"max-upload-age" env-default:"8h"`            // maximum time for a slideshow update. Units m or h.
 	SiteRefresh       time.Duration   `yaml:"thumbnail-refresh"  env-default:"1h"`                             // refresh interval for topic thumbnails. Units m or h.
+	TimeoutDownload   time.Duration   `yaml:"timeout-download" env-default:"2m"`                               // maximum time for file download. Units m.
+	TimeoutUpload     time.Duration   `yaml:"timeout-upload" env-default:"5m"`                                 // maximum time for file upload. Units m.
+	TimeoutWeb        time.Duration   `yaml:"timeout-web" env-default:"20s"`                                   // maximum time for web request, same for response (default). Units s or m.
 	UsageAnonymised   usage.Anonymise `yaml:"usage-anon" env-default:"1"`
 
 	// variants
@@ -155,12 +161,23 @@ type Configuration struct {
 	ReplyTo       string `yaml:"reply-to" env:"reply-to" env-default:""`
 }
 
-// Operation to update slideshow images.
+// Operation to finalise deletion or reduction in access of a slideshow or user.
+type OpDrop struct {
+	Id      int64
+	Access  int
+}
+
+// Operation to release slideshow from topic.
+type OpReleaseShow struct {
+	ShowId  int64
+	TopicId int64
+}
+
+// Operation to claim slideshow images.
 type OpUpdateShow struct {
 	ShowId  int64
 	TopicId int64
 	Revised bool
-	tx      etx.TxId
 }
 
 // Operation to update topic images.
@@ -169,6 +186,12 @@ type OpUpdateTopic struct {
 	Revised bool
 	tx      etx.TxId
 }
+
+// Operation to validate slideshow submission.
+type OpValidate struct {
+	ShowId  int64
+}
+
 
 // Application struct supplies application-wide dependencies.
 type Application struct {
@@ -188,6 +211,7 @@ type Application struct {
 	SlideStore     *mysql.SlideStore
 	GalleryStore   *mysql.GalleryStore
 	redoStore      *mysql.RedoStore
+	redoV1Store    *mysql.RedoV1Store
 	SlideshowStore *mysql.SlideshowStore
 	statisticStore *mysql.StatisticStore
 	userStore      *mysql.UserStore
@@ -200,6 +224,9 @@ type Application struct {
 	usage      *usage.Recorder
 	users      users.Users
 
+	// worker
+	chTopic chan OpUpdateTopic
+
 	// HTML sanitizer for titles and captions
 	sanitizer *bluemonday.Policy
 
@@ -210,12 +237,6 @@ type Application struct {
 
 	// HTML handlers for threats detected by application logic
 	wrongCode http.Handler
-
-	// Channels to background worker
-	chComp  chan OpUpdateShow
-	chShow  chan OpUpdateShow
-	chShows chan []OpUpdateShow
-	chTopic chan OpUpdateTopic
 
 	// Since we support just one gallery at a time, we can cache state here.
 	// With multiple galleries, we'd need a per-gallery cache.
@@ -286,10 +307,17 @@ func main() {
 	defer close(chDone)
 
 	// start background worker
-	go app.galleryState.worker(app.chComp, app.chShow, app.chShows, app.chTopic, tr.C, tp.C, chDone)
+	app.chTopic = make(chan OpUpdateTopic, 4)
+	go app.galleryState.worker(app.chTopic, tr.C, tp.C, chDone)
 
 	// redo any pending operations
 	infoLog.Print("Starting operation recovery")
+	if app.redoV1Store != nil {
+		if err := app.tm.RecoverV1(app.redoV1Store, &app.galleryState, app.uploader); err != nil {
+			errorLog.Fatal(err)
+		}
+		app.uploader.V1() // uploader should request timeouts
+	}
 	if err := app.tm.Recover(&app.galleryState, app.uploader); err != nil {
 		errorLog.Fatal(err)
 	}
@@ -306,6 +334,8 @@ func main() {
 		// port addresses
 		AddrHTTP:  cfg.AddrHTTP,
 		AddrHTTPS: cfg.AddrHTTPS,
+
+		Timeout: cfg.TimeoutWeb,
 	}
 
 	srv.Serve(app)
@@ -324,7 +354,7 @@ func (app *Application) Flash(r *http.Request, msg string) {
 }
 
 // GetRedirect returns the next page after log-in, probably from a session key.
-func (app *Application) GetRedirect(r *http.Request) string { return "/" }
+func (app *Application) GetRedirect(r *http.Request) string { return "/members" }
 
 // Log optionally records an error.
 func (app *Application) Log(err error) {
@@ -337,14 +367,20 @@ func (app *Application) LogThreat(msg string, r *http.Request) {
 }
 
 // OnAddUser is called to add any additional application data for a user.
-func (app *Application) OnAddUser(user *users.User) {
+func (app *Application) OnAddUser(tx etx.TxId, user *users.User) {
 	// not needed for this application
 }
 
 // OnRemoveUser is called to delete any application data for a user.
 func (app *Application) OnRemoveUser(tx etx.TxId, user *users.User) {
 
-	app.galleryState.OnRemoveUser(tx, user)
+	app.galleryState.onRemoveUser(tx, user)
+}
+
+// OnUpdateUser is called to change any application data for a modified user.
+func (app *Application) OnUpdateUser(tx etx.TxId, from *users.User, to *users.User) {
+
+	app.galleryState.onUpdateUser(tx, from, to)
 }
 
 // Render writes an HTTP response using the specified template and field (embedded as Users).
@@ -367,6 +403,14 @@ func (app *Application) Serialise(updates bool) func() {
 // Token returns a token to be added to the form as the hidden field csrf_token.
 func (app *Application) Token(r *http.Request) string {
 	return nosurf.Token(r)
+}
+
+type UserNoDelete struct {
+	*mysql.UserStore
+}
+
+func (st *UserNoDelete) DeleteId(id int64) error {
+	return nil // deletion of users is deferred
 }
 
 // Initialisation, common to live and test
@@ -395,6 +439,11 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	// session manager
 	session := sessions.New([]byte(cfg.Secret))
 	session.Lifetime = 12 * time.Hour
+
+	// access to items removed should be for longer than the cache time
+	if cfg.DropDelay < cfg.MaxCacheAge {
+		cfg.DropDelay = cfg.MaxCacheAge * 2
+	}
 
 	// dependency injection
 	app := &Application{
@@ -425,7 +474,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// combine embedded static files with site customisation
-	// ## perhaps site resources should be under "static"?
 	app.staticFS, err = stack.NewFS(staticForms, staticUploader, staticApp, os.DirFS(SitePath))
 	if err != nil {
 		errorLog.Fatal(err)
@@ -456,7 +504,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		app.emailer = emailer.NewDialer(app.cfg.EmailHost, app.cfg.EmailPort, app.cfg.EmailUser, app.cfg.EmailPassword, app.cfg.Sender, app.cfg.ReplyTo, localHost, app.templateCache)
 	}
 
-	// set up extended transaction manager, and recover
+	// setup extended transaction manager
 	app.tm = etx.New(app, app.redoStore)
 
 	// setup media upload processing
@@ -464,8 +512,10 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		FilePath:     ImagePath,
 		MaxW:         app.cfg.MaxW,
 		MaxH:         app.cfg.MaxH,
+		MaxSize:      app.cfg.MaxAV * 1024 * 1024,
 		ThumbW:       app.cfg.ThumbW,
 		ThumbH:       app.cfg.ThumbH,
+		DeleteAfter:  app.cfg.DropDelay,
 		MaxAge:       app.cfg.MaxUploadAge,
 		SnapshotAt:   app.cfg.VideoSnapshot,
 		VideoPackage: app.cfg.VideoPackage,
@@ -497,23 +547,17 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.users = users.Users{
 		App:   app,
 		Roles: []string{"unknown", "friend", "member", "curator", "admin"},
-		Store: app.userStore,
+		Store: &UserNoDelete{UserStore: app.userStore}, // ignores DeleteId
 		TM:    app.tm,
 	}
 
 	// geo-blocking
 	app.geoblocker = &server.GeoBlocker{
-		ErrorLog: errorLog,
+		ErrorLog:     errorLog,
 		ReportSingle: true,
-		Store: GeoDBPath,
+		Store:        GeoDBPath,
 	}
 	app.geoblocker.Start(cfg.GeoBlock)
-
-	// create worker channels
-	app.chComp = make(chan OpUpdateShow, 10)
-	app.chShow = make(chan OpUpdateShow, 10)
-	app.chShows = make(chan []OpUpdateShow, 1)
-	app.chTopic = make(chan OpUpdateTopic, 10)
 
 	return app
 }
@@ -534,6 +578,9 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.tagger.TagStore = mysql.NewTagStore(app.db, &app.tx, app.errorLog)
 	app.tagger.TagRefStore = mysql.NewTagRefStore(app.db, &app.tx, app.errorLog)
 	app.userStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
+
+	// this is to handle V1 transactions from before upgrade, to be deleted if not needed
+	app.redoV1Store = mysql.NewRedoV1Store(app.db, &app.tx, app.errorLog)
 
 	// database change to users table, to use webparts
 	// The first part must be done before we add a missing admin,
@@ -557,19 +604,17 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.SlideshowStore.HighlightsId = 1
 
 	// database changes from previous version(s)
-	topicStore := mysql.NewTopicStore(app.db, &app.tx, app.errorLog)
-	topicStore.GalleryId = g.Id
-	if err = mysql.MigrateTopics(topicStore, app.SlideshowStore, app.SlideStore); err != nil {
-		app.errorLog.Fatal(err)
-	}
 	if err = mysql.MigrateWebparts2(app.userStore, app.tx); err != nil {
 		app.errorLog.Fatal(err)
 	}
 	if err = mysql.MigrateTags(app.tagger.TagStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
-	if err = mysql.MigrateRedo(app.redoStore); err != nil {
+	if err = mysql.MigrateRedo2(app.redoStore, app.SlideshowStore); err != nil {
 		app.errorLog.Fatal(err)
+	}
+	if !mysql.MigrateRedoV1(app.redoV1Store) {
+		app.redoV1Store = nil
 	}
 
 	return g

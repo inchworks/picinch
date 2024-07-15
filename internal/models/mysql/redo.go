@@ -24,27 +24,27 @@ import (
 
 	"inchworks.com/picinch/internal/models"
 
-	"github.com/inchworks/webparts/etx"
+	"github.com/inchworks/webparts/v2/etx"
 	"github.com/jmoiron/sqlx"
 )
 
 const (
-	redoDelete = `DELETE FROM redo WHERE id = ?`
+	redoDelete = `DELETE FROM redoV2 WHERE id = ?`
 
 	redoInsert = `
-		INSERT INTO redo (id, manager, optype, operation) VALUES (:id, :manager, :optype, :operation)`
+		INSERT INTO redoV2 (id, tx, manager, redotype, delay, optype, operation) VALUES (:id, :tx, :manager, :redotype, :delay, :optype, :operation)`
 
 	redoUpdate = `
-		UPDATE redo
-		SET manager=:manager, optype=:optype, operation=:operation
+		UPDATE redoV2
+		SET manager=:manager, redotype=:redotype, delay=:delay, optype=:optype, operation=:operation
 		WHERE id=:id
 	`
 )
 
 const (
-	redoCount = `SELECT COUNT(*) FROM redo`
+	redoCount = `SELECT COUNT(*) FROM redoV2`
 
-	redoSelect  = `SELECT * FROM redo`
+	redoSelect  = `SELECT * FROM redoV2`
 	redoOrderId = ` ORDER BY id`
 
 	redoWhereId = redoSelect + ` WHERE id = ?`

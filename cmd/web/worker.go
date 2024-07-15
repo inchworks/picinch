@@ -27,8 +27,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/inchworks/webparts/etx"
-	"github.com/inchworks/webparts/uploader"
+	"github.com/inchworks/webparts/v2/etx"
+	"github.com/inchworks/webparts/v2/uploader"
+	"github.com/inchworks/webparts/v2/users"
 
 	"inchworks.com/picinch/internal/models"
 )
@@ -42,15 +43,21 @@ type validationData struct {
 
 // Implement RM interface for webparts.etx.
 
-// Operation types
+// Operation types (keep unchanged)
 const (
-	OpComp = iota
-	OpShow
-	OpTopic
+	OpComp    = 0
+	OpShowV1  = 1
+	OpTopic   = 2
+	OpShow    = 3
+	OpDropShow = 4
+	OpDropUser = 5
+	OpRelease = 6
 )
 
 // We need an arbitary status code for rollback(). This one is ideal!
 const statusTeapot = 418
+
+// Name, ForOperation and Operation implement the RM interface for webparts.etx.
 
 func (s *GalleryState) Name() string {
 	return "gallery"
@@ -58,10 +65,16 @@ func (s *GalleryState) Name() string {
 
 func (s *GalleryState) ForOperation(opType int) etx.Op {
 	switch opType {
-	case OpComp, OpShow:
+	case OpComp:
+		return &OpValidate{}
+	case OpShow, OpShowV1:
 		return &OpUpdateShow{}
+	case OpRelease:
+		return &OpReleaseShow{}
 	case OpTopic:
 		return &OpUpdateTopic{}
+	case OpDropShow, OpDropUser:
+		return &OpDrop{}
 	default:
 		var unknown struct{}
 		return &unknown
@@ -69,32 +82,52 @@ func (s *GalleryState) ForOperation(opType int) etx.Op {
 }
 
 // Do operation requested via TM.
-func (s *GalleryState) Operation(id etx.TxId, opType int, op etx.Op) {
+func (s *GalleryState) Operation(tx etx.TxId, opType int, op etx.Op) {
 
-	// send the request to the worker
 	switch req := op.(type) {
+
+	case *OpDrop:
+		switch opType {
+		case OpDropShow:
+			// final deletion of slideshow, or reduction in visibility
+			s.onDropShow(tx, req.Id, req.Access)
+
+		case OpDropUser:
+			// final deletion of user
+			s.onDropUser(tx, req.Id, req.Access)
+		}
+
+	case *OpReleaseShow:
+		// final release of show from topic
+		s.onReleaseShow(tx, req.ShowId, req.TopicId)
+
 	case *OpUpdateShow:
-		req.tx = id
-		if opType == OpComp {
-			s.app.chComp <- *req
-		} else {
-			s.app.chShow <- *req
+		switch opType {
+		case OpShow:
+			// a slideshow has been updated or removed
+			s.onUpdateShow(tx, req.ShowId, req.TopicId, req.Revised)
+
+		case OpShowV1:
+			// a slideshow has been updated or removed
+			s.onUpdateShowV1(tx, req.ShowId, req.TopicId, req.Revised)
 		}
 
 	case *OpUpdateTopic:
-		req.tx = id
+		// change topic thumbnails asynchronously
+		req.tx = tx
 		s.app.chTopic <- *req
+	
+	case *OpValidate:
+		// a competition entry has been added
+		s.onCompEntry(req.ShowId, tx)
 
 	default:
 		s.app.errorLog.Print("Unknown TX operation")
 	}
 }
 
-// worker does all background processing for PicInch.
+// worker does timer processing for PicInch.
 func (s *GalleryState) worker(
-	chComp <-chan OpUpdateShow,
-	chShow <-chan OpUpdateShow,
-	chShows <-chan []OpUpdateShow,
 	chTopic <-chan OpUpdateTopic,
 	chRefresh <-chan time.Time,
 	chPurge <-chan time.Time,
@@ -108,28 +141,11 @@ func (s *GalleryState) worker(
 		runtime.Gosched()
 
 		select {
-		case req := <-chComp:
 
-			// a competition entry has been added
-			s.onCompEntry(req.ShowId, req.tx, req.Revised)
-
-		case req := <-chShow:
-
-			// a slideshow has been updated or removed
-			s.onUpdateShow(req.ShowId, req.TopicId, req.tx, req.Revised)
-
-		case reqs := <-chShows:
-
-			// a set of slideshows have been updated (e.g. user removed)
-			for _, req := range reqs {
-				s.onUpdateShow(req.ShowId, req.TopicId, req.tx, req.Revised)
-				runtime.Gosched()
-			}
-
-		case req := <-chTopic:
-
+		case op := <-chTopic:
 			// a topic slideshow has been updated or removed
-			s.onUpdateTopic(req.TopicId, req.tx, req.Revised)
+			s.onUpdateTopic(op.TopicId, op.tx, op.Revised)
+			s.app.tm.Do(op.tx)
 
 		case <-chRefresh:
 
@@ -140,7 +156,7 @@ func (s *GalleryState) worker(
 
 			// purge unvalidated competition entries
 			tx := s.onPurge(t)
-			s.app.tm.DoNext(tx)
+			s.app.tm.Do(tx)
 
 		case <-done:
 			// ## do something to finish other pending requests
@@ -149,36 +165,77 @@ func (s *GalleryState) worker(
 	}
 }
 
+// onAbandon terminates an update that does not need more processing.
+func (s *GalleryState) onAbandon(tx etx.TxId) {
+
+	defer s.updatesGallery()()
+
+	// terminate this operation
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+	}
+}
+
+// onBindShow sets uploaded media for a new and updated slideshow.
+func (s *GalleryState) onBindShow(showId int64, topicId int64, revised bool, tx etx.TxId) {
+
+	defer s.updatesGallery()()
+
+	// setup
+	bind := s.app.uploader.StartBind(tx)
+
+	// set versioned images, and update slideshow
+	s.bindFiles(showId, revised, bind)
+
+	// update highlighted images
+	if err := s.updateHighlights(showId); err != nil {
+		s.app.log(err)
+	}
+
+	// all bound
+	if err := bind.End(); err != nil {
+		s.app.log(err)
+	}
+
+	// update topic, to drop any old thumbnails and choose new ones
+	if topicId != 0 {
+		topic := s.app.SlideshowStore.GetIf(topicId)
+		if topic != nil {
+			if err := s.updateTopic(topic, revised); err != nil {
+				s.app.log(err)
+			}
+		}
+	}
+
+	// terminate this operation
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+	}
+}
+
 // onCompEntry processes a competition entry.
-func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) int {
+func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId) {
 
 	app := s.app
-
-	// slideshow for competition
-	if st := s.onUpdateShow(showId, 0, tx, revised); st != 0 {
-		return st
-	}
-
-	// email configured?
-	if s.app.emailer == nil {
-		return 0
-	}
 
 	// entry and user
 	defer s.updatesGallery()()
 
 	show, err := app.SlideshowStore.Get(showId)
 	if err != nil {
-		return s.rollback(statusTeapot, err)
+		s.app.log(err)
+		return
 	} else if show == nil {
-		return s.rollback(statusTeapot, errors.New("Unknown slideshow for validation"))
+		s.app.log(errors.New("Unknown slideshow for validation"))
 	}
 
 	user, err := app.userStore.Get(show.User.Int64)
 	if err != nil {
-		return s.rollback(statusTeapot, err)
+		s.app.log(err)
+		return
 	} else if user == nil {
-		return s.rollback(statusTeapot, errors.New("Unknown user for validation"))
+		s.app.log(errors.New("Unknown user for validation"))
+		return
 	}
 
 	// validation link
@@ -197,13 +254,89 @@ func (s *GalleryState) onCompEntry(showId int64, tx etx.TxId, revised bool) int 
 		Link:  link,
 	})
 	if err != nil {
-		// #### Should we do more than rollback the processing if email has failed?
-		return s.rollback(statusTeapot, err)
+		// ## Should we do more than rollback the processing if email has failed?
+		s.app.log(err)
 	}
-	return 0
+
+	// terminate this operation
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+	}
 }
 
-// onPurge removes old unvalidate competition entries.
+// onDropShow reduces access a slideshow, or deletes it with its images, deferred to support caching.
+func (s *GalleryState) onDropShow(tx etx.TxId, id int64, access int) {
+
+	defer s.updatesGallery()()
+
+	// terminate the extended transaction
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+		return
+	}
+	
+	st := s.app.SlideshowStore
+	show, err := st.Get(id)
+	if err != nil {
+		s.app.log(err)
+		return
+	}
+
+	// nothing to do if visibility has been increased in the meantime
+	if show.Visible > access {
+		return
+	}
+
+	if access == models.SlideshowRemoved {
+		if show.User.Valid {
+			// delete images
+			s.app.deleteImages(id)
+		} else {
+				// release topic slideshows
+				s.app.deleteTopic(show)
+			}
+		err = st.DeleteId(id) // delete slideshow or topic
+	} else {
+		// reduce access
+		show.Access = access
+		err = st.Update(show)
+	}
+
+	if err != nil {
+		s.app.log(err)
+	}
+}
+
+// onDropUser reduces visibility of a user's slideshows, or deletes the user, their slideshows and all their images, deferred to support caching.
+func (s *GalleryState) onDropUser(tx etx.TxId, id int64, status int) {
+
+	defer s.updatesGallery()()
+
+	// terminate the extended transaction
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+		return
+	}
+
+	var err error
+	if status == users.UserRemoved {
+		// delete all slideshow images
+		shows := s.app.SlideshowStore.ForUser(id, models.SlideshowRemoved)
+		for _, show := range shows {
+			s.app.deleteImages(show.Id)
+		}
+
+		// slideshows and slides will be removed by cascade delete in caller
+		err = s.app.userStore.DeleteId(id)
+	}
+	// ## cannot implement deferred reduction in status because we don't have a separate visibility field
+
+	if err != nil {
+		s.app.log(err)
+	}
+}
+
+// onPurge removes old unvalidated competition entries.
 // It returns the ID of a following transaction to remove media files.
 func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 
@@ -229,17 +362,14 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 			entries[uId] = entries[uId] - 1
 		}
 
+		// delete all media files
+		s.app.deleteImages(show.Id)
+
 		// remove competition slideshow
 		// (slides removed by on delete cascade)
 		if err := s.app.SlideshowStore.DeleteId(show.Id); err != nil {
 			s.app.log(err)
 		}
-
-		// remove media files after slideshow has been deleted
-		s.txBeginShow(tx, &OpUpdateShow{
-			ShowId:  show.Id,
-			TopicId: show.Topic,
-			Revised: false})
 
 		nDelShows++
 	}
@@ -286,72 +416,117 @@ func (s *GalleryState) onRefresh() int {
 	return 0
 }
 
+// onReleaseShow removes the owning topic from a slideshow
+func (s *GalleryState) onReleaseShow(tx etx.TxId, showId int64, topicId int64) {
+	defer s.updatesGallery()()
+
+	// terminate the extended transaction
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+		return
+	}
+
+	st := s.app.SlideshowStore
+
+	show, err := st.Get(showId)
+	if err != nil {
+		s.app.log(err)
+		return
+	}
+
+	// check that show hasn't already been assigned to another topic
+	if show.Topic == topicId {
+		show.Topic = 0
+		if err = st.Update(show); err != nil {
+			s.app.log(err)
+		}
+	}
+}
+
 // onUpdateShow processes an updated or deleted slideshow.
-func (s *GalleryState) onUpdateShow(showId int64, topicId int64, tx etx.TxId, revised bool) int {
+func (s *GalleryState) onUpdateShow(tx etx.TxId, showId int64, topicId int64, revised bool) {
 
 	// setup
-	bind := s.app.uploader.StartBind(showId, tx)
+	claim := s.app.uploader.StartClaim(tx)
 
-	// set versioned images, and update slideshow
-	if st := s.updateSlides(showId, revised, bind); st != 0 {
-		return st
+	// showId will be 0 if the user submitted slides with no images for a topic
+	if showId == 0 {
+		// delete any uploaded files that were never added to a slide
+		claim.End(func(err error) {
+			s.onAbandon(tx)
+			s.app.tm.Do(tx) // next operation of transaction
+		})
+		return
 	}
+
+	// identify which uploaded files are referenced
+	defer s.updatesNone()()
+	s.claimFiles(showId, claim, true)
+
+	// remove unclaimed files and continue when all uploads have been processed
+	claim.End(func(err error) {
+		if err == nil {
+			s.onBindShow(showId, topicId, revised, tx)
+		} else {
+			s.app.log(err)
+		}
+		s.app.tm.Do(tx) // next operation of transaction
+	})
+}
+
+// onUpdateShowV1 processes a V1 operation for an updated or deleted slideshow.
+func (s *GalleryState) onUpdateShowV1(tx etx.TxId, showId int64, topicId int64, revised bool) {
+
+	// setup
+	claim := s.app.uploader.StartClaimV1(tx)
+
+	// identify which uploaded files are referenced
+	defer s.updatesGallery()()
+	s.claimFiles(showId, claim, false)
 
 	// update topic, before we remove any thumbnails it might use
 	if topicId != 0 {
-		if st := s.onUpdateTopic(topicId, 0, revised); st != 0 {
-			return st
+		topic := s.app.SlideshowStore.GetIf(topicId)
+		if topic != nil {
+			s.updateTopic(topic, revised)
 		}
 	}
 
 	// update highlighted images
 	if err := s.updateHighlights(showId); err != nil {
 		s.app.log(err)
-		return statusTeapot
 	}
 
 	// remove unused versions
-	if err := bind.End(); err != nil {
-		s.app.log(err)
-		return statusTeapot
-	}
+	claim.EndV1()
 
 	// terminate the extended transaction
-	defer s.updatesGallery()()
 	if err := s.app.tm.End(tx); err != nil {
-		return s.rollback(statusTeapot, err)
-	} else {
-		return 0
+		s.app.log(err)
 	}
 }
 
 // onUpdateTopic processes a topic with an updated or deleted slideshow.
-// A TxId is specified if the extended transaction should be ended as part of the database transaction.
-func (s *GalleryState) onUpdateTopic(topicId int64, tx etx.TxId, revised bool) int {
+func (s *GalleryState) onUpdateTopic(topicId int64, tx etx.TxId, revised bool) {
 	defer s.updatesGallery()()
 
-	if tx != 0 {
-		// this is the end of the aynchronous operation
-		if err := s.app.tm.End(tx); err != nil {
-			return s.rollback(statusTeapot, err)
-		}
+	if err := s.app.tm.End(tx); err != nil {
+		s.app.log(err)
+		return
 	}
 
 	topic := s.app.SlideshowStore.GetIf(topicId)
 	if topic == nil {
-		return 0
+		return
 	}
 
 	if err := s.updateTopic(topic, revised); err != nil {
-		return s.rollback(statusTeapot, err)
+		s.app.log(err)
 	}
-	return 0
 }
 
 // updateHighlights changes the cached images when a highlight slideshow is changed.
 func (s *GalleryState) updateHighlights(id int64) error {
-
-	defer s.updatesNone()()
 
 	show := s.app.SlideshowStore.GetIf(id)
 	if show == nil {
@@ -366,24 +541,32 @@ func (s *GalleryState) updateHighlights(id int64) error {
 	return nil
 }
 
-// updateSlides changes media versions for a slideshow. It also sets the slideshow revision time.
-func (s *GalleryState) updateSlides(showId int64, revised bool, bind *uploader.Bind) int {
-
-	// serialise display state while slides are changing
-	defer s.updatesGallery()()
+// bindFiles updates slides to show uploaded media after processing. It also sets the slideshow revision time.
+func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind) {
 
 	// check if this is an update or deletion
 	show := s.app.SlideshowStore.GetIf(showId)
 	if show == nil {
-		// No slides to be updated. A following call to imager.RemoveVersions will delete all images.
-		return 0
+		// No slides to be updated, because another update deleted the slideshow while we were processing.
+		// A following call to Bind.End will delete all uploads for this transaction.
+		return
 	}
 
 	thumbnail := ""
 	nImages := 0
 
-	// check each slide for an updated media file
-	slides := s.app.SlideStore.ForSlideshow(showId, 1000)
+	// is this a contribution to highlights?
+	var recent bool
+	if show.Topic != 0 {
+		t, _ := s.app.SlideshowStore.Get(show.Topic)
+		if t != nil {
+			fmt, _ := t.ParseFormat(s.app.cfg.MaxSlides)
+			recent = fmt == "H"
+		}
+	}
+
+	// check each slide for an updated media file, with effectively no max
+	slides := s.app.SlideStore.ForSlideshowOrdered(showId, recent, 10000)
 	for _, slide := range slides {
 
 		if slide.Image != "" {
@@ -397,7 +580,7 @@ func (s *GalleryState) updateSlides(showId int64, revised bool, bind *uploader.B
 				slide.Image = ""
 				slide.Format = slide.Format &^ models.SlideImage
 				s.app.SlideStore.Update(slide)
-				s.app.errorLog.Print(err.Error())
+				s.app.log(err)
 
 			} else if newImage != "" {
 				// updated media
@@ -413,36 +596,79 @@ func (s *GalleryState) updateSlides(showId int64, revised bool, bind *uploader.B
 		}
 	}
 
-	// remove empty show for topic
-	// ## beware race with user re-opening show to add back an image
-	if nImages == 0 && show.Visible == models.SlideshowTopic {
-		s.app.SlideshowStore.DeleteId(showId)
-
-	} else {
-
-		// update slideshow thumbnail, if changed
-		if thumbnail != show.Image {
-			show.Image = thumbnail
-		}
-
-		// ## temporary fix for missing creation time
-		if show.Topic == 1 && show.Created == (time.Time{}) {
-			show.Created = time.Now()
-			show.Revised = time.Now()
-		}
-
-		// update slideshow revision date
-		if revised {
-			show.Revised = time.Now()
-			if show.Topic == s.app.SlideshowStore.HighlightsId {
-				// highlights show moved up display order when images added
-				show.Created = show.Revised
-			}
-		}
-		s.app.SlideshowStore.Update(show)
+	// update slideshow thumbnail, if changed
+	if thumbnail != show.Image {
+		show.Image = thumbnail
 	}
 
-	return 0
+	// ## temporary fix for missing creation time
+	if show.Topic == 1 && show.Created == (time.Time{}) {
+		show.Created = time.Now()
+		show.Revised = time.Now()
+	}
+
+	// update slideshow revision date
+	if revised {
+		show.Revised = time.Now()
+		if show.Topic == s.app.SlideshowStore.HighlightsId {
+			// highlights show moved up display order when images added
+			show.Created = show.Revised
+		}
+	}
+	if err := s.app.SlideshowStore.Update(show); err != nil {
+		s.app.log(err)
+	}
+
+}
+
+// claimFiles claims media files for a slideshow.
+// process is set false only for V1 operations, in which case the uploaded media will have been processed already.
+func (s *GalleryState) claimFiles(showId int64, claim *uploader.Claim, process bool) {
+
+	show := s.app.SlideshowStore.GetIf(showId)
+	if show == nil {
+		// No slides to be updated. A following call to Bind.End will delete any uploaded images.
+		return
+	}
+
+	// check each slide for an updated media file
+	slides := s.app.SlideStore.ForSlideshow(showId)
+	for _, slide := range slides {
+
+		if slide.Image != "" {
+			if process {
+				claim.File(slide.Image)
+			} else {
+				claim.FileV1(slide.Image)
+			}
+		}
+	}
+}
+
+// deleteImages performs immediate deletion of all images for a slideshow.
+func (app *Application) deleteImages(showId int64) {
+	for _, slide := range app.SlideStore.ForSlideshow(showId) {
+		if slide.Image != "" {
+			if err := app.uploader.DeleteNow(slide.Image); err != nil {
+				app.log(err)
+			}
+		}
+	}
+}
+
+// deleteTopic releases the contributing slideshows from the topic.
+func (app *Application) deleteTopic(t *models.Slideshow) {
+
+	// give the users back their own slideshows
+	store := app.SlideshowStore
+	slideshows := store.ForTopic(t.Id)
+	for _, s := range slideshows {
+		s.Topic = 0
+		s.Title = t.Title // with current topic title
+		s.Access = models.SlideshowPrivate
+		s.Visible = models.SlideshowPrivate
+		store.Update(s)
+	}
 }
 
 // updateTopic changes the topic thumbnail, and if required updates the revision date
@@ -454,12 +680,15 @@ func (s *GalleryState) updateTopic(t *models.Slideshow, revised bool) error {
 	if t.Visible >= models.SlideshowClub && t.Format != "F" {
 		images := s.app.SlideStore.ImagesForTopic(t.Id)
 		nImages := len(images)
+		img := ""
 
-		// (beware empty topic)
 		if nImages > 0 {
 			// select random image for topic thumbnail
 			i := int(rand.Float32() * float32(nImages))
-			t.Image = images[i]
+			img = images[i]
+		}
+		if t.Image != img {
+			t.Image = img
 			update = true
 		}
 	}

@@ -22,12 +22,12 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/inchworks/webparts/multiforms"
+	"github.com/inchworks/webparts/v2/multiforms"
 	"inchworks.com/picinch/internal/models"
 )
 
 // displayTagged returns data for slideshows with user-specific tags.
-func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, forUserId int64, byUserId int64, role int, nMax int) (status int, dt *DataTagged) {
+func (s *GalleryState) displayTagged(_ int64, rootId int64, tagId int64, forUserId int64, byUserId int64, role int, nMax int) (status int, dt *DataTagged) {
 
 	defer s.updatesNone()()
 
@@ -50,7 +50,7 @@ func (s *GalleryState) displayTagged(topicId int64, rootId int64, tagId int64, f
 		slideshows = s.app.SlideshowStore.ForTagUser(tagId, forUserId, nMax)
 	}
 
-	// ## no support for topic-specific
+	// ## no support for topic-specific, using 1st param = topicId
 
 	var dShows []*DataPublished
 

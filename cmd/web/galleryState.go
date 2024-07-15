@@ -20,9 +20,11 @@ package main
 // Processing related to gallery state
 
 import (
+	"net/http"
 	"path"
 	"strconv"
 	"sync"
+	"time"
 
 	"inchworks.com/picinch/internal/models"
 )
@@ -35,8 +37,14 @@ type GalleryState struct {
 	rollbackTx bool
 
 	// cached state
-	gallery    *models.Gallery
-	highlights []string // highlighted images
+	gallery       *models.Gallery
+	highlights    []string  // highlighted images
+
+	// for browser caching
+	muCache       sync.RWMutex
+	lastModified  time.Time         // (truncated to one second precision for HTTP Last-Modified header)
+	lastModifiedS string            // formatted for HTTP headers
+	publicSlideshow map[int64]bool  // true for public cache, false for private
 }
 
 // Initialisation
@@ -102,12 +110,31 @@ func (s *GalleryState) save() {
 	s.app.tx = s.app.db.MustBegin()
 }
 
+// setLastModified saves the last gallery update time for browser caching.
+func (s *GalleryState) setLastModified() {
+
+	// serialised
+	s.muCache.Lock()
+
+	// truncated to remove sub-second resolution so that it matches HTTP If-Modified-Since
+	s.lastModified = time.Now().Truncate(time.Second)
+	s.lastModifiedS = s.lastModified.UTC().Format(http.TimeFormat)
+
+	// reset slideshow information
+	s.publicSlideshow = make(map[int64]bool, 20)
+
+	s.muCache.Unlock()
+}
+
 // Setup cached context
 
 func (s *GalleryState) setupCache(g *models.Gallery) error {
 
 	// cache gallery record for dynamic parameters
 	s.gallery = g
+
+	// assume everything has changed on server restart
+	s.setLastModified()
 
 	// cached highlight images
 	return s.cacheHighlights()
@@ -132,6 +159,7 @@ func (q *GalleryState) updatesGallery() func() {
 		if q.rollbackTx {
 			q.app.tx.Rollback()
 		} else {
+			q.setLastModified()
 			q.app.tx.Commit()
 		}
 

@@ -31,8 +31,8 @@ import (
 	"time"
 
 	"github.com/inchworks/usage"
-	"github.com/inchworks/webparts/server"
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/server"
+	"github.com/inchworks/webparts/v2/users"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 
@@ -89,6 +89,144 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 		}
 		ctx := context.WithValue(r.Context(), contextKeyUser, auth)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// ccCache returns a handler that sets Cache-Control for a resource that may be cached by the client for all users.
+// It might also be cached by an intermediate in the chain to the client browser.
+func (app *Application) ccCache(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// maximum age
+		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds())))
+
+		// check if client's version is up to date
+		if app.unmodified(r, false) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccImmutable returns a handler that sets Cache-Control for a resource that never changes.
+func (app *Application) ccImmutable(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		w.Header().Set("Cache-Control", "immutable, max-age=31536000") // 1 year
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccNoCache returns a handler that sets Cache-Control for a resource that should not be cached.
+// Note that the client may still have a copy, but it will be checked on every reference.
+func (app *Application) ccNoCache(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		w.Header().Set("Cache-Control", "no-cache")
+
+		// check if client's version is up to date
+		if app.unmodified(r, false) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccNoStore returns a handler that sets Cache-Control for a resource that must not be stored by the client.
+// This is for resources that are either confidential, or certain to be different next time.
+func (app *Application) ccNoStore(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// maximum age
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccPrivate returns a handler that sets Cache-Control for a resource that may be cached by the client,
+// but restricted to the current user.
+func (app *Application) ccPrivateCache(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// maximum age
+		w.Header().Set("Cache-Control", "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))+", private")
+
+		// check if client's version is up to date
+		if app.unmodified(r, false) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccNoCache returns a handler that sets Cache-Control for a resource that should not be cached.
+// Note that the client may still have a private copy, to be checked on every reference.
+func (app *Application) ccPrivateNoCache(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		w.Header().Set("Cache-Control", "no-cache, private")
+
+		// check if client's version is up to date
+		if app.unmodified(r, false) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ccSlideshow returns a handler for a resource where Cache-Control depends on the specific slideshow.
+// It check if a resource might have been modified since the time specified in the request.
+func (app *Application) ccSlideshow(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// lock cache and check if client's version is up to date
+		if app.unmodified(r, true) {
+			gs := &app.galleryState
+
+			// cache control depends on the specific slideshow, and we should have that cached
+			ps := httprouter.ParamsFromContext(r.Context())
+			id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
+			public, ok := gs.publicSlideshow[id]
+
+			// deserialise
+			gs.muCache.RUnlock()
+
+			if ok {
+
+				cc := "max-age=" + strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
+				if !public {
+					cc += ", private"
+				}
+				w.Header().Set("Cache-Control", cc)
+				w.WriteHeader(http.StatusNotModified)
+    				return
+			} else {
+				app.usage.Count("unknown", "cache")
+			}
+		}
+
+		// non-cached read
+		w.Header().Set("Last-Modified", app.galleryState.lastModifiedS)
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -168,7 +306,7 @@ func (app *Application) geoBlock(next http.Handler) http.Handler {
 	app.geoblocker.Reporter = func(r *http.Request, location string, _ net.IP) string {
 
 		if ip := usage.FormatIPSeen("B", r.RemoteAddr); ip != "" {
-			app.usage.Seen(ip, "blocked-" + location)
+			app.usage.Seen(ip, "blocked-"+location)
 		}
 
 		// allow a few unsuccessful attempts and then switch to a general ban on the IP
@@ -263,7 +401,7 @@ func (app *Application) logRequest(next http.Handler) http.Handler {
 			app.usage.Seen(app.usage.FormatID("U", userId), "user")
 		} else {
 			if ip := usage.FormatIPSeen("V", r.RemoteAddr); ip != "" {
-				app.usage.Seen(ip, "visitor-" + server.Country(r))
+				app.usage.Seen(ip, "visitor-"+server.Country(r))
 			}
 		}
 
@@ -361,15 +499,6 @@ func (app *Application) public(next http.Handler) http.Handler {
 			w.Header().Set("Link", `<`+u.String()+`>; rel="canonical"`)
 		}
 
-		w.Header().Set("Cache-Control", "public, max-age=600")
-		next.ServeHTTP(w, r)
-	})
-}
-
-// publicComp sets headers for user-specific competition pages
-func (app *Application) publicComp(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -385,8 +514,6 @@ func (app *Application) recoverPanic() func(http.ResponseWriter, *http.Request, 
 }
 
 // reqAuth returns a handler that checks if the user has at least the specified role, or is owner of the data requested.
-// It also sets cache control, so should not be bypassed on any successful authentications.
-// ## Is it?
 func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -416,9 +543,6 @@ func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http
 			}
 			return
 		}
-
-		// pages that require authentication should not be cached by browser
-		w.Header().Set("Cache-Control", "no-store")
 
 		next.ServeHTTP(w, r)
 	})
@@ -502,10 +626,49 @@ func secureHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// shared sets headers for shared topic and slideshows
-func (app *Application) shared(next http.Handler) http.Handler {
+// timeout specifies a time limit on request + response handling, to mitigate DoS attacks, such as R.U.D.Y.
+// It must be called before any handler that extends ResponseWriter, such as a session manager.
+func (app *Application) timeout(next http.Handler) http.Handler {
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "public, max-age=600")
+
+		if r.Method == "POST" && r.URL.Path == "/upload" {
+			rc := http.NewResponseController(w)
+
+			// need more read time for file uploads
+			if err := rc.SetReadDeadline(time.Now().Add(app.cfg.TimeoutUpload)); err != nil {
+				app.log(err)
+				httpServerError(w)
+				return
+			}
+
+			// write time includes read time for HTTPS
+			if err := rc.SetWriteDeadline(time.Now().Add(app.cfg.TimeoutUpload).Add(app.cfg.TimeoutWeb)); err != nil {
+				app.log(err)
+				httpServerError(w)
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// timeoutMedia specifies a default time limit on media download requests
+// It must be called before any handler that extends ResponseWriter, such as a session manager.
+func (app *Application) timeoutMedia(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		rc := http.NewResponseController(w)
+
+		// need more write time for file downloads
+		if err := rc.SetWriteDeadline(time.Now().Add(app.cfg.TimeoutWeb).Add(app.cfg.TimeoutDownload)); err != nil {
+			app.log(err)
+			httpServerError(w)
+			return
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -577,7 +740,7 @@ func (nfs noDirFileSystem) Open(path string) (http.File, error) {
 }
 
 // optional records a legitimate request for something we don't have
-func (app *Application) optional(event string, r *http.Request) {
+func (app *Application) optional(_ string, _ *http.Request) {
 
 	app.usage.Count("allowed", "bad-req")
 }
@@ -604,8 +767,42 @@ func (app *Application) threat(event string, r *http.Request) {
 
 	// count suspects
 	if ip := usage.FormatIPSeen("S", r.RemoteAddr); ip != "" {
-		app.usage.Seen(ip, "suspect-" + server.Country(r))
+		app.usage.Seen(ip, "suspect-"+server.Country(r))
 	}
+}
+
+// unmodified returns true if the gallery has not been modified later than the client's version.
+// Optionally the cache is locked for the caller to read more.
+func (app *Application) unmodified(r *http.Request, lock bool) bool {
+
+	// Implementation adapted from http.fs.
+
+	if r.Method != "GET" && r.Method != "HEAD" {
+		return false
+	}
+	ims := r.Header.Get("If-Modified-Since")
+	if ims == "" {
+		return false
+	}
+	t, err := http.ParseTime(ims)
+	if err != nil {
+		return false
+	}
+
+	// serialised
+	gs := &app.galleryState
+	gs.muCache.RLock()
+
+	// lastModified must be specified without sub-second precision, otherwise equality comparison will usually fail.
+	if ret := app.galleryState.lastModified.Compare(t); ret <= 0 {
+		if !lock {
+			gs.muCache.RUnlock() // nothing more from cache
+		}
+		app.usage.Count("not-modified", "cache")
+		return true
+	}
+	gs.muCache.RUnlock()
+	return false
 }
 
 // A statusWriter is a ResponseWriter that saves the response status.

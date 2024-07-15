@@ -1,6 +1,4 @@
-version: '3'
-
-  # For debugging - PicInch app runs native on local system
+# For debugging - PicInch app runs native on local system
 
 services:
 

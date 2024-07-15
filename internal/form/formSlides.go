@@ -20,7 +20,7 @@ package form
 import (
 	"net/url"
 
-	"github.com/inchworks/webparts/multiforms"
+	"github.com/inchworks/webparts/v2/multiforms"
 	"inchworks.com/picinch/internal/models"
 )
 
@@ -40,6 +40,7 @@ type SlideFormData struct {
 	Title     string
 	Caption   string
 	MediaName string
+	Version   int
 }
 
 type ValidTypeFunc func(string) bool
@@ -108,6 +109,7 @@ func (f *PublicCompForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, er
 			Child:     multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			Title:     f.ChildText("title", i, ix, 2, models.MaxTitle),
 			MediaName: f.ChildFile("mediaName", i, ix, vt),
+			Version:   1,
 			Caption:   f.ChildText("caption", i, ix, 0, models.MaxDetail),
 		})
 
@@ -140,6 +142,7 @@ func (f *SlidesForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, err er
 			ShowOrder: f.ChildMin("showOrder", i, ix, 1),
 			Title:     f.ChildText("title", i, ix, 0, models.MaxDetail), // allow long titles for slides
 			MediaName: f.ChildFile("mediaName", i, ix, vt),
+			Version:   f.ChildPositive("mediaVersion", i, ix),
 			Caption:   f.ChildText("caption", i, ix, 0, models.MaxDetail),
 		})
 	}

@@ -20,7 +20,7 @@ package form
 import (
 	"net/url"
 
-	"github.com/inchworks/webparts/multiforms"
+	"github.com/inchworks/webparts/v2/multiforms"
 
 	"inchworks.com/picinch/internal/models"
 )
@@ -36,8 +36,6 @@ type SlideshowFormData struct {
 	Visible     int
 	IsShared    bool
 	Title       string
-	NShow       int64
-	NTopic      int64
 	DisplayName string // not for editing
 }
 
@@ -60,8 +58,6 @@ func (f *SlideshowsForm) Add(index int, id int64, topicId int64, visible int, is
 		Visible:     visible,
 		IsShared:    isShared,
 		Title:       title,
-		NShow:       id,
-		NTopic:      topicId,
 		DisplayName: user,
 	})
 }
@@ -78,7 +74,7 @@ func (f *SlideshowsForm) AddTemplate() {
 
 // Get slideshows as structs. They are sent as arrays of values for each field name.
 
-func (f *SlideshowsForm) GetSlideshows(withTopics bool) (items []*SlideshowFormData, err error) {
+func (f *SlideshowsForm) GetSlideshows() (items []*SlideshowFormData, err error) {
 
 	nItems := f.NChildItems()
 
@@ -94,21 +90,10 @@ func (f *SlideshowsForm) GetSlideshows(withTopics bool) (items []*SlideshowFormD
 			return nil, err
 		}
 
-		// optional topic assignment with show ID
-		var showId int64
-		var topicId int64
-		if withTopics {
-			showId = int64(f.ChildPositive("nShow", i, ix))
-			topicId = int64(f.ChildPositive("topic", i, ix))
-		}
-
 		items = append(items, &SlideshowFormData{
-
 			Child:    multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			Visible:  visible,
 			IsShared: f.ChildBool("shared", ix),
-			NShow:    showId,
-			NTopic:   topicId,
 			Title:    f.ChildText("title", i, ix, 1, models.MaxTitle),
 		})
 	}

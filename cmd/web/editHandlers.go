@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/inchworks/webparts/etx"
-	"github.com/inchworks/webparts/multiforms"
+	"github.com/inchworks/webparts/v2/etx"
+	"github.com/inchworks/webparts/v2/multiforms"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 
@@ -48,7 +48,7 @@ func (app *Application) getFormAssignShows(w http.ResponseWriter, r *http.Reques
 	}
 
 	// display form
-	app.render(w, r, "assign-slideshows.page.tmpl", &slideshowsFormData{
+	app.render(w, r, "assign-slideshows.page.tmpl", &assignShowsFormData{
 		Form: f,
 	})
 }
@@ -62,8 +62,8 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 	}
 
 	// process form data
-	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
-	slideshows, err := f.GetSlideshows(true)
+	f := form.NewAssignShows(r.PostForm, nosurf.Token(r))
+	slideshows, err := f.GetAssignShows()
 	if err != nil {
 		app.httpBadRequest(w, err)
 		return
@@ -71,20 +71,26 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 
 	// redisplay form if data invalid
 	if !f.Valid() {
-		app.render(w, r, "assign-slideshows.page.tmpl", &slideshowsFormData{
+		app.render(w, r, "assign-slideshows.page.tmpl", &assignShowsFormData{
 			Form: f,
 		})
 		return
 	}
 
-	// save changes
-	if app.galleryState.OnAssignShows(slideshows) {
-		app.session.Put(r, "flash", "Topic assignments saved.")
+	// save changes (no synchronous operations to be done)
+	status, _ := app.galleryState.OnAssignShows(slideshows)
+	switch status {
+	case 0:
+		app.session.Put(r, "flash", "Slideshow assignments saved.")
+		http.Redirect(w, r, "/topics", http.StatusSeeOther)
 
-	} else {
+	case http.StatusConflict:
 		app.session.Put(r, "flash", "Slideshow or topic deleted - check.")
+		http.Redirect(w, r, "/assign-slideshows", http.StatusSeeOther)
+
+	default:
+		http.Error(w, http.StatusText(status), status)
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // getFormEnterComp serves the form to enter a competition.
@@ -167,6 +173,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	tx, err := etx.Id(f.Get("timestamp"))
 	if err != nil {
 		app.httpBadRequest(w, errors.New("Wrong number of slides for competition."))
+		return
 	}
 
 	// redisplay form if data invalid
@@ -187,8 +194,8 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 		slides[0].Title, slides[0].Caption, slides[0].MediaName, nAgreed)
 
 	if status == 0 {
-		// bind updated media, now that update is committed
-		app.uploader.DoNext(tx)
+		// claim updated media, now that update is committed
+		app.tm.Do(tx)
 
 		if code == 0 {
 
@@ -250,7 +257,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	status := app.galleryState.OnEditGallery(f.Get("organiser"), nMaxSlides, nShowcased)
 	if status != 0 {
 		app.session.Put(r, "flash", "Gallery settings saved.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/members", http.StatusSeeOther)
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -262,9 +269,16 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 
 	timestamp := r.FormValue("timestamp")
 
+	vs := r.FormValue("version")
+	v, err := strconv.Atoi(vs)
+	if err != nil {
+		app.httpBadRequest(w, errors.New("Bad media version."))
+		return
+	}
+
 	// multipart form
 	// (The limit, 10 MB, is just for memory use, not the size of the upload)
-	err := r.ParseMultipartForm(10 << 20)
+	err = r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		app.httpBadRequest(w, err)
 		return
@@ -283,7 +297,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	fh := f[0]
 	sz := (fh.Size + (1 << 19)) >> 20
 	if sz > int64(app.cfg.MaxUpload) {
-		httpTooLarge(w)
+		app.reply(w, RepUpload{Error: "Upload too large at server."})
 		return
 	}
 
@@ -292,10 +306,11 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		app.log(err)
 		httpServerError(w)
+		return
 	}
 
 	var s string
-	err, byUser := app.uploader.Save(fh, id)
+	err, byUser := app.uploader.Save(fh, id, v)
 	if err != nil {
 		if byUser {
 			s = err.Error()
@@ -317,7 +332,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	showId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	showId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// allow access to show?
 	if !app.allowUpdateShow(r, showId) {
@@ -359,14 +374,17 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	nShow, err := strconv.ParseInt(f.Get("nShow"), 36, 64)
 	if err != nil {
 		app.httpBadRequest(w, err)
+		return
 	}
 	nUser, err := strconv.ParseInt(f.Get("nUser"), 36, 64)
 	if err != nil {
 		app.httpBadRequest(w, err)
+		return
 	}
 	tx, err := etx.Id(f.Get("timestamp"))
 	if err != nil {
 		app.httpBadRequest(w, err)
+		return
 	}
 
 	// allow access to slideshow?
@@ -386,8 +404,9 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// allow access for user?
-		if !app.allowAccessUser(r, nUser) {
+		if !app.allowAccessUser(r, nUser, true) {
 			httpUnauthorized(w)
+			return
 		}
 	}
 
@@ -406,11 +425,16 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	// save changes
 	status, userId := app.galleryState.OnEditSlideshow(nShow, nTopic, tx, nUser, slides)
 	if status == 0 {
-		// bind updated media, now that update is committed
-		app.uploader.DoNext(tx)
+
+		// claim updated media, now that update is committed
+		app.tm.Do(tx)
 
 		app.session.Put(r, "flash", "Slide changes saved.")
-		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
+		if app.allowAccessUser(r, userId, false) {
+			http.Redirect(w, r, "/my-slideshows", http.StatusSeeOther)
+		} else {
+			http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
+		}
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -453,7 +477,7 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 
 	// process form data
 	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
-	slideshows, err := f.GetSlideshows(false)
+	slideshows, err := f.GetSlideshows()
 	if err != nil {
 		app.httpBadRequest(w, err)
 		return
@@ -474,11 +498,15 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 	status, tx := app.galleryState.OnEditSlideshows(userId, slideshows)
 	if status == 0 {
 
-		// bind updated media, now that update is committed
-		app.tm.DoNext(tx)
+		// claim updated media, now that update is committed
+		app.tm.Do(tx)
 
 		app.session.Put(r, "flash", "Slideshow changes saved.")
-		http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
+		if app.allowAccessUser(r, userId, false) {
+			http.Redirect(w, r, "/my-slideshows", http.StatusSeeOther)
+		} else {
+			http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
+		}
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -491,7 +519,7 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 
 	// requested topic and user
 	ps := httprouter.ParamsFromContext(r.Context())
-	topicId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
 	st, f, title := app.galleryState.ForEditTopic(topicId, userId, nosurf.Token(r))
@@ -537,7 +565,7 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 
 	// process form data
 	f := form.NewSlideshows(r.PostForm, nosurf.Token(r))
-	slideshows, err := f.GetSlideshows(false)
+	slideshows, err := f.GetSlideshows()
 	if err != nil {
 		app.httpBadRequest(w, err)
 		return
@@ -556,9 +584,9 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 	// save changes
 	status, tx := app.galleryState.OnEditTopics(slideshows)
 	if status == 0 {
-		app.tm.DoNext(tx)
+		app.tm.Do(tx)
 		app.session.Put(r, "flash", "Topic changes saved.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/members", http.StatusSeeOther)
 
 	} else {
 		http.Error(w, http.StatusText(status), status)

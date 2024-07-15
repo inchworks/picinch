@@ -23,18 +23,18 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
+	"strconv"
 	"strings"
-	"time"
 
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/users"
 
 	"inchworks.com/picinch/internal/form"
 	"inchworks.com/picinch/internal/models"
 )
 
-// allow access/update as requested user?
-
-func (app *Application) allowAccessUser(r *http.Request, userId int64) bool {
+// allowAccessUser returns true if access/update to data owned by userId is allowed for the current user.
+// If asCurator is true, access by curator is allowed.
+func (app *Application) allowAccessUser(r *http.Request, userId int64, asCurator bool) bool {
 
 	auth, ok := r.Context().Value(contextKeyUser).(AuthenticatedUser)
 	if !ok {
@@ -42,7 +42,7 @@ func (app *Application) allowAccessUser(r *http.Request, userId int64) bool {
 	}
 
 	// access allowed to own data, or by curator
-	return auth.id == userId || auth.role >= models.UserCurator
+	return auth.id == userId || (asCurator && auth.role >= models.UserCurator)
 }
 
 // allowEnterClass checks that a slideshow is a genuine competition class, available to the user, and returns the slideshow.
@@ -79,61 +79,30 @@ func (app *Application) allowUpdateShow(r *http.Request, showId int64) bool {
 		return false
 	}
 
-	return app.allowAccessUser(r, s.User.Int64) // owner or curator
+	return app.allowAccessUser(r, s.User.Int64, true) // owner or curator
 }
 
-// allowViewShow returns whether the specified slideshow can be viewed by the current user,
-// and whether it is a topic.
-func (app *Application) allowViewShow(r *http.Request, showId int64) (canView bool, isTopic bool) {
+// allowViewShow returns whether the specified slideshow can be viewed by the current user.
+func (app *Application) allowViewShow(r *http.Request, s *models.Slideshow) bool {
 
-	// get show user and visibility
-	s := app.SlideshowStore.GetIf(showId)
-	if s == nil {
-		return // no
-	}
-
-	// is this a topic
-	isTopic = !s.User.Valid
-
-	switch s.Visible {
+	// checking Access not Visible allows viewing from cached pages
+	switch s.Access {
 
 	case models.SlideshowPublic:
-		canView = true
-		return // everyone
+		return true // everyone
 
 	case models.SlideshowClub:
 		if app.isAuthenticated(r, models.UserFriend) {
-			canView = true
-			return // all club members and friends
-		}
-
-	case models.SlideshowTopic:
-		// depends on topic visibility
-		t := app.SlideshowStore.GetIf(s.Topic)
-		if t == nil {
-			canView = false
-			return
-		}
-
-		switch t.Visible {
-
-		case models.SlideshowPublic:
-			return true, isTopic // public topic
-
-		case models.SlideshowClub:
-			if app.isAuthenticated(r, models.UserFriend) {
-				canView = true
-				return // all club members and friends
-			}
+			return true // all club members and friends
 		}
 	}
 
-	if isTopic {
-		canView = app.isAuthenticated(r, models.UserCurator)
-		return // curator or admin
+	if s.User.Valid {
+		// owner or curator
+		return app.allowAccessUser(r, s.User.Int64, true)
 	} else {
-		canView = app.allowAccessUser(r, s.User.Int64)
-		return // owner or curator
+		// topic: curator
+		return app.isAuthenticated(r, models.UserCurator)
 	}
 }
 
@@ -162,7 +131,7 @@ func (app *Application) getUserIf(id int64) *users.User {
 	// package with a slightly different interface to the store :-(.
 
 	u, err := app.userStore.Get(id)
-	if err != nil {
+	if err != nil && err != models.ErrNoRecord {
 		app.log(err)
 	}
 	return u
@@ -199,16 +168,6 @@ func httpTooLarge(w http.ResponseWriter) {
 func httpUnauthorized(w http.ResponseWriter) {
 
 	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-}
-
-// Date in user-friendly format
-
-func humanDate(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-
-	return t.UTC().Format("02 Jan 2006 at 15:04")
 }
 
 // isAuthenticated checks if the request is by an authenticated active user (saved in context from session),
@@ -282,6 +241,40 @@ func (app *Application) role(r *http.Request) int {
 		return auth.role
 	} else {
 		return 0
+	}
+}
+
+// setCache specifies caching for a public or members-only slideshow (or contributors list)
+func (app *Application) setCache(w http.ResponseWriter, id int64, visible int) {
+
+	// don't cache if slideshow is being removed
+	// otherwise we would be extending the lifetime of links from this page
+	if visible == models.SlideshowRemoved {
+		w.Header().Set("Cache-Control", "no-cache, private")
+		return
+	}
+
+	// caching is limited to private cache for non-public pages
+	isPublic := visible == models.SlideshowPublic
+	cc := "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
+	if !isPublic {
+		cc += ", private"
+	}
+	w.Header().Set("Cache-Control", cc)
+
+	// save cache information (serialised)
+	gs := &app.galleryState
+	gs.muCache.Lock()
+	gs.publicSlideshow[id] = isPublic
+	gs.muCache.Unlock()
+}
+
+// toHome returns the home page path.
+func (app *Application) toHome(r *http.Request) string {
+	if app.isAuthenticated(r, models.UserFriend) {
+		return "/members"
+	} else {
+		return "/"
 	}
 }
 

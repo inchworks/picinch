@@ -1,0 +1,77 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2020.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}{{ .DisplayName }} - Gallery{{end}}
+
+{{define "pagemeta"}}
+    <meta name="robots" content="noindex">
+{{end}}
+
+{{define "page"}}
+
+	<div class="container pb-3">
+		<h3>{{ .DisplayName }}</h3>
+
+		<h4>Topics</h4>
+        {{range .Topics}}
+            <div class="row">
+                <div class="col-xl-6 col-lg-5 col-md-4 col-sm-6">
+                    <span class="input-group-text">{{ .Title }}</span>
+                </div>
+                <div class="col-xl-2 col-lg-3 col-md-3 col-sm-4">
+                    <span class="input-group-text">Show: {{.Visible}}</span>
+                </div>
+                <div class="col">
+                    <a class='btn btn-primary' href='/edit-topic/{{ .NShow }}/{{ $.NUser }}'>Edit Slides</a>
+                </div>
+                <div class="col">
+                    <a class='btn btn-light' href='/user-topic/{{ $.NUser }}/{{ .NShow }}'>View</a>
+                </div>
+            </div>
+        {{end}}
+    </div>
+    <div class="container">
+
+		<h4>Slideshows</h4>
+        {{range .Slideshows}}
+            <div class="row">
+                <div class="col-xl-6 col-lg-5 col-md-4 col-sm-6">
+                    <span class="input-group-text">{{ .Title }}</span>
+                </div>
+                <div class="col-xl-2 col-lg-3 col-md-3 col-sm-4">
+                    <span class="input-group-text">Show: {{.Visible}}</span>
+                </div>
+                <div class="col">
+                    <a class='btn btn-primary' href='/edit-slides/{{ .NShow }}'>Edit Slides</a>
+                </div>
+                <div class="col">
+                    <a class='btn btn-light' href='/user-show/{{ $.NUser }}/{{ .NShow }}'>View</a>
+                </div>
+            </div>
+        {{end}}
+        <div class="row">
+            <div class="col-md-3">
+                <a class='btn btn-primary' href='/edit-slideshows/{{ .NUser }}'>Edit Slideshows</a>
+            </div>
+        </div>
+	</div>	
+
+{{end}}

@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/users"
 	"github.com/jmoiron/sqlx"
 
 	"inchworks.com/picinch/internal/models"
@@ -70,6 +70,7 @@ var cmds = [...]string{
 	id int(11) NOT NULL AUTO_INCREMENT,
 	gallery int(11) NOT NULL,
 	gallery_order int(11) NOT NULL,
+	access smallint(6) NOT NULL,
 	visible smallint(6) NOT NULL,
 	user int(11) NULL,
 	shared bigint(20) NOT NULL,
@@ -80,6 +81,7 @@ var cmds = [...]string{
 	caption varchar(512) COLLATE utf8_unicode_ci NOT NULL,
 	format varchar(16) COLLATE utf8_unicode_ci NOT NULL,
 	image varchar(256) COLLATE utf8_unicode_ci NOT NULL,
+	etag varchar(64) NOT NULL,
 	PRIMARY KEY (id),
 	KEY IDX_SLIDESHOW_GALLERY (gallery),
 	KEY IDX_USER (user),
@@ -122,13 +124,20 @@ var cmds = [...]string{
 
 var cmdsRedo = [...]string{
 
-	`CREATE TABLE redo (
+	`CREATE TABLE redoV2 (
 		id BIGINT NOT NULL,
+		tx BIGINT NOT NULL,
 		manager varchar(32) COLLATE utf8_unicode_ci NOT NULL,
+		redotype int(11) NOT NULL,
+		delay int(11) NOT NULL,
 		optype int(11) NOT NULL,
 		operation JSON NOT NULL,
 		PRIMARY KEY (id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
+
+	`ALTER TABLE slideshow
+		ADD COLUMN access smallint(6) NOT NULL,
+		ADD COLUMN etag varchar(64) NOT NULL;`,
 }
 
 var cmdsTags = [...]string{
@@ -243,7 +252,7 @@ func setupAdmin(st *UserStore, adminName string, adminPW string) error {
 
 // create database tables
 
-func setupTables(db *sqlx.DB, tx *sqlx.Tx, cmds []string) error {
+func setupTables(_ *sqlx.DB, tx *sqlx.Tx, cmds []string) error {
 
 	for _, cmd := range cmds {
 		if _, err := tx.Exec(cmd); err != nil {
@@ -253,13 +262,36 @@ func setupTables(db *sqlx.DB, tx *sqlx.Tx, cmds []string) error {
 	return nil
 }
 
-// MigrateRedo adds the redo table. Needed for version 0.11.0.
-func MigrateRedo(stRedo *RedoStore) error {
+// MigrateRedo2 adds the redo V2 table, and upgrades the slideshow table. Needed for version 1.1.0.
+func MigrateRedo2(stRedo *RedoStore, stSlideshow *SlideshowStore) error {
 
-	if _, err := stRedo.Count(); err != nil {
-		return setupTables(stRedo.DBX, *stRedo.ptx, cmdsRedo[:])
+	if _, err := stRedo.Count(); err == nil {
+		return nil
 	}
+
+	if err := setupTables(stRedo.DBX, *stRedo.ptx, cmdsRedo[:]); err != nil {
+		return err
+	}
+
+	// initialise slideshow access fields
+	ss := stSlideshow.All()
+	for _, s := range ss {
+
+		s.Access = s.Visible
+
+		if err := stSlideshow.Update(s); err != nil {
+			return err
+		}
+	}
+	
 	return nil
+}
+
+// MigrateRedoV1 checks to see if we have a V1 redo table with records, as created before version 1.1.0.
+func MigrateRedoV1(stRedoV1 *RedoV1Store) bool {
+
+	n, err := stRedoV1.Count()
+	return err == nil && n > 0
 }
 
 // MigrateTags adds tag tables. Needed for version 0.9.8.
@@ -271,122 +303,7 @@ func MigrateTags(stTag *TagStore) error {
 	return nil
 }
 
-// MigrateTopics replaces old topic records with corresponding slideshow records.
-// Needed for version 0.9.4.
-func MigrateTopics(stTopic *TopicStore, stSlideshow *SlideshowStore, stSlide *SlideStore) error {
-
-	var cmdSlideshow = `ALTER TABLE slideshow MODIFY COLUMN shared bigint(20), MODIFY COLUMN user int(11) NULL;`
-	var cmdTopic = `DROP TABLE topic;`
-
-	// do we have topics?
-	t := stTopic.GetIf(stSlideshow.HighlightsId)
-	if t == nil {
-		return nil // nothing to do
-	}
-
-	// allow null references to user
-	tx := *stSlideshow.ptx
-	if _, err := tx.Exec(cmdSlideshow); err != nil {
-		return err
-	}
-
-	// move existing first slideshow, if there is one
-	s := stSlideshow.GetIf(stSlideshow.HighlightsId)
-	if s != nil {
-		oldId := s.Id
-		s.Id = 0
-		err := stSlideshow.Update(s) // sets s.Id
-		if err != nil {
-			return err
-		}
-
-		// reassign slides
-		slides := stSlide.ForSlideshow(oldId, 1000)
-		for _, slide := range slides {
-			slide.Slideshow = s.Id
-			err := stSlide.Update(slide)
-			if err != nil {
-				return err
-			}
-		}
-
-		// delete old slideshow
-		err = stSlideshow.DeleteId(stSlideshow.HighlightsId)
-		if err != nil {
-			return err
-		}
-	}
-
-	// move topics
-	ts := stTopic.All()
-	for _, t = range ts {
-
-		// corresponding slideshow for topic
-		topicShow := &models.Slideshow{
-			Gallery:      t.Gallery,
-			GalleryOrder: t.GalleryOrder,
-			Visible:      t.Visible,
-			Shared:       t.Shared,
-			Created:      t.Created,
-			Revised:      t.Revised,
-			Title:        t.Title,
-			Caption:      t.Caption,
-			Format:       t.Format,
-			Image:        t.Image,
-		}
-
-		var err error
-
-		// preserve highlights ID, and use new ordering scheme
-		if t.Id == stSlideshow.HighlightsId {
-			topicShow.Id = stSlideshow.HighlightsId
-			topicShow.GalleryOrder = 10
-			err = stSlideshow.Set(topicShow)
-
-		} else {
-			err = stSlideshow.Update(topicShow)
-		}
-		if err != nil {
-			return err
-		}
-
-		// reassign slideshows for topic
-		var latest time.Time
-		ss := stSlideshow.ForTopic(t.Id)
-		for _, s = range ss {
-			s.Topic = topicShow.Id
-			s.Visible = models.SlideshowTopic
-			s.GalleryOrder = 5
-			if err := stSlideshow.Update(s); err != nil {
-				return err
-			}
-			// latest revision, for highlights topic
-			if s.Revised.After(latest) {
-				latest = s.Revised
-			}
-		}
-
-		// change creation date for highlights topic
-		if topicShow.Id == stSlideshow.HighlightsId {
-			if latest.After(topicShow.Created) {
-				topicShow.Created = latest
-				topicShow.Revised = latest
-				if err := stSlideshow.Update(topicShow); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	// delete topics table
-	if _, err := tx.Exec(cmdTopic); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// MigrateWebparts1 upgrades the database with changes needed by inchworks/webparts,
+// MigrateWebparts1 upgrades the database with changes needed by inchworks/webparts/v2,
 // before first table access. Needed for version 0.9.4.
 func MigrateWebparts1(tx *sqlx.Tx) error {
 
@@ -415,7 +332,7 @@ func MigrateWebparts1(tx *sqlx.Tx) error {
 	return err
 }
 
-// MigrateWebparts2 upgrades the database with changes needed by inchworks/webparts,
+// MigrateWebparts2 upgrades the database with changes needed by inchworks/webparts/v2,
 // after stores are ready. Needed for version 0.9.4.
 func MigrateWebparts2(stUser *UserStore, tx *sqlx.Tx) error {
 

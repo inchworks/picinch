@@ -67,7 +67,7 @@ Photos uploaded are resized to fit these dimensions.
 
 **thumbnail-height** `208` thumbnail height
 
-**max-upload** `32` maximum image or video upload, in megabytes
+**max-upload** `64` maximum image or video upload, in megabytes
 
 ## Total limits
 **highlights-page** `12` highlights shown on home page, and on user's page
@@ -92,7 +92,7 @@ Photos uploaded are resized to fit these dimensions.
 ## Operational settings
 **allowed-queries** `fbclid` ignored query names in URL. Other queries trigger an IP ban.
 
-**ban-bad-files** `false` apply IP ban to requests for missing files.
+**ban-bad-files** `false` apply IP ban to requests for missing media files.
 
 **geo-block** ` ` blocked countries, specified by ISO 3166-1 alpha-2 codes. For example, `KP, RU`.
 

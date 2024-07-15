@@ -32,12 +32,13 @@ import (
 
 const (
 	// slide formats
-	SlideTitle = 1
-	SlideImage = 2
+	SlideTitle   = 1
+	SlideImage   = 2
 	SlideCaption = 4
-	SlideVideo = 8
+	SlideVideo   = 8
 
 	// slideshow visibility
+	SlideshowRemoved = -10 // deletion in progress but cached access allowed
 	SlideshowTopic   = -1
 	SlideshowPrivate = 0
 	SlideshowClub    = 1
@@ -52,8 +53,8 @@ const (
 	UserAdmin   = 4
 
 	// field sizes
-	MaxName = 60
-	MaxTitle = 128
+	MaxName   = 60
+	MaxTitle  = 128
 	MaxDetail = 512
 )
 
@@ -93,8 +94,9 @@ type Slide struct {
 type Slideshow struct {
 	Id           int64
 	Gallery      int64
-	GalleryOrder int `db:"gallery_order"`
-	Visible      int
+	GalleryOrder int           `db:"gallery_order"`
+	Access       int           // permitted access (changes deferred for caching)
+	Visible      int           // visible for listing (changes immediate)
 	User         sql.NullInt64 // null for a topic
 	Shared       int64         // link for external access
 	Topic        int64         // parent topic, 0 for a normal slideshow
@@ -104,6 +106,7 @@ type Slideshow struct {
 	Caption      string
 	Format       string
 	Image        string
+	ETag         string        `db:"etag"` // latent support: entity tag for caching
 }
 
 type Tag struct {
@@ -116,26 +119,12 @@ type Tag struct {
 }
 
 type TagRef struct {
-	Id        int64
-	Item      sql.NullInt64 // null for a user permission tag
-	Tag       int64
-	User      sql.NullInt64 // null for a system tag
-	Added     time.Time
-	Detail    string
-}
-
-type Topic struct {
-	Id           int64
-	Gallery      int64
-	GalleryOrder int `db:"gallery_order"`
-	Visible      int
-	Shared       int64 // link for external access
-	Created      time.Time
-	Revised      time.Time
-	Title        string
-	Caption      string
-	Format       string
-	Image        string
+	Id     int64
+	Item   sql.NullInt64 // null for a user permission tag
+	Tag    int64
+	User   sql.NullInt64 // null for a system tag
+	Added  time.Time
+	Detail string
 }
 
 // Join results
@@ -146,10 +135,11 @@ type SlideshowTagRef struct {
 }
 
 type SlideshowUser struct {
-	Id    int64
-	Title string
-	Image string
-	Name  string // user's display name
+	Id     int64
+	Title  string
+	Image  string
+	UserId int64
+	Name   string // user's display name
 }
 
 type TagItem struct {
@@ -159,7 +149,7 @@ type TagItem struct {
 
 type TagUser struct {
 	Tag
-	UserId int64
+	UserId    int64
 	UsersName string
 }
 
@@ -189,11 +179,6 @@ func Nl2br(str string) template.HTML {
 // Code to string conversions
 
 func (s *Slideshow) VisibleStr() string {
-
-	return VisibleOpts[s.Visible]
-}
-
-func (s *Topic) VisibleStr() string {
 
 	return VisibleOpts[s.Visible]
 }

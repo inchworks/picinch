@@ -20,11 +20,12 @@ package main
 import (
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/inchworks/usage"
-	"github.com/inchworks/webparts/multiforms"
-	"github.com/inchworks/webparts/uploader"
-	"github.com/inchworks/webparts/users"
+	"github.com/inchworks/webparts/v2/multiforms"
+	"github.com/inchworks/webparts/v2/uploader"
+	"github.com/inchworks/webparts/v2/users"
 	"github.com/justinas/nosurf"
 
 	"inchworks.com/picinch/internal/form"
@@ -92,7 +93,7 @@ type DataMyGallery struct {
 
 type DataMySlideshow struct {
 	NShow   int64
-	NUser   int64
+	Ref     string
 	Title   string
 	Visible string
 	Shared  string
@@ -100,8 +101,10 @@ type DataMySlideshow struct {
 
 type DataPublished struct {
 	Id          int64
+	Ref         string
 	Title       string
 	Caption     template.HTML
+	NTopic      int64
 	NUser       int64
 	DisplayName string
 	Image       string
@@ -110,13 +113,13 @@ type DataPublished struct {
 }
 
 type DataSlideshow struct {
-	Topic       string
 	Title       string
 	Caption     string
 	DisplayName string
 	Reference   string
 	AfterHRef   string
 	BeforeHRef  string
+	Single      string
 	Slides      []*DataSlide
 	DataCommon
 }
@@ -187,6 +190,13 @@ type dataValidated struct {
 
 // template data for forms
 
+type assignShowsFormData struct {
+	Form  *form.AssignShowsForm
+	User  string
+	NUser int64
+	DataCommon
+}
+
 type compFormData struct {
 	Form      *form.PublicCompForm
 	Class     string
@@ -250,9 +260,11 @@ type usersFormData struct {
 
 var templateFuncs = template.FuncMap{
 	"checked":    checked,
+	"isWorking":  isWorking,
 	"humanDate":  humanDate,
 	"thumbnail":  thumbnail,
 	"userStatus": userStatus,
+	"viewable":   viewable,
 }
 
 // checked returns "checked" if the parameter is true, for use with a form checkbox.
@@ -265,39 +277,32 @@ func checked(isChecked bool) string {
 	}
 }
 
+// humanDate returns the date in a user-friendly format.
+func humanDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	return t.UTC().Format("02 Jan 2006 at 15:04")
+}
+
+// isWorking returns true if a media file is not ready to be viewed.
+func isWorking(image string) bool {
+	return uploader.Status(image) < 100
+}
+
 // thumbnail returns a path to a thumbnail image
 func thumbnail(image string) string {
 
-	if image == "" {
+	s := uploader.Status(image)
+
+	if s == 0 {
 		return "/static/images/no-photos.jpg"
+	} else if s < 100 {
+		return "/static/images/working.jpg"
 	} else {
 		return "/photos/" + uploader.Thumbnail(image)
 	}
-
-}
-
-// userRole returns a user's role as a string
-func userRole(n int) (s string) {
-
-	switch n {
-	// user status
-	case models.UserFriend:
-		s = "friend"
-
-	case models.UserMember:
-		s = "member"
-
-	case models.UserCurator:
-		s = "curator"
-
-	case models.UserAdmin:
-		s = "administrator"
-
-	default:
-		s = "??"
-	}
-
-	return
 }
 
 // userStatus returns a user's status as a string
@@ -318,4 +323,18 @@ func userStatus(n int) (s string) {
 	}
 
 	return
+}
+
+// viewable returns the version of a media file that is ready to be viewed.
+func viewable(image string) string {
+
+	s := uploader.Status(image)
+
+	if s == 0 {
+		return "/static/images/no-photo.jpg" // not expected
+	} else if s < 100 {
+		return "/static/images/working-lg.jpg"
+	} else {
+		return "/photos/" + image
+	}
 }

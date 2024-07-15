@@ -1,13 +1,9 @@
-{{/*
-  Copyright © Rob Burke inchworks.com, 2021.
-
-  Copying and distribution of this file, with or without modification, are permitted in any
-  medium without royalty, provided the copyright notice and this notice are preserved.
-  This file is offered as-is, without any warranty.
-*/}}
-
 {{define "video"}}
-  <video class="slide_video" controls autoplay src="/photos/{{ . }}">
-    Video needs conversion to be shown.
-  </video>
+  {{if isWorking .}}
+    <img class="flex-grow-1 flex-shrink-1 p-4 shrink-image" src="/static/images/working-lg.jpg" loading="lazy">
+  {{else}}
+    <video class="slide_video p-4" controls autoplay src="/photos/{{ . }}">
+      Video needs conversion to be shown.
+    </video>
+  {{end}}
 {{end}}

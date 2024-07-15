@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/inchworks/webparts/multiforms"
+	"github.com/inchworks/webparts/v2/multiforms"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 
@@ -36,7 +36,7 @@ import (
 func (app *Application) getFormTagSlideshow(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
-	showId, _ := strconv.ParseInt(ps.ByName("nShow"), 10, 64)
+	showId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 	rootId, _ := strconv.ParseInt(ps.ByName("nRoot"), 10, 64)
 	forUserId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 	byUserId := app.authenticatedUser(r)
@@ -85,7 +85,7 @@ func (app *Application) postFormTagSlideshow(w http.ResponseWriter, r *http.Requ
 	status := app.galleryState.onEditSlideshowTags(showId, rootId, forUserId, app.authenticatedUser(r), app.role(r), f)
 	if status == 0 {
 		app.session.Put(r, "flash", "Tag changes saved.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/members", http.StatusSeeOther)
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -96,7 +96,7 @@ func (app *Application) postFormTagSlideshow(w http.ResponseWriter, r *http.Requ
 func (app *Application) getFormTags(w http.ResponseWriter, r *http.Request) {
 
 	app.session.Put(r, "flash", "Not implemented yet.")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/members", http.StatusSeeOther)
 }
 
 // postFormTags handles submission of a form to edit tag definitions.
@@ -109,7 +109,7 @@ func (app *Application) postFormTags(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.session.Put(r, "flash", "Not implemented yet.")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/members", http.StatusSeeOther)
 }
 
 // getFormSelectSlideshow displays a form to select a slideshow by ID.
@@ -163,7 +163,7 @@ func (app *Application) slideshowsTagged(w http.ResponseWriter, r *http.Request)
 
 	ps := httprouter.ParamsFromContext(r.Context())
 
-	topicId, _ := strconv.ParseInt(ps.ByName("nTopic"), 10, 64)
+	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 	rootId, _ := strconv.ParseInt(ps.ByName("nRoot"), 10, 64)
 	tagId, _ := strconv.ParseInt(ps.ByName("nTag"), 10, 64)
 	forUserId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
