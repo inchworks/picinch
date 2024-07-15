@@ -63,11 +63,13 @@ Photos uploaded are resized to fit these dimensions.
 
 **image-height** `1200` stored image height
 
+**max-audio-visual** `16` maximum stored audio-visual file size, in megabytes
+
 **thumbnail-width** `278` thumbnail width
 
 **thumbnail-height** `208` thumbnail height
 
-**max-upload** `64` maximum image or video upload, in megabytes
+**max-upload** `64` maximum image or audio-visual upload, in megabytes
 
 ## Total limits
 **highlights-page** `12` highlights shown on home page, and on user's page
@@ -96,9 +98,19 @@ Photos uploaded are resized to fit these dimensions.
 
 **geo-block** ` ` blocked countries, specified by ISO 3166-1 alpha-2 codes. For example, `KP, RU`.
 
+**max-cache-age** `1h` browser Cache-Control max-age
+
+**max-unvalidated-age** `48h` maximum time for a competition entry to be validated.
+
 **max-upload-age** `8h` time limit to save a slideshow update, after uploading images. Units m(inutes) or h(ours).
 
 **thumbnail-refresh** `1h` refresh interval for topic thumbnails. Units m(inutes) or h(ours).
+
+**timeout-download** `2m` maximum time for a file download
+
+**timeout-upload** `5m` maximum time for a file upload
+
+**timeout-web** `20s` maximum time for web request, same for response
 
 **usage-anon** `1` anonymisation of user IDs: 0 = daily, 1 = immediate.
 
