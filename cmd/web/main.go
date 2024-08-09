@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.1.5"
+	version = "1.1.6"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -110,12 +110,13 @@ type Configuration struct {
 	AdminPassword string `yaml:"admin-password" env:"admin-password" env-default:"<your-password>"`
 
 	// image sizes
-	MaxW      int `yaml:"image-width" env-default:"1600"` // maximum stored image dimensions
-	MaxH      int `yaml:"image-height" env-default:"1200"`
-	MaxAV     int `yaml:"max-audio-visual" env-default:"16"` // maximum stored AV file size (megabytes)
-	ThumbW    int `yaml:"thumbnail-width" env-default:"278"` // thumbnail size
-	ThumbH    int `yaml:"thumbnail-height" env-default:"208"`
-	MaxUpload int `yaml:"max-upload" env-default:"64"` // maximum file upload (megabytes)
+	MaxW       int `yaml:"image-width" env-default:"1600"`     // maximum stored image dimensions
+	MaxH       int `yaml:"image-height" env-default:"1200"`    //
+	MaxAV      int `yaml:"max-audio-visual" env-default:"16"`  // maximum stored AV file size (megabytes)
+	ThumbW     int `yaml:"thumbnail-width" env-default:"278"`  // thumbnail size
+	ThumbH     int `yaml:"thumbnail-height" env-default:"208"` //
+	MaxDecoded int `yaml:"max-decoded" env-default:"512"`      // maximum decoded image size (megabytes)
+	MaxUpload  int `yaml:"max-upload" env-default:"64"`        // maximum file upload (megabytes)
 
 	// total limits
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
@@ -163,8 +164,8 @@ type Configuration struct {
 
 // Operation to finalise deletion or reduction in access of a slideshow or user.
 type OpDrop struct {
-	Id      int64
-	Access  int
+	Id     int64
+	Access int
 }
 
 // Operation to release slideshow from topic.
@@ -189,9 +190,8 @@ type OpUpdateTopic struct {
 
 // Operation to validate slideshow submission.
 type OpValidate struct {
-	ShowId  int64
+	ShowId int64
 }
-
 
 // Application struct supplies application-wide dependencies.
 type Application struct {
@@ -512,6 +512,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		FilePath:     ImagePath,
 		MaxW:         app.cfg.MaxW,
 		MaxH:         app.cfg.MaxH,
+		MaxDecoded:   app.cfg.MaxDecoded * 1024 * 1024,
 		MaxSize:      app.cfg.MaxAV * 1024 * 1024,
 		ThumbW:       app.cfg.ThumbW,
 		ThumbH:       app.cfg.ThumbH,

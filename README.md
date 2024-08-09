@@ -25,12 +25,13 @@ PicInch provides a simple way for a group of website members, such as a photogra
 
 - The home page shows the most recent highlights and slideshows for each user. The number shown of each is configurable. A page for each contributor shows all their highlights and slideshows.
 
+- Sideshows can include videos as well as photos.
+
 - Written in Go and ready to be deployed to a virtual machine using Docker, for good performance and easy setup. 
 
 [![Project Status: Inactive – The project has reached a stable, usable state but new features are not being actively developed; support/maintenance will be provided as needed.](https://www.repostatus.org/badges/latest/inactive.svg)](https://www.repostatus.org/#inactive)
 
 _This is used at one photo club. I would like to work with another club, ideally in Scotland or the UK, to adapt it as needed for more general use. Contact support@picinch.com._
-
 
 For more information, including setup and configuration, see https://picinch.com.
 
