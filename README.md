@@ -46,7 +46,6 @@ For more information, including setup and configuration, see https://picinch.com
 - [Let's Go! - Alex Edwards](https://lets-go.alexedwards.net) This was a big help to get started, and PicInch copies much of the application structure that he suggests.
 
 Go Packages
-- [disintegration/imaging](https://github.com/disintegration/imaging) Image processing.
 - [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql) MySQL driver.
 - [golangcollege/sessions](https://github.com/golangcollege/sessions) HTTP session cookies.
 - [ilyakaznacheev/cleanenv](https://github.com/ilyakaznacheev/cleanenv) Read configuration file and environment variables.
