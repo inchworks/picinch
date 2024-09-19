@@ -31,6 +31,18 @@ import (
 	"inchworks.com/picinch/internal/picinch"
 )
 
+// Note that several of the handlers use variations on a common pattern:
+// - The referring page (ref) is defaulted to "/".
+// - The display function takes a closure that receives slideshow data.
+// - From the slideshow data the closure sets the slideshow template (tp),
+//   which is irrelevant to the display function.
+// - Calling the closure indicates that the referring page implied by the request path is valid.
+//   The closure sets the referring page (ref).
+// - The closure checks if access to the slideshow is allowed for the requesting user.
+//   If access is allowed, it returns the referring page, to be set at the end of the slideshow.
+// - If the display data is not available for any reason, the display function returns nil
+//   and the handler redirects to the referring page or "/" with a flash message.
+
 // classes serves the home page for a competition.
 func (app *Application) classes(w http.ResponseWriter, r *http.Request) {
 
@@ -132,11 +144,13 @@ func (app *Application) forShow(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// cached and returns to contributor
+	ref := "/"
 	data := app.galleryState.DisplaySlideshow(id, 0,
 		func(s *models.Slideshow, userId int64) string {
+			ref = "/contributor/" + strconv.FormatInt(userId, 10)
 			if app.allowViewShow(r, s) {
 				app.setCache(w, s.Id, s.Access)
-				return "/contributor/" + strconv.FormatInt(userId, 10)
+				return ref
 			} else {
 				return ""
 			}
@@ -145,7 +159,7 @@ func (app *Application) forShow(w http.ResponseWriter, r *http.Request) {
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
 		app.session.Put(r, "flash", "Slideshow removed.")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+		http.Redirect(w, r, ref, http.StatusSeeOther)
 		return
 	}
 
@@ -153,7 +167,7 @@ func (app *Application) forShow(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "carousel-default.page.tmpl", data)
 }
 
-// forTopic handles a request to view a contribution to a topic, by any user or the public.
+// forTopic handles a request to view a contributor's topic contribution, by any user or the public.
 func (app *Application) forTopic(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
@@ -161,9 +175,11 @@ func (app *Application) forTopic(w http.ResponseWriter, r *http.Request) {
 	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// cached and returns to home page
+	ref := "/"
 	var tp string
 	data := app.galleryState.DisplayUserTopic(userId, topicId,
 		func(t *models.Slideshow, fmt string) string {
+			ref = "/contributor/" + strconv.FormatInt(userId, 10)
 			if app.allowViewShow(r, t) {
 				app.setCache(w, topicId, t.Access)
 				if fmt == "H" {
@@ -172,7 +188,7 @@ func (app *Application) forTopic(w http.ResponseWriter, r *http.Request) {
 					tp = "carousel-default.page.tmpl"
 				}
 
-				return "/contributor/" + strconv.FormatInt(userId, 10)
+				return ref
 			} else {
 				return ""
 			}
@@ -181,7 +197,7 @@ func (app *Application) forTopic(w http.ResponseWriter, r *http.Request) {
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
 		app.session.Put(r, "flash", "Contribution removed from topic.")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+		http.Redirect(w, r, ref, http.StatusSeeOther)
 		return
 	}
 
@@ -357,7 +373,7 @@ func (app *Application) ownTopic(w http.ResponseWriter, r *http.Request) {
 		})
 	if data == nil {
 		app.session.Put(r, "flash", "No slides to this topic yet.")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+		http.Redirect(w, r, "/my-slideshows", http.StatusSeeOther)
 		return
 	}
 
@@ -414,7 +430,7 @@ func (app *Application) reviewSlides(w http.ResponseWriter, r *http.Request) {
 	if data == nil {
 		// ## shouldn't ever fail
 		app.session.Put(r, "flash", "Contribution removed from topic.")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+		http.Redirect(w, r, "/topics", http.StatusSeeOther)
 		return
 	}
 
@@ -441,7 +457,7 @@ func (app *Application) reviewTopic(w http.ResponseWriter, r *http.Request) {
 	if data == nil {
 		// ## Shouldn't ever fail
 		app.session.Put(r, "flash", "Topic removed.")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+		http.Redirect(w, r, "/topics", http.StatusSeeOther)
 		return
 	}
 
@@ -702,7 +718,7 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 	app.render(w, r, "topic-contributors.page.tmpl", data)
 }
 
-// topicUser handles a request to view a contribution to topic, by any user or the public.
+// topicUser handles a request to view a topic contribution, by any user or the public.
 func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
@@ -710,9 +726,11 @@ func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
 	// cached and returns to home page
+	ref := "/"
 	var tp string
 	data := app.galleryState.DisplayUserTopic(userId, topicId,
 		func(t *models.Slideshow, fmt string) string {
+			ref = "/topic-contributors/" + strconv.FormatInt(topicId, 10)
 			if app.allowViewShow(r, t) {
 				app.setCache(w, topicId, t.Access)
 				if fmt == "H" {
@@ -720,7 +738,7 @@ func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 				} else {
 					tp = "carousel-default.page.tmpl"
 				}
-				return "/topic-contributors/" + strconv.FormatInt(topicId, 10)
+				return ref
 			} else {
 				return ""
 			}
@@ -729,7 +747,7 @@ func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
 		app.session.Put(r, "flash", "Contribution removed from topic.")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+		http.Redirect(w, r, ref, http.StatusSeeOther)
 		return
 	}
 
@@ -769,12 +787,14 @@ func (app *Application) userShow(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// not cached so that changes are visible immediately, and returns to curator's list
+	ref := "/"
 	data := app.galleryState.DisplaySlideshow(id, 0,
 		func(s *models.Slideshow, ownerId int64) string {
+			ref := "/slideshows-user/" + strconv.FormatInt(userId, 10)
 			if userId != ownerId {
 				return ""
 			} else if app.allowViewShow(r, s) {
-				return "/slideshows-user/" + strconv.FormatInt(userId, 10)
+				return ref
 			} else {
 				return ""
 			}
@@ -783,7 +803,7 @@ func (app *Application) userShow(w http.ResponseWriter, r *http.Request) {
 	if data == nil {
 		// unlikely unless user saved a link to own slideshow or changed ID
 		app.session.Put(r, "flash", "Slideshow not known.")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+		http.Redirect(w, r, ref, http.StatusSeeOther)
 		return
 	}
 
@@ -800,6 +820,7 @@ func (app *Application) userTopic(w http.ResponseWriter, r *http.Request) {
 	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
 	// template and data for slides
+	ref := "/"
 	var tp string
 	data := app.galleryState.DisplayUserTopic(userId, topicId,
 		func(_ *models.Slideshow, fmt string) string {
@@ -808,11 +829,12 @@ func (app *Application) userTopic(w http.ResponseWriter, r *http.Request) {
 			} else {
 				tp = "carousel-default.page.tmpl"
 			}
-			return "/slideshows-user/" + strconv.FormatInt(userId, 10)
+			ref = "/slideshows-user/" + strconv.FormatInt(userId, 10)
+			return ref
 		})
 	if data == nil {
-		app.session.Put(r, "flash", "No slides to this topic yet.")
-		http.Redirect(w, r, r.Referer(), http.StatusSeeOther)
+		app.session.Put(r, "flash", "No slides for this topic yet.")
+		http.Redirect(w, r, ref, http.StatusSeeOther)
 		return
 	}
 

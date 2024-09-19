@@ -366,7 +366,6 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 			} else if ix == iDest {
 				// check if details changed
-				mediaName := uploader.CleanName(qsSrc[iSrc].MediaName)
 				if qsSrc[iSrc].ShowOrder != qDest.ShowOrder ||
 					qsSrc[iSrc].Title != qDest.Title ||
 					qsSrc[iSrc].Caption != qDest.Caption ||
@@ -381,6 +380,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 					if qsSrc[iSrc].Version != 0 {
 						// replace media file
 						s.app.uploader.Delete(tx, qsDest[iDest].Image)
+						mediaName := uploader.CleanName(qsSrc[iSrc].MediaName)
 						qDest.Image = uploader.FileFromName(tx, qsSrc[iSrc].Version, mediaName)
 					}
 

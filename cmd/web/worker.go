@@ -17,7 +17,7 @@
 
 package main
 
-// Worker goroutine for all background processing
+// Worker for ETX and all other background processing
 
 import (
 	"errors"
@@ -176,7 +176,7 @@ func (s *GalleryState) onAbandon(tx etx.TxId) {
 	}
 }
 
-// onBindShow sets uploaded media for a new and updated slideshow.
+// onBindShow sets uploaded media for a new or updated slideshow.
 func (s *GalleryState) onBindShow(showId int64, topicId int64, revised bool, tx etx.TxId) {
 
 	defer s.updatesGallery()()
