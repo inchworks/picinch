@@ -74,12 +74,11 @@ func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "contributor.page.tmpl", data)
 }
 
-// Contributors (for other users to see)
-
+// contributors returns a list of slideshow contributors, for the public or members.
 func (app *Application) contributors(w http.ResponseWriter, r *http.Request) {
 
 	// template and contributors
-	template, data := app.galleryState.DisplayContributors()
+	template, data := app.galleryState.DisplayContributors(app.isAuthenticated(r, models.UserFriend))
 
 	// display page
 	app.render(w, r, template, data)
@@ -237,8 +236,7 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 // home serves the main page for the public.
 func (app *Application) home(w http.ResponseWriter, r *http.Request) {
 
-	member := app.isAuthenticated(r, models.UserFriend)
-	if member {
+	if app.isAuthenticated(r, models.UserFriend) {
 		// show members home page if logged in
 		http.Redirect(w, r, "/members", http.StatusSeeOther)
 		return
@@ -263,8 +261,7 @@ func (app *Application) home(w http.ResponseWriter, r *http.Request) {
 // homeMembers serves the main page for members.
 func (app *Application) homeMembers(w http.ResponseWriter, r *http.Request) {
 
-	member := app.isAuthenticated(r, models.UserFriend)
-	if !member {
+	if !app.isAuthenticated(r, models.UserFriend) {
 		// show public home page if logged out
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return

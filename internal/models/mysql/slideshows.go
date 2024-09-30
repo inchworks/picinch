@@ -47,6 +47,7 @@ const (
 const (
 	// note that ID is included for stable ordering of selections for editing
 	slideshowSelect       = `SELECT * FROM slideshow`
+	slideshowOrderPublished = ` ORDER BY gallery_order DESC, created DESC, id`
 	slideshowOrderRevised = ` ORDER BY gallery_order DESC, revised DESC, id`
 	slideshowOrderTitle   = ` ORDER BY title, id`
 
@@ -66,16 +67,16 @@ const (
 	slideshowWhereTopicAfter = `
 		SELECT slideshow.id FROM slideshow
 		JOIN user ON user.id = slideshow.user
-		WHERE topic = ? AND revised > ? AND visible = -1 AND user.status > 0
-		ORDER BY revised ASC LIMIT 1
+		WHERE topic = ? AND slideshow.created > ? AND visible = -1 AND user.status > 0
+		ORDER BY slideshow.created ASC LIMIT 1
 	`
 
 	// previous slideshow ID in sequence for a topic, excluding suspended users
 	slideshowWhereTopicBefore = `
 		SELECT slideshow.id FROM slideshow
 		JOIN user ON user.id = slideshow.user
-		WHERE topic = ? AND revised < ? AND visible = -1 AND user.status > 0
-		ORDER BY revised DESC LIMIT 1
+		WHERE topic = ? AND slideshow.created < ? AND visible = -1 AND user.status > 0
+		ORDER BY slideshow.created DESC LIMIT 1
 	`
 
 	// a user's slideshow for a topic, if visible
@@ -139,12 +140,12 @@ const (
 		WHERE slideshow.user = ?
 		AND (slideshow.visible >= ? OR slideshow.visible = -1 AND topic.visible >= ?)
 		AND slideshow.image <> ""
-		ORDER BY slideshow.created DESC
+		ORDER BY slideshow.revised DESC
 	`
 
 	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ? AND slideshow.visible > -10` + slideshowOrderTitle
 	topicsWhereFormat   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ? AND slideshow.visible > -10` + slideshowOrderTitle
-	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND slideshow.visible > -10` + slideshowOrderRevised
+	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND slideshow.visible > -10` + slideshowOrderPublished
 
 	// most recent visible topics and slideshows, with a per-user limit, excluding suspended users
 	slideshowsRecentPublished = `
@@ -167,7 +168,7 @@ const (
 		FROM slideshow
 		INNER JOIN user ON user.id = slideshow.user
 		WHERE slideshow.topic = ? AND slideshow.visible = -1 AND slideshow.image <> "" AND user.status > 0
-		ORDER BY slideshow.revised`
+		ORDER BY`
 )
 
 type SlideshowStore struct {
@@ -215,8 +216,7 @@ func (st *SlideshowStore) AllForUsers() []*models.Slideshow {
 	return slideshows
 }
 
-// All topics
-
+// All topics returns a list of all topics for which contributions can be made.
 func (st *SlideshowStore) AllTopics() []*models.Slideshow {
 
 	var topics []*models.Slideshow
@@ -340,15 +340,15 @@ func (st *SlideshowStore) ForTopic(topicId int64) []*models.Slideshow {
 	return slideshows
 }
 
-// Published slideshows for a topic, in specfied order
-
+// ForTopicPublished returns the published slideshows for a topic, in specfied order.
+// It is used to show the contributions to a topic.
 func (st *SlideshowStore) ForTopicPublished(topicId int64, latest bool) []*models.SlideshowUser {
 
 	var order string
 	if latest {
-		order = " DESC"
+		order = "  slideshow.revised DESC"
 	} else {
-		order = " ASC"
+		order = " slideshow.created ASC"
 	}
 
 	var shows []*models.SlideshowUser

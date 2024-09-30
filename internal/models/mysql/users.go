@@ -79,7 +79,7 @@ const (
 							) AS rnk
 			FROM slideshow AS contrib
 			LEFT JOIN slideshow AS topic ON topic.id = contrib.topic
-			WHERE contrib.gallery = ? AND (contrib.visible > 0 OR (contrib.visible = -1 AND topic.visible > 0))
+			WHERE contrib.gallery = ? AND contrib.image <> "" AND (contrib.visible >= ? OR (contrib.visible = -1 AND topic.visible >= ?))
 		)
 		SELECT user.*
 		FROM s1
@@ -149,13 +149,12 @@ func (st *UserStore) ByName() []*users.User {
 	return users
 }
 
-// All users with published slideshows, ordered by latest slideshow
-
-func (st *UserStore) Contributors() []*users.User {
+// Contributors returns all users with published slideshows, ordered by latest slideshow.
+func (st *UserStore) Contributors( visible int) []*users.User {
 
 	var users []*users.User
 
-	if err := st.DBX.Select(&users, usersByLatestSlideshow, st.GalleryId); err != nil {
+	if err := st.DBX.Select(&users, usersByLatestSlideshow, st.GalleryId, visible, visible); err != nil {
 		st.logError(err)
 		return nil
 	}

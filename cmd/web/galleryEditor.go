@@ -292,7 +292,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				Visible:      models.SlideshowTopic,
 				User:         sql.NullInt64{Int64: userId, Valid: true},
 				Topic:        topicId,
-				Created:      now,
+				Created:      time.Time{},
 				Revised:      now,
 				Title:        topic.Title,
 			}
@@ -333,11 +333,8 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				Caption:   s.sanitize(qsSrc[iSrc].Caption, ""),
 				Image:     uploader.FileFromName(tx, qsSrc[iSrc].Version, mediaName),
 			}
-			// Only the first new media file is counted as a revision to the slideshow.
-			// This is necessary so that the order of sections within a topic is stable.
-			// It also stops an unscrupulous user from repeatedly promoting a slideshow.
-			if nMedia == 0 && mediaName != "" {
-				revised = true
+			if mediaName != "" {
+				revised = true // update revision when new media file added
 			}
 
 			s.app.SlideStore.Update(&qd)
@@ -427,7 +424,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				if err := s.app.tm.AddNext(tx, s, OpShow,
 					&OpUpdateTopic{
 						TopicId: topicId,
-						Revised: false,
+						Revised: revised,
 					}); err != nil {
 					return s.rollback(http.StatusInternalServerError, err), 0
 				}

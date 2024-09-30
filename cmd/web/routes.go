@@ -106,6 +106,8 @@ func (app *Application) Routes() http.Handler {
 
 	// public pages
 	router.Handler("GET", "/", publicCacheHs.ThenFunc(app.home))
+	router.Handler("GET", "/contributor/:nUser", publicCacheHs.ThenFunc(app.contributor))
+	router.Handler("GET", "/contributors", publicCacheHs.ThenFunc(app.contributors))
 	router.Handler("GET", "/info/:page", publicCacheHs.ThenFunc(app.info))
 
 	// public competition
@@ -149,8 +151,8 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))
 
 	// displays - general
-	router.Handler("GET", "/contributors", authNoCacheHs.ThenFunc(app.contributors))
-	router.Handler("GET", "/contributor/:nUser", authNoCacheHs.ThenFunc(app.contributor))
+	router.Handler("GET", "/contrib-members", authNoCacheHs.ThenFunc(app.contributors))
+	router.Handler("GET", "/contrib-member/:nUser", authNoCacheHs.ThenFunc(app.contributor))
 	router.Handler("GET", "/entry/:nId", authNoCacheHs.ThenFunc(app.entry))
 	router.Handler("GET", "/members", authCacheHs.ThenFunc(app.homeMembers))
 	router.Handler("GET", "/my-slideshows", authNoCacheHs.ThenFunc(app.slideshowsOwn))

@@ -399,18 +399,17 @@ func (s *GalleryState) onPurge(t time.Time) etx.TxId {
 	return tx
 }
 
-// Change topic(s) thumbnails
-
+// onRefresh changes topic thumbnails
 func (s *GalleryState) onRefresh() int {
 
-	defer s.updatesGallery()()
+	// process topics as separate transactions, for better responsiveness
+	topics := s.topicsToRefresh()
 
-	topics := s.app.SlideshowStore.AllTopics()
-
-	for _, topic := range topics {
-		if err := s.updateTopic(topic, false); err != nil {
-			return s.rollback(statusTeapot, err)
+	for _, t := range topics {
+		if status := s.refreshTopic(t); status != 0 {
+			return status
 		}
+		runtime.Gosched() // ## not sure if this helps
 	}
 
 	return 0
@@ -525,6 +524,22 @@ func (s *GalleryState) onUpdateTopic(topicId int64, tx etx.TxId, revised bool) {
 	}
 }
 
+// refreshTopic changes a topic thumbnail.
+func (s *GalleryState) refreshTopic(t *models.Slideshow) int {
+	defer s.updatesGallery()()
+
+	if err := s.updateTopic(t, false); err != nil {
+		return s.rollback(statusTeapot, err)
+	}
+	return 0
+}
+
+func (s *GalleryState) topicsToRefresh() []*models.Slideshow {
+	defer s.updatesNone()()
+	return s.app.SlideshowStore.AllTopics()
+}
+
+
 // updateHighlights changes the cached images when a highlight slideshow is changed.
 func (s *GalleryState) updateHighlights(id int64) error {
 
@@ -560,7 +575,7 @@ func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind
 	if show.Topic != 0 {
 		t, _ := s.app.SlideshowStore.Get(show.Topic)
 		if t != nil {
-			fmt, _ := t.ParseFormat(s.app.cfg.MaxSlides)
+			fmt, _ := t.ParseFormat(0)
 			recent = fmt == "H"
 		}
 	}
@@ -601,24 +616,19 @@ func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind
 		show.Image = thumbnail
 	}
 
-	// ## temporary fix for missing creation time
-	if show.Topic == 1 && show.Created == (time.Time{}) {
-		show.Created = time.Now()
-		show.Revised = time.Now()
-	}
-
-	// update slideshow revision date
 	if revised {
+		// update slideshow revision date
 		show.Revised = time.Now()
-		if show.Topic == s.app.SlideshowStore.HighlightsId {
-			// highlights show moved up display order when images added
+
+		// topic contribution published on first media file
+		if show.Topic != 0 && show.Created.IsZero() {
 			show.Created = show.Revised
 		}
 	}
+
 	if err := s.app.SlideshowStore.Update(show); err != nil {
 		s.app.log(err)
 	}
-
 }
 
 // claimFiles claims media files for a slideshow.
@@ -674,29 +684,44 @@ func (app *Application) deleteTopic(t *models.Slideshow) {
 // updateTopic changes the topic thumbnail, and if required updates the revision date
 func (s *GalleryState) updateTopic(t *models.Slideshow, revised bool) error {
 
+	st := s.app.SlideStore
 	update := false
 
 	// exclude hidden topics and fixed image competition categories
 	if t.Visible >= models.SlideshowClub && t.Format != "F" {
-		images := s.app.SlideStore.ImagesForTopic(t.Id)
+		var images []int64
+
+		fmt, max := t.ParseFormat(s.app.cfg.MaxSlidesTopic)
+		if fmt =="H" {
+			images = st.ImagesForHighlights(t.Id, max, s.app.cfg.MaxHighlightsTopic)
+		} else {
+			images = st.ImagesForTopic(t.Id, max)
+		}
+		
 		nImages := len(images)
 		img := ""
 
 		if nImages > 0 {
 			// select random image for topic thumbnail
-			i := int(rand.Float32() * float32(nImages))
-			img = images[i]
+			i := int64(rand.Float32() * float32(nImages))
+			s, err := st.Get(images[i])
+			if err != nil {
+				return err
+			}
+			img = s.Image
 		}
 		if t.Image != img {
 			t.Image = img
 			update = true
 		}
 	}
+	
 	if revised {
 		// change revision date
-		t.Revised = time.Now()
-		if t.Id == s.app.SlideshowStore.HighlightsId {
-			// highlights topic moved up display order when images added
+		t.Revised = time.Now() 
+		fmt, _ := t.ParseFormat(0)
+		if fmt == "H" {
+			// highlights topics are moved up display order when contributions revised
 			t.Created = t.Revised
 		}
 		update = true

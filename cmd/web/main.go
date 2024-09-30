@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.1.7"
+	version = "1.1.8"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -112,7 +112,7 @@ type Configuration struct {
 	// image sizes
 	MaxW       int `yaml:"image-width" env-default:"1600"`     // maximum stored image dimensions
 	MaxH       int `yaml:"image-height" env-default:"1200"`    //
-	MaxAV      int `yaml:"max-audio-visual" env-default:"16"`  // maximum stored AV file size (megabytes)
+	MaxAV      int `yaml:"max-audio-visual" env-default:"16"`  // maximum unprocessed AV file size (megabytes)
 	ThumbW     int `yaml:"thumbnail-width" env-default:"278"`  // thumbnail size
 	ThumbH     int `yaml:"thumbnail-height" env-default:"208"` //
 	MaxDecoded int `yaml:"max-decoded" env-default:"512"`      // maximum decoded image size (megabytes)

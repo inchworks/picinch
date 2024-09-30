@@ -43,20 +43,47 @@ const (
 	slideSelect = `SELECT * FROM slide`
 
 	slideOrder  = ` ORDER BY show_order ASC, revised DESC LIMIT ?`
-	slideRecent = ` ORDER BY revised DESC LIMIT ?`
+	slideRecent = ` ORDER BY created DESC LIMIT ?`
 
 	slideWhereId          = slideSelect + ` WHERE id = ?`
-	slidesWhereShow = slideSelect + ` WHERE slideshow = ?`
-	slidesWhereShowOlder       = slideSelect + ` WHERE slideshow = ?` + slideOrder
+	slidesWhereShow       = slideSelect + ` WHERE slideshow = ?`
+	slidesWhereShowOlder  = slideSelect + ` WHERE slideshow = ?` + slideOrder
 	slidesWhereShowRecent = slideSelect + ` WHERE slideshow = ?` + slideRecent
 
-	// all images for a topic, excluding suspended users and temporary versions
-	imagesWhereTopic = `
-		SELECT slide.image FROM slide
-		INNER JOIN slideshow ON slideshow.id = slide.slideshow
-		INNER JOIN user ON user.id = slideshow.user
-		WHERE slideshow.topic = ? AND slideshow.visible > -10 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
-		`
+	// oldest images for a topic, excluding suspended users
+	imagesWhereTopicOlder = `
+		WITH s1 AS (
+			SELECT slide.*,
+				RANK() OVER (PARTITION BY slideshow.user
+									ORDER BY slide.show_order ASC, slide.id ASC
+							) AS rnk
+			FROM slide
+			INNER JOIN slideshow ON slideshow.id = slide.slideshow
+			INNER JOIN user ON user.id = slideshow.user
+			WHERE slideshow.topic = ? AND slideshow.visible > -10 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			)
+		SELECT id
+		FROM s1
+		WHERE rnk <= ?
+	`
+
+	// most recent images for a topic, excluding suspended users
+	imagesWhereTopicRecent = `
+		WITH s1 AS (
+			SELECT slide.*,
+				RANK() OVER (PARTITION BY slideshow.user
+									ORDER BY slide.created DESC, slide.id DESC
+							) AS rnk
+			FROM slide
+			INNER JOIN slideshow ON slideshow.id = slide.slideshow
+			INNER JOIN user ON user.id = slideshow.user
+			WHERE slideshow.topic = ? AND slideshow.visible > -10 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			)
+		SELECT id
+		FROM s1
+		WHERE rnk <= ?
+		ORDER BY created DESC, id DESC LIMIT ?
+	`
 
 	// most recent slides for a topic, excluding suspended users
 	slidesRecentTopic = `
@@ -68,12 +95,12 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible > -10 AND slide.image <> '' AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible > -10 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
 			)
 		SELECT format, title, caption, image, name
 		FROM s1
 		WHERE rnk <= ?
-		ORDER BY revised DESC, id DESC LIMIT ?
+		ORDER BY created DESC, id DESC LIMIT ?
 	`
 )
 
@@ -107,17 +134,40 @@ func (st *SlideStore) ForSlideshow(showId int64) []*models.Slide {
 	return slides
 }
 
-// ImagesForTopic returns all the images for a topic, excluding those for suspended users.
-func (st *SlideStore) ImagesForTopic(topicId int64) []string {
+// Get returns a slide by ID.
+func (st *SlideStore) Get(id int64) (*models.Slide, error) {
 
-	var tns []string
+	var r models.Slide
 
-	if err := st.DBX.Select(&tns, imagesWhereTopic, topicId); err != nil {
+	if err := st.DBX.Get(&r, slideWhereId, id); err != nil {
+		return nil, st.logError(err)
+	}
+
+	return &r, nil
+}
+
+// ImagesForHighlights returns all the images for a highlights topic, excluding those for suspended users.
+// It applies the per-user and total image limits.
+func (st *SlideStore) ImagesForHighlights(topicId int64, perUser int, max int) (imgs []int64) {
+
+	if err := st.DBX.Select(&imgs, imagesWhereTopicRecent, topicId, perUser, max); err != nil {
 		st.logError(err)
 		return nil
 	}
 
-	return tns
+	return
+}
+
+// ImagesForTopic returns all the images for a topic, excluding those for suspended users.
+// It applies the per-user image limit. The images are used only to pick a thumbnail.
+func (st *SlideStore) ImagesForTopic(topicId int64, perUser int) (imgs []int64) {
+
+	if err := st.DBX.Select(&imgs, imagesWhereTopicOlder, topicId, perUser); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return
 }
 
 // Recent slides for slideshow

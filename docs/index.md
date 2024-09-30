@@ -75,11 +75,12 @@ The following may be addressed in future updates:
 - Support for competitions and judging requires the ability to edit the SQL database, as no forms have been implemented yet to setup tags and edit topic specifications.
 - There is no provision to integrate competition mode into the normal operation as a photo gallery.
 - HEIC images and HEVC videos are not supported.
+- There is no convenient way for a curator to review members latest changes.
 
 The following are unlikely to change:
 - Photos can be viewed individually without logging in, if their names can be guessed. Names are not easy to guess, however.
 - There is no password change or reset facility. However a user’s status can be reset to allow a new password to be specified on sign-up. Slideshows and images are preserved.
 - No option to restrict highlight visibility to signed-up users.
-- No option for public viewing of all highlights and public slideshows for a user, only the most recent ones shown on the home page.
 - There is no facility to comment on images or to rate them.
 - There is no bulk submission of images.
+- There is no facility to hide contributions until they have been vetted. Members must be trusted to obey club rules on acceptable images.

@@ -106,19 +106,32 @@ func (s *GalleryState) DisplayContributor(userId int64, member bool) *DataHome {
 	}
 }
 
-// Users that have slideshows
-
-func (s *GalleryState) DisplayContributors() (string, *DataUsers) {
+// DisplayContributors returns a template and data for users that have slideshows.
+func (s *GalleryState) DisplayContributors(member bool) (string, *DataUsers) {
 
 	defer s.updatesNone()()
 
-	users := s.app.userStore.Contributors()
+	// show all published or just public ones?
+	var visible int
+	if member {
+		visible = models.SlideshowClub
+	} else {
+		visible = models.SlideshowPublic
+	}
+	
+	users := s.app.userStore.Contributors(visible)
 	if users == nil {
 		return "no-contributors.page.tmpl", &DataUsers{}
-	}
 
-	return "contributors.page.tmpl", &DataUsers{
-		Users: users,
+	} else if member {
+		return "contrib-members.page.tmpl", &DataUsers{
+			Users: users,
+		}
+
+	} else {
+		return "contributors.page.tmpl", &DataUsers{
+			Users: users,
+		}
 	}
 }
 
@@ -148,15 +161,13 @@ func (s *GalleryState) DisplayHighlights(
 		return
 	}
 
-	// ### check format
-
 	// handler's interpetation of the slideshow
 	from := forPath(topic)
 	if from == "" {
 		return // no access to show
 	}
 
-	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlides)
+	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlidesTopic)
 	if fmt != "H" {
 		return // topic doesn't have highlights
 	}
@@ -276,7 +287,7 @@ func (s *GalleryState) DisplaySharedSlides(code int64, secId int64) (data *DataS
 	from := href("shared-", true, topic, 0)
 
 	// contribution to topic
-	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlides)
+	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlidesTopic)
 	return s.dataSection(topic, sec, "shared-", true, from, fmt, max), sec.Id
 }
 
@@ -331,7 +342,7 @@ func (s *GalleryState) DisplaySlides(
 	}
 
 	// handler's interpetation of the slideshow
-	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlides)
+	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlidesTopic)
 	from := forPath(topic, fmt)
 	if from == "" {
 		return // no access to show
@@ -407,7 +418,7 @@ func (s *GalleryState) DisplayTopics() *DataMyGallery {
 	var dataShows []*DataMySlideshow
 
 	for _, topic := range topics {
-		fmt, _ := topic.ParseFormat(s.app.cfg.MaxSlides)
+		fmt, _ := topic.ParseFormat(0)
 
 		d := DataMySlideshow{
 			NShow:   topic.Id,
@@ -491,7 +502,7 @@ func (s *GalleryState) DisplayUserTopic(
 	if sec == nil {
 		return nil
 	}
-	fmt, max := topic.ParseFormat(s.app.cfg.MaxSlides)
+	fmt, _ := topic.ParseFormat(0)
 
 	// parent path (and set appropriate caching)
 	from := forPath(topic, fmt)
@@ -500,7 +511,7 @@ func (s *GalleryState) DisplayUserTopic(
 	}
 
 	// .. and slides
-	return s.dataSlides(sec, 0, from, fmt, max)
+	return s.dataSlides(sec, 0, from, fmt, s.app.cfg.MaxSlides)
 }
 
 // DisplayUsers returns the data for a curator's view of the users.
@@ -582,7 +593,7 @@ func (s *GalleryState) dataHighlightSlides(topic *models.Slideshow, from string,
 	}
 }
 
-// dataHighlights returns data for highlight images on the home page or am embedded page.
+// dataHighlights returns data for highlight images on the home page or an embedded page.
 func (s *GalleryState) dataHighlights(nImages int) []*DataSlide {
 
 	// get slides for highlights topic
@@ -679,7 +690,7 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 
 	for _, show := range shows {
 
-		fmt, _ := show.ParseFormat(s.app.cfg.MaxSlides)
+		fmt, _ := show.ParseFormat(0)
 	
 		if show.User.Valid {
 			// slideshow - check if user's limit reached
@@ -789,7 +800,7 @@ func (s *GalleryState) dataTopic(topic *models.Slideshow, origin string, from st
 
 	// special selection for highlights
 	var after, before string
-	fm, _ := topic.ParseFormat(s.app.cfg.MaxSlides)
+	fm, _ := topic.ParseFormat(0)
 	if fm == "H" {
 		// next is all the highlights
 		before = from

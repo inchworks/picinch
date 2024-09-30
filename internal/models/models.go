@@ -183,8 +183,7 @@ func (s *Slideshow) VisibleStr() string {
 	return VisibleOpts[s.Visible]
 }
 
-// Formats
-
+// ParseFormat returns the slideshow format and maximum number of slides.
 func (t *Slideshow) ParseFormat(defaultMax int) (fmt string, max int) {
 
 	var err error
@@ -192,7 +191,7 @@ func (t *Slideshow) ParseFormat(defaultMax int) (fmt string, max int) {
 
 	switch len(ss) {
 	case 0:
-		fmt = "T"
+		fmt = "S" // regular slideshow
 		max = defaultMax
 
 	case 1:

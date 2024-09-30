@@ -63,7 +63,7 @@ Photos uploaded are resized to fit these dimensions.
 
 **image-height** `1200` stored image height
 
-**max-audio-visual** `16` maximum stored audio-visual file size, in megabytes
+**max-audio-visual** `16` maximum unprocessed audio-visual file size, in megabytes
 
 **thumbnail-width** `278` thumbnail width
 
