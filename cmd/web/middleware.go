@@ -64,16 +64,16 @@ func (app *Application) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// check for authenticated user in session
-		exists := app.session.Exists(r, "authenticatedUserID")
-		if !exists {
+		id := app.session.GetInt64(r.Context(), "authenticatedUserID")
+		if id == 0 {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		// check user against database
-		user, err := app.userStore.Get(app.session.Get(r, "authenticatedUserID").(int64))
+		user, err := app.userStore.Get(id)
 		if errors.Is(err, models.ErrNoRecord) || user.Status < users.UserActive {
-			app.session.Remove(r, "authenticatedUserID")
+			app.session.Remove(r.Context(), "authenticatedUserID")
 			next.ServeHTTP(w, r)
 			return
 		} else if err != nil {
@@ -218,7 +218,7 @@ func (app *Application) ccSlideshow(next http.Handler) http.Handler {
 				}
 				w.Header().Set("Cache-Control", cc)
 				w.WriteHeader(http.StatusNotModified)
-    				return
+				return
 			} else {
 				app.usage.Count("unknown", "cache")
 			}
@@ -538,7 +538,7 @@ func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http
 				http.Error(w, "User is not authorised for role", http.StatusUnauthorized)
 
 			} else {
-				app.session.Put(r, "redirectPathAfterLogin", r.URL.Path)
+				app.session.Put(r.Context(), "redirectPathAfterLogin", r.URL.Path)
 				http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 			}
 			return

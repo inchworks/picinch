@@ -29,7 +29,8 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/golangcollege/sessions"
+	"github.com/alexedwards/scs/v2"
+	"github.com/alexedwards/scs/mysqlstore"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/inchworks/usage"
 	"github.com/inchworks/webparts/v2/etx"
@@ -53,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.2.0"
+	version = "1.2.1"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -97,8 +98,6 @@ type Configuration struct {
 	// from command line only
 	AddrHTTP  string `yaml:"http-addr" env:"http" env-default:":8000" env-description:"HTTP address"`
 	AddrHTTPS string `yaml:"https-addr" env:"https" env-default:":4000" env-description:"HTTPS address"`
-
-	Secret string `yaml:"session-secret" env:"session-secret" env-default:"Hk4TEiDgq8JaCNR?WaPeWBf4QQYNUjMR" env-description:"Secret key for sessions"`
 
 	// new DSN
 	DBSource   string `yaml:"db-source" env:"db-source" env-default:"tcp(picinch_db:3306)/picinch"`
@@ -200,7 +199,7 @@ type Application struct {
 	errorLog      *log.Logger
 	infoLog       *log.Logger
 	threatLog     *log.Logger
-	session       *sessions.Session
+	session       *scs.SessionManager
 	templateCache map[string]*template.Template
 
 	// database
@@ -345,12 +344,18 @@ func main() {
 
 // Authenticated adds a logged-in user's ID to the session.
 func (app *Application) Authenticated(r *http.Request, id int64) {
-	app.session.Put(r, "authenticatedUserID", id)
+
+	// renew session token on privilege level change, to prevent session fixation attack
+	if err := app.session.RenewToken(r.Context()); err != nil {
+		app.Log(err)
+	}
+
+	app.session.Put(r.Context(), "authenticatedUserID", id)
 }
 
 // Flash adds a confirmation message to the next page, via the session.
 func (app *Application) Flash(r *http.Request, msg string) {
-	app.session.Put(r, "flash", msg)
+	app.session.Put(r.Context(), "flash", msg)
 }
 
 // GetRedirect returns the next page after log-in, probably from a session key.
@@ -436,10 +441,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		errorLog.Fatal(err)
 	}
 
-	// session manager
-	session := sessions.New([]byte(cfg.Secret))
-	session.Lifetime = 12 * time.Hour
-
 	// access to items removed should be for longer than the cache time
 	if cfg.DropDelay < cfg.MaxCacheAge {
 		cfg.DropDelay = cfg.MaxCacheAge * 2
@@ -451,7 +452,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		errorLog:      errorLog,
 		infoLog:       infoLog,
 		threatLog:     threatLog,
-		session:       session,
 		templateCache: templateCache,
 		db:            db,
 		sanitizer:     bluemonday.UGCPolicy(),
@@ -484,6 +484,9 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// initialise data stores
 	gallery := app.initStores(cfg)
+
+	// initialise session manager
+	app.session = initSession(len(cfg.Domains) > 0, db)
 
 	// cached state
 	if err := app.galleryState.setupCache(gallery); err != nil {
@@ -563,6 +566,23 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	return app
 }
 
+// initSession returns the session manager.
+func initSession(live bool, db *sqlx.DB) *scs.SessionManager {
+
+		sm := scs.New()
+
+		sm.Cookie.Name = "session_v2" // changed from previous implementation
+		sm.Lifetime = 24 * time.Hour
+		sm.Store = mysqlstore.New(db.DB)
+
+		// secure cookie over HTTPS except in test
+		if live {
+			sm.Cookie.Secure = true
+		}
+		
+		return sm
+}
+
 // Initialise data stores
 
 func (app *Application) initStores(cfg *Configuration) *models.Gallery {
@@ -616,6 +636,9 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	}
 	if !mysql.MigrateRedoV1(app.redoV1Store) {
 		app.redoV1Store = nil
+	}
+	if err = mysql.MigrateSessions(mysql.NewSessionStore(app.db, &app.tx, app.errorLog)); err != nil {
+		app.errorLog.Fatal(err)
 	}
 
 	return g

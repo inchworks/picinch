@@ -25,7 +25,7 @@ This example file reproduces the content of the default website.
     <p>The only cookies this website uses are those "strictly necessary" for website operation, for which consent is not required. There are two:
     <ul>
         <li><b>csrf_token:</b> This is for website security, and helps protect against unauthorised access using Cross-Site Request Forgery. It is removed when you close your browser.</li>
-        <li><b>session:</b> This holds the information needed to manage logged-in users. It also enables per-user messages to be displayed. It is not set until you sign-up or log-in, and it expires after one day.</li>
+        <li><b>session_v2:</b> This enables per-user messages to be displayed, and identifies logged-in users. It expires after one day.</li>
     </ul>
     </p>
 {{end}}

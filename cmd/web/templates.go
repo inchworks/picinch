@@ -59,7 +59,7 @@ type DataCommon struct {
 func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page string) {
 
 	d.CSRFToken = nosurf.Token(r)
-	d.Flash = app.session.PopString(r, "flash")
+	d.Flash = app.session.PopString(r.Context(), "flash")
 	d.IsAdmin = app.isAuthenticated(r, models.UserAdmin)
 	d.IsAuthenticated = app.isAuthenticated(r, models.UserFriend)
 	d.IsCompetition = (app.cfg.Options == "main-comp")

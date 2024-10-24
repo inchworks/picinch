@@ -65,7 +65,7 @@ func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
 	data := app.galleryState.DisplayContributor(userId, app.isAuthenticated(r, models.UserFriend))
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r, "flash", "Contributor removed.")
+		app.session.Put(r.Context(), "flash", "Contributor removed.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -157,7 +157,7 @@ func (app *Application) forShow(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r, "flash", "Slideshow removed.")
+		app.session.Put(r.Context(), "flash", "Slideshow removed.")
 		http.Redirect(w, r, ref, http.StatusSeeOther)
 		return
 	}
@@ -195,7 +195,7 @@ func (app *Application) forTopic(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r, "flash", "Contribution removed from topic.")
+		app.session.Put(r.Context(), "flash", "Contribution removed from topic.")
 		http.Redirect(w, r, ref, http.StatusSeeOther)
 		return
 	}
@@ -224,7 +224,7 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r, "flash", "No highlights.")
+		app.session.Put(r.Context(), "flash", "No highlights.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -298,11 +298,17 @@ func (app *Application) info(w http.ResponseWriter, r *http.Request) {
 
 func (app *Application) logout(w http.ResponseWriter, r *http.Request) {
 
+	// renew session token on privilege level change, to prevent session fixation attack
+	if err := app.session.RenewToken(r.Context()); err != nil {
+		app.log(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	
 	// remove user ID from the session data
-	app.session.Remove(r, "authenticatedUserID")
+	app.session.Remove(r.Context(), "authenticatedUserID")
 
 	// flash message to confirm logged out
-	app.session.Put(r, "flash", "You are logged out")
+	app.session.Put(r.Context(), "flash", "You are logged out")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -334,7 +340,7 @@ func (app *Application) ownShow(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// unlikely unless user saved a link to own slideshow or changed ID
-		app.session.Put(r, "flash", "Slideshow not known.")
+		app.session.Put(r.Context(), "flash", "Slideshow not known.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -369,7 +375,7 @@ func (app *Application) ownTopic(w http.ResponseWriter, r *http.Request) {
 			return "/my-slideshows"
 		})
 	if data == nil {
-		app.session.Put(r, "flash", "No slides to this topic yet.")
+		app.session.Put(r.Context(), "flash", "No slides to this topic yet.")
 		http.Redirect(w, r, "/my-slideshows", http.StatusSeeOther)
 		return
 	}
@@ -397,7 +403,7 @@ func (app *Application) reviewHighlights(w http.ResponseWriter, r *http.Request)
 
 	if data == nil {
 		// ## Shouldn't ever fail
-		app.session.Put(r, "flash", "No highlights.")
+		app.session.Put(r.Context(), "flash", "No highlights.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -426,7 +432,7 @@ func (app *Application) reviewSlides(w http.ResponseWriter, r *http.Request) {
 		})
 	if data == nil {
 		// ## shouldn't ever fail
-		app.session.Put(r, "flash", "Contribution removed from topic.")
+		app.session.Put(r.Context(), "flash", "Contribution removed from topic.")
 		http.Redirect(w, r, "/topics", http.StatusSeeOther)
 		return
 	}
@@ -453,7 +459,7 @@ func (app *Application) reviewTopic(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// ## Shouldn't ever fail
-		app.session.Put(r, "flash", "Topic removed.")
+		app.session.Put(r.Context(), "flash", "Topic removed.")
 		http.Redirect(w, r, "/topics", http.StatusSeeOther)
 		return
 	}
@@ -480,7 +486,7 @@ func (app *Application) sharedSlides(w http.ResponseWriter, r *http.Request) {
 	data, id := app.galleryState.DisplaySharedSlides(code, sec)
 	if data == nil {
 		// polite rejection because code may have been shared long ago.
-		app.session.Put(r, "flash", "Contribution removed from shared topic.")
+		app.session.Put(r.Context(), "flash", "Contribution removed from shared topic.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -507,7 +513,7 @@ func (app *Application) sharedSlideshow(w http.ResponseWriter, r *http.Request) 
 	data, id := app.galleryState.DisplayShared(code)
 	if data == nil {
 		// polite rejection because code may have been shared long ago.
-		app.session.Put(r, "flash", "Shared slideshow not available.")
+		app.session.Put(r.Context(), "flash", "Shared slideshow not available.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -535,7 +541,7 @@ func (app *Application) sharedTopic(w http.ResponseWriter, r *http.Request) {
 	data, id := app.galleryState.DisplaySharedTopic(code)
 	if data == nil {
 		// polite rejection because code may have been shared long ago.
-		app.session.Put(r, "flash", "Shared topic not available.")
+		app.session.Put(r.Context(), "flash", "Shared topic not available.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -565,7 +571,7 @@ func (app *Application) slides(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r, "flash", "Contribution removed from topic.")
+		app.session.Put(r.Context(), "flash", "Contribution removed from topic.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -594,7 +600,7 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r, "flash", "Slideshow removed.")
+		app.session.Put(r.Context(), "flash", "Slideshow removed.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -678,7 +684,7 @@ func (app *Application) topic(w http.ResponseWriter, r *http.Request) {
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
 		// ## could be more specific about what is missing
-		app.session.Put(r, "flash", "Topic removed.")
+		app.session.Put(r.Context(), "flash", "Topic removed.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -706,7 +712,7 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r, "flash", "Topic removed.")
+		app.session.Put(r.Context(), "flash", "Topic removed.")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -743,7 +749,7 @@ func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r, "flash", "Contribution removed from topic.")
+		app.session.Put(r.Context(), "flash", "Contribution removed from topic.")
 		http.Redirect(w, r, ref, http.StatusSeeOther)
 		return
 	}
@@ -799,7 +805,7 @@ func (app *Application) userShow(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// unlikely unless user saved a link to own slideshow or changed ID
-		app.session.Put(r, "flash", "Slideshow not known.")
+		app.session.Put(r.Context(), "flash", "Slideshow not known.")
 		http.Redirect(w, r, ref, http.StatusSeeOther)
 		return
 	}
@@ -830,7 +836,7 @@ func (app *Application) userTopic(w http.ResponseWriter, r *http.Request) {
 			return ref
 		})
 	if data == nil {
-		app.session.Put(r, "flash", "No slides for this topic yet.")
+		app.session.Put(r.Context(), "flash", "No slides for this topic yet.")
 		http.Redirect(w, r, ref, http.StatusSeeOther)
 		return
 	}

@@ -69,7 +69,7 @@ import (
 func (app *Application) Routes() http.Handler {
 
 	commonHs := alice.New(secureHeaders, app.noBanned, app.geoBlock, app.noQuery, wwwRedirect)
-	dynHs := alice.New(app.timeout, app.limitPage, app.session.Enable, noSurf, app.authenticate, app.logRequest) // dynamic page handlers
+	dynHs := alice.New(app.timeout, app.limitPage, app.session.LoadAndSave, noSurf, app.authenticate, app.logRequest) // dynamic page handlers
 	immutableHs := alice.New(app.timeoutMedia, app.limitFile, app.ccImmutable)
 	staticHs := alice.New(app.timeout, app.limitFile)
 

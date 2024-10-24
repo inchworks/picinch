@@ -140,6 +140,16 @@ var cmdsRedo = [...]string{
 		ADD COLUMN etag varchar(64) NOT NULL;`,
 }
 
+var cmdsSessions = [...]string{
+	`CREATE TABLE sessions (
+		token CHAR(43) PRIMARY KEY,
+		data BLOB NOT NULL,
+		expiry TIMESTAMP(6) NOT NULL
+	);`,
+	
+	`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
+}
+
 var cmdsTags = [...]string{
 
 	`CREATE TABLE tag (
@@ -292,6 +302,15 @@ func MigrateRedoV1(stRedoV1 *RedoV1Store) bool {
 
 	n, err := stRedoV1.Count()
 	return err == nil && n > 0
+}
+
+// MigrateSessions adds a sessions table. Needed for version 1.2.1.
+func MigrateSessions(stSession *SessionStore) error {
+
+	if _, err := stSession.Count(); err != nil {
+		return setupTables(stSession.DBX, *stSession.ptx, cmdsSessions[:])
+	}
+	return nil
 }
 
 // MigrateTags adds tag tables. Needed for version 0.9.8.

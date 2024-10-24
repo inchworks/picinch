@@ -16,10 +16,6 @@ db-password: <server password>
 # Address to be notified of problems with certificates
 certificate-email: you@example.com
 
-# A random 32 character key used to encrypt users session data
-# For example, start with this one and change a lot of the individual characters.
-session-secret: Hk4TEiDgq8JaCNR?WaPeWBf4QQYNUjMR
-
 # Administrator, to be added to the database
 admin-name: admin@example.com
 admin-password: <your-password>
@@ -45,9 +41,6 @@ A database connection is requested with DSN `db-user:db-password@db-source?parse
 This is intended for testing and is not recommended for production.
 
 **certificate-email** Address given to Let’s Encrypt, for notification of problems with certificates.
-
-## Session
-**session-secret** A random 32 character key used to encrypt users session data.
 
 ## Administrator
 Specifies the username and password for an PicInch administrator if the username does not exist in the database. These items may be removed after setup if desired.
