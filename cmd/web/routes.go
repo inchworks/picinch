@@ -77,12 +77,13 @@ func (app *Application) Routes() http.Handler {
 	adminHs := dynHs.Append(app.requireAdmin)
 	authHs := dynHs.Append(app.requireAuthentication) // friend authenticated, may be further restriction by application logic
 	curatorHs := dynHs.Append(app.requireCurator)
-	ownerHs := dynHs.Append(app.requireOwner)
+	memberHs := dynHs.Append(app.requireMember)
+	ownerHs := dynHs.Append(app.requireOwner) // checks :nUser in path
 
 	sharedHs := dynHs.Append(app.ccCache)
 
 	// cache-control settings
-	adminCacheHs := adminHs.Append(app.ccPrivateCache)
+	adminNoCacheHs := adminHs.Append(app.ccNoCache)
 	adminNoStoreHs := adminHs.Append(app.ccNoStore)
 	authCacheHs := authHs.Append(app.ccPrivateCache)
 	authNoCacheHs := authHs.Append(app.ccPrivateNoCache)
@@ -90,9 +91,13 @@ func (app *Application) Routes() http.Handler {
 	compNoStoreHs := dynHs.Append(app.ccNoStore)
 	curatorNoCacheHs := curatorHs.Append(app.ccPrivateNoCache)
 	curatorNoStoreHs := curatorHs.Append(app.ccNoStore)
+	memberNoCacheHs := memberHs.Append(app.ccNoCache)
+	memberNoStoreHs := memberHs.Append(app.ccNoStore)
 	ownerNoStoreHs := ownerHs.Append(app.ccNoStore)
 	publicCacheHs := dynHs.Append(app.public, app.ccCache)
 	publicNoCacheHs := dynHs.Append(app.public, app.ccNoCache)
+	publicNoStoreHs := dynHs.Append(app.public, app.ccNoStore)
+
 	slideshowHs := dynHs.Append(app.public, app.ccSlideshow) // caching varies with slideshow
 
 	// HttpRouter wrapped to allow middleware handlers
@@ -105,10 +110,11 @@ func (app *Application) Routes() http.Handler {
 	router.NotFound = app.routeNotFound()
 
 	// public pages
-	router.Handler("GET", "/", publicCacheHs.ThenFunc(app.home))
-	router.Handler("GET", "/contributor/:nUser", publicCacheHs.ThenFunc(app.contributor))
-	router.Handler("GET", "/contributors", publicCacheHs.ThenFunc(app.contributors))
+	router.Handler("GET", "/", publicCacheHs.ThenFunc(app.homePublic))
+	router.Handler("GET", "/contributor/:nUser", publicCacheHs.ThenFunc(app.contributorPublic))
+	router.Handler("GET", "/contributors", publicCacheHs.ThenFunc(app.contributorsPublic))
 	router.Handler("GET", "/info/:page", publicCacheHs.ThenFunc(app.info))
+	router.Handler("GET", "/msg", publicNoStoreHs.ThenFunc(app.homePublic))
 
 	// public competition
 	if app.cfg.Options == "main-comp" {
@@ -145,22 +151,25 @@ func (app *Application) Routes() http.Handler {
 	// edit topics
 	router.Handler("GET", "/assign-slideshows", curatorNoStoreHs.ThenFunc(app.getFormAssignShows))
 	router.Handler("POST", "/assign-slideshows", curatorHs.ThenFunc(app.postFormAssignShows))
-	router.Handler("GET", "/edit-topic/:nId/:nUser", ownerNoStoreHs.Append(app.ccNoStore).ThenFunc(app.getFormTopic))
+	router.Handler("GET", "/edit-topic/:nId/:nUser", ownerNoStoreHs.ThenFunc(app.getFormTopic))
 
 	// upload media files
 	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))
 
 	// displays - general
-	router.Handler("GET", "/contrib-members", authNoCacheHs.ThenFunc(app.contributors))
-	router.Handler("GET", "/contrib-member/:nUser", authNoCacheHs.ThenFunc(app.contributor))
+	router.Handler("GET", "/contrib-members", authNoCacheHs.ThenFunc(app.contributorsMembers))
+	router.Handler("GET", "/contrib-member/:nUser", authNoCacheHs.ThenFunc(app.contributorMembers))
 	router.Handler("GET", "/entry/:nId", authNoCacheHs.ThenFunc(app.entry))
-	router.Handler("GET", "/members", authCacheHs.ThenFunc(app.homeMembers))
-	router.Handler("GET", "/my-slideshows", authNoCacheHs.ThenFunc(app.slideshowsOwn))
+	router.Handler("GET", "/members", authCacheHs.ThenFunc(app.homeMembers)) // home page for members
+	router.Handler("GET", "/members-msg", authNoStoreHs.ThenFunc(app.homeMembers))
+	router.Handler("GET", "/my-slideshows", memberNoCacheHs.ThenFunc(app.slideshowsOwn))
+	router.Handler("GET", "/my-slideshows-msg", memberNoStoreHs.ThenFunc(app.slideshowsOwn))
+	router.Handler("GET", "/next", authNoStoreHs.ThenFunc(app.next))
 	router.Handler("GET", "/slideshows-user/:nUser", curatorNoCacheHs.ThenFunc(app.slideshowsUser))
 	router.Handler("GET", "/topic-contributors/:nId", slideshowHs.ThenFunc(app.topicContributors))
-	router.Handler("GET", "/topics", curatorNoStoreHs.ThenFunc(app.topics))
-	router.Handler("GET", "/usage-days", adminCacheHs.ThenFunc(app.usageDays))
-	router.Handler("GET", "/usage-months", adminCacheHs.ThenFunc(app.usageMonths))
+	router.Handler("GET", "/topics", curatorNoCacheHs.ThenFunc(app.topics))
+	router.Handler("GET", "/usage-days", adminNoCacheHs.ThenFunc(app.usageDays))
+	router.Handler("GET", "/usage-months", adminNoCacheHs.ThenFunc(app.usageMonths))
 	router.Handler("GET", "/users-curator", curatorNoCacheHs.ThenFunc(app.usersCurator))
 
 	// slideshows
@@ -170,8 +179,8 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/for-show/:nId", slideshowHs.ThenFunc(app.forShow))
 	router.Handler("GET", "/for-topic/:nUser/:nId", slideshowHs.ThenFunc(app.forTopic))
 	router.Handler("GET", "/topic-user/:nId/:nUser", slideshowHs.ThenFunc(app.topicUser))
-	router.Handler("GET", "/my-show/:nId", authNoCacheHs.ThenFunc(app.ownShow))
-	router.Handler("GET", "/my-topic/:nId", authNoCacheHs.ThenFunc(app.ownTopic))
+	router.Handler("GET", "/my-show/:nId", memberNoCacheHs.ThenFunc(app.ownShow))
+	router.Handler("GET", "/my-topic/:nId", memberNoCacheHs.ThenFunc(app.ownTopic))
 	router.Handler("GET", "/hilites/:nId", slideshowHs.ThenFunc(app.highlights))
 	router.Handler("GET", "/user-show/:nUser/:nId", authNoCacheHs.ThenFunc(app.userShow))
 	router.Handler("GET", "/user-topic/:nUser/:nId", authNoCacheHs.ThenFunc(app.userTopic))
@@ -183,7 +192,7 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/slideshow/:nId/:nSeq", publicNoCacheHs.ThenFunc(app.slideshowOld))
 
 	// selections
-	router.Handler("GET", "/select-slideshow", authNoStoreHs.ThenFunc(app.getFormSelectSlideshow))
+	router.Handler("GET", "/select-slideshow", authNoCacheHs.ThenFunc(app.getFormSelectSlideshow))
 	router.Handler("POST", "/select-slideshow", authHs.ThenFunc(app.postFormSelectSlideshow))
 	router.Handler("GET", "/slideshows-tagged/:nId/:nRoot/:nTag/:nUser/:nMax", authNoStoreHs.ThenFunc(app.slideshowsTagged))
 	router.Handler("GET", "/user-tags", authNoCacheHs.ThenFunc(app.userTags))
@@ -197,7 +206,8 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("POST", "/edit-users", adminHs.ThenFunc(app.users.PostFormEdit))
 
 	// user authentication
-	router.Handler("GET", "/user/login", publicCacheHs.ThenFunc(app.users.GetFormLogin))
+	router.Handler("GET", "/user-login", publicCacheHs.ThenFunc(app.users.GetFormLogin))
+	router.Handler("GET", "/user/login", publicNoStoreHs.ThenFunc(app.users.GetFormLogin)) // with flash
 	router.Handler("POST", "/user/login", dynHs.Append(app.limitLogin).ThenFunc(app.users.PostFormLogin))
 	router.Handler("POST", "/user/logout", authHs.ThenFunc(app.logout))
 	router.Handler("GET", "/user/signup", publicCacheHs.ThenFunc(app.users.GetFormSignup))

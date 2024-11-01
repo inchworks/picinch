@@ -53,7 +53,11 @@
     <div class="container">
         <nav class="navbar navbar-expand-lg navbar-light">
                 <div class="container-fluid">
-                <a class="navbar-brand" href="/"><img class="d-inline-block align-top" height="31" src="/static/images/brand.png"></a>
+                {{if .IsAuthenticated}}
+                    <a class="navbar-brand" href="/members"><img class="d-inline-block align-top" height="31" src="/static/images/brand.png"></a>
+                {{else}}
+                    <a class="navbar-brand" href="/"><img class="d-inline-block align-top" height="31" src="/static/images/brand.png"></a>
+                {{end}}
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>

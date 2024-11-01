@@ -358,8 +358,14 @@ func (app *Application) Flash(r *http.Request, msg string) {
 	app.session.Put(r.Context(), "flash", msg)
 }
 
-// GetRedirect returns the next page after log-in, probably from a session key.
-func (app *Application) GetRedirect(r *http.Request) string { return "/members" }
+// GetRedirect returns the next page after log-in.
+func (app *Application) GetRedirect(r *http.Request) string {
+	url := app.session.PopString(r.Context(), "afterLogin")
+	if url == "" {
+		url = "/members"
+	}
+	return url
+}
 
 // Log optionally records an error.
 func (app *Application) Log(err error) {

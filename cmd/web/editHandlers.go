@@ -81,12 +81,10 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 	status, _ := app.galleryState.OnAssignShows(slideshows)
 	switch status {
 	case 0:
-		app.session.Put(r.Context(), "flash", "Slideshow assignments saved.")
-		http.Redirect(w, r, "/topics", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/topics", "Slideshow assignments saved.")
 
 	case http.StatusConflict:
-		app.session.Put(r.Context(), "flash", "Slideshow or topic deleted - check.")
-		http.Redirect(w, r, "/assign-slideshows", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/assign-slideshows", "Slideshow or topic deleted - check.")
 
 	default:
 		http.Error(w, http.StatusText(status), status)
@@ -198,16 +196,12 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 		app.tm.Do(tx)
 
 		if code == 0 {
-
-			app.session.Put(r.Context(), "flash", "Competition entry saved - please check your email to confirm your address: "+email+".")
-			http.Redirect(w, r, "/", http.StatusSeeOther)
+			app.redirectWithFlash(w, r, "/", "Competition entry saved - please check your email to confirm your address: "+email+".")
 
 		} else {
 			// auto validation
 			if status, _, _ = app.galleryState.validate(code); status == 0 {
-
-				app.session.Put(r.Context(), "flash", "Competition entry accepted.")
-				http.Redirect(w, r, "/", http.StatusSeeOther)
+				app.redirectWithFlash(w, r, "/", "Competition entry accepted.")
 			}
 		}
 	}
@@ -256,8 +250,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	// // ## could save organiser from MaxLength
 	status := app.galleryState.OnEditGallery(f.Get("organiser"), nMaxSlides, nShowcased)
 	if status != 0 {
-		app.session.Put(r.Context(), "flash", "Gallery settings saved.")
-		http.Redirect(w, r, "/members", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/members", "Gallery settings saved.")
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -429,11 +422,10 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		// claim updated media, now that update is committed
 		app.tm.Do(tx)
 
-		app.session.Put(r.Context(), "flash", "Slide changes saved.")
 		if app.allowAccessUser(r, userId, false) {
-			http.Redirect(w, r, "/my-slideshows", http.StatusSeeOther)
+			app.redirectWithFlash(w, r, "/my-slideshows",  "Slide changes saved.")
 		} else {
-			http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
+			app.redirectWithFlash(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), "Slide changes saved.")
 		}
 
 	} else {
@@ -501,11 +493,10 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 		// claim updated media, now that update is committed
 		app.tm.Do(tx)
 
-		app.session.Put(r.Context(), "flash", "Slideshow changes saved.")
 		if app.allowAccessUser(r, userId, false) {
-			http.Redirect(w, r, "/my-slideshows", http.StatusSeeOther)
+			app.redirectWithFlash(w, r, "/my-slideshows",  "Slideshow changes saved.")
 		} else {
-			http.Redirect(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), http.StatusSeeOther)
+			app.redirectWithFlash(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), "Slideshow changes saved.")
 		}
 
 	} else {
@@ -585,8 +576,7 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 	status, tx := app.galleryState.OnEditTopics(slideshows)
 	if status == 0 {
 		app.tm.Do(tx)
-		app.session.Put(r.Context(), "flash", "Topic changes saved.")
-		http.Redirect(w, r, "/members", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/members", "Topic changes saved.")
 
 	} else {
 		http.Error(w, http.StatusText(status), status)

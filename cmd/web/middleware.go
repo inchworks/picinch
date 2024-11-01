@@ -538,7 +538,7 @@ func (app *Application) reqAuth(minRole int, orUser int, next http.Handler) http
 				http.Error(w, "User is not authorised for role", http.StatusUnauthorized)
 
 			} else {
-				app.session.Put(r.Context(), "redirectPathAfterLogin", r.URL.Path)
+				app.session.Put(r.Context(), "afterLogin", r.URL.Path)
 				http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 			}
 			return
@@ -565,6 +565,12 @@ func (app *Application) requireAuthentication(next http.Handler) http.Handler {
 func (app *Application) requireCurator(next http.Handler) http.Handler {
 
 	return app.reqAuth(models.UserCurator, 0, next)
+}
+
+// requireMember specifies that member authentication is needed for access to this page.
+func (app *Application) requireMember(next http.Handler) http.Handler {
+
+	return app.reqAuth(models.UserMember, 0, next)
 }
 
 // requireOwner specifies that the page is for a specified member, otherwise curator authentication is needed.

@@ -56,17 +56,16 @@ func (app *Application) classes(w http.ResponseWriter, r *http.Request) {
 }
 
 // contributor shows a page of contributions from a user (for other users to see)
-func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
+func (app *Application) contributor(w http.ResponseWriter, r *http.Request, member bool) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 
 	// data for contributor
-	data := app.galleryState.DisplayContributor(userId, app.isAuthenticated(r, models.UserFriend))
+	data := app.galleryState.DisplayContributor(userId, member)
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r.Context(), "flash", "Contributor removed.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "Contributor removed.")
 		return
 	}
 
@@ -74,11 +73,27 @@ func (app *Application) contributor(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "contributor.page.tmpl", data)
 }
 
-// contributors returns a list of slideshow contributors, for the public or members.
-func (app *Application) contributors(w http.ResponseWriter, r *http.Request) {
+func (app *Application) contributorMembers(w http.ResponseWriter, r *http.Request) {
+	app.contributor(w, r, true)
+}
 
+func (app *Application) contributorPublic(w http.ResponseWriter, r *http.Request) {
+	app.contributor(w, r, false)
+}
+
+// contributors returns a list of slideshow contributors, for members.
+func (app *Application) contributorsMembers(w http.ResponseWriter, r *http.Request) {
 	// template and contributors
-	template, data := app.galleryState.DisplayContributors(app.isAuthenticated(r, models.UserFriend))
+	template, data := app.galleryState.DisplayContributors(true)
+
+	// display page
+	app.render(w, r, template, data)
+}
+
+// contributors returns a list of slideshow contributors, for the public.
+func (app *Application) contributorsPublic(w http.ResponseWriter, r *http.Request) {
+	// template and contributors
+	template, data := app.galleryState.DisplayContributors(false)
 
 	// display page
 	app.render(w, r, template, data)
@@ -138,7 +153,6 @@ func (app *Application) entry(w http.ResponseWriter, r *http.Request) {
 // forShow handles a request to view a contributor's slideshow, by any user or the public.
 func (app *Application) forShow(w http.ResponseWriter, r *http.Request) {
 
-	// ## just one line different to slideshow()
 	ps := httprouter.ParamsFromContext(r.Context())
 	id, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
@@ -146,19 +160,13 @@ func (app *Application) forShow(w http.ResponseWriter, r *http.Request) {
 	ref := "/"
 	data := app.galleryState.DisplaySlideshow(id, 0,
 		func(s *models.Slideshow, userId int64) string {
-			ref = "/contributor/" + strconv.FormatInt(userId, 10)
-			if app.allowViewShow(r, s) {
-				app.setCache(w, s.Id, s.Access)
-				return ref
-			} else {
-				return ""
-			}
+			ref = app.refToContributor(w, r, s, userId)
+			return ref
 		})
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r.Context(), "flash", "Slideshow removed.")
-		http.Redirect(w, r, ref, http.StatusSeeOther)
+		app.redirectWithFlash(w, r, ref, "Slideshow removed.")
 		return
 	}
 
@@ -173,30 +181,25 @@ func (app *Application) forTopic(w http.ResponseWriter, r *http.Request) {
 	userId, _ := strconv.ParseInt(ps.ByName("nUser"), 10, 64)
 	topicId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
-	// cached and returns to home page
+	// cached and returns to contributor
 	ref := "/"
 	var tp string
 	data := app.galleryState.DisplayUserTopic(userId, topicId,
 		func(t *models.Slideshow, fmt string) string {
-			ref = "/contributor/" + strconv.FormatInt(userId, 10)
-			if app.allowViewShow(r, t) {
-				app.setCache(w, topicId, t.Access)
-				if fmt == "H" {
-					tp = "carousel-highlights.page.tmpl"
-				} else {
-					tp = "carousel-default.page.tmpl"
-				}
 
-				return ref
+			if fmt == "H" {
+				tp = "carousel-highlights.page.tmpl"
 			} else {
-				return ""
+				tp = "carousel-default.page.tmpl"
 			}
+
+			ref = app.refToContributor(w, r, t, userId)
+			return ref
 		})
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r.Context(), "flash", "Contribution removed from topic.")
-		http.Redirect(w, r, ref, http.StatusSeeOther)
+		app.redirectWithFlash(w, r, ref, "Contribution removed from topic.")
 		return
 	}
 
@@ -224,8 +227,7 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r.Context(), "flash", "No highlights.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "No highlights.")
 		return
 	}
 
@@ -233,14 +235,26 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "carousel-highlights.page.tmpl", data)
 }
 
-// home serves the main page for the public.
-func (app *Application) home(w http.ResponseWriter, r *http.Request) {
+// homeMembers serves the main page for members.
+func (app *Application) homeMembers(w http.ResponseWriter, r *http.Request) {
+
+	app.home(w, r, true)
+}
+
+// homePublic serves the main page for the public.
+func (app *Application) homePublic(w http.ResponseWriter, r *http.Request) {
 
 	if app.isAuthenticated(r, models.UserFriend) {
 		// show members home page if logged in
 		http.Redirect(w, r, "/members", http.StatusSeeOther)
 		return
 	}
+
+	app.home(w, r, false)
+}
+
+// home serves the main page.
+func (app *Application) home(w http.ResponseWriter, r *http.Request, member bool) {
 
 	hs := app.cfg.HomeSwitch
 	if hs != "" {
@@ -249,26 +263,7 @@ func (app *Application) home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// default home page
-	data := app.galleryState.DisplayHome(false)
-	if data == nil {
-		httpServerError(w)
-		return
-	}
-
-	app.render(w, r, "home.page.tmpl", data)
-}
-
-// homeMembers serves the main page for members.
-func (app *Application) homeMembers(w http.ResponseWriter, r *http.Request) {
-
-	if !app.isAuthenticated(r, models.UserFriend) {
-		// show public home page if logged out
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	// default home page
-	data := app.galleryState.DisplayHome(true)
+	data := app.galleryState.DisplayHome(member)
 	if data == nil {
 		httpServerError(w)
 		return
@@ -308,9 +303,19 @@ func (app *Application) logout(w http.ResponseWriter, r *http.Request) {
 	app.session.Remove(r.Context(), "authenticatedUserID")
 
 	// flash message to confirm logged out
-	app.session.Put(r.Context(), "flash", "You are logged out")
+	app.redirectWithFlash(w, r, "/", "You are logged out.")
+}
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+// next handles a request to display a message with a link to the next page
+func (app *Application) next(w http.ResponseWriter, r *http.Request) {
+
+	// data for message
+	data := &DataCommon{ 
+		ParentHRef: app.session.PopString(r.Context(), "afterMsg"),
+	}
+
+	// display page
+	app.render(w, r, "next.page.tmpl", data)
 }
 
 // ownShow handles a request by a member to view their own slideshow
@@ -321,10 +326,6 @@ func (app *Application) ownShow(w http.ResponseWriter, r *http.Request) {
 
 	// user
 	userId := app.authenticatedUser(r)
-	if !app.isAuthenticated(r, models.UserMember) {
-		httpUnauthorized(w)
-		return
-	}
 
 	// not cached so that changes are visible immediately, and returns to user's list
 	data := app.galleryState.DisplaySlideshow(id, 0,
@@ -340,8 +341,7 @@ func (app *Application) ownShow(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// unlikely unless user saved a link to own slideshow or changed ID
-		app.session.Put(r.Context(), "flash", "Slideshow not known.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "Slideshow not known.")
 		return
 	}
 
@@ -349,7 +349,7 @@ func (app *Application) ownShow(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "carousel-default.page.tmpl", data)
 }
 
-// ownSlides handles a request by a member to view their own section of a topic.
+// ownTopic handles a request by a member to view their own section of a topic.
 // They need not have a contribution to make the request.
 func (app *Application) ownTopic(w http.ResponseWriter, r *http.Request) {
 
@@ -358,10 +358,6 @@ func (app *Application) ownTopic(w http.ResponseWriter, r *http.Request) {
 
 	// user
 	userId := app.authenticatedUser(r)
-	if !app.isAuthenticated(r, models.UserMember) {
-		httpUnauthorized(w)
-		return
-	}
 
 	// template and data for slides
 	var tp string
@@ -375,8 +371,7 @@ func (app *Application) ownTopic(w http.ResponseWriter, r *http.Request) {
 			return "/my-slideshows"
 		})
 	if data == nil {
-		app.session.Put(r.Context(), "flash", "No slides to this topic yet.")
-		http.Redirect(w, r, "/my-slideshows", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/my-slideshows", "No slides to this topic yet.")
 		return
 	}
 
@@ -403,8 +398,7 @@ func (app *Application) reviewHighlights(w http.ResponseWriter, r *http.Request)
 
 	if data == nil {
 		// ## Shouldn't ever fail
-		app.session.Put(r.Context(), "flash", "No highlights.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "No highlights.")
 		return
 	}
 
@@ -432,8 +426,7 @@ func (app *Application) reviewSlides(w http.ResponseWriter, r *http.Request) {
 		})
 	if data == nil {
 		// ## shouldn't ever fail
-		app.session.Put(r.Context(), "flash", "Contribution removed from topic.")
-		http.Redirect(w, r, "/topics", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/topics", "Contribution removed from topic.")
 		return
 	}
 
@@ -459,8 +452,7 @@ func (app *Application) reviewTopic(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// ## Shouldn't ever fail
-		app.session.Put(r.Context(), "flash", "Topic removed.")
-		http.Redirect(w, r, "/topics", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/topics", "Topic removed.")
 		return
 	}
 
@@ -486,8 +478,7 @@ func (app *Application) sharedSlides(w http.ResponseWriter, r *http.Request) {
 	data, id := app.galleryState.DisplaySharedSlides(code, sec)
 	if data == nil {
 		// polite rejection because code may have been shared long ago.
-		app.session.Put(r.Context(), "flash", "Contribution removed from shared topic.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "Contribution removed from shared topic.")
 		return
 	}
 	app.setCache(w, id, models.SlideshowPublic)
@@ -513,8 +504,7 @@ func (app *Application) sharedSlideshow(w http.ResponseWriter, r *http.Request) 
 	data, id := app.galleryState.DisplayShared(code)
 	if data == nil {
 		// polite rejection because code may have been shared long ago.
-		app.session.Put(r.Context(), "flash", "Shared slideshow not available.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "Shared slideshow not available.")
 		return
 	}
 	app.setCache(w, id, models.SlideshowPublic)
@@ -541,8 +531,7 @@ func (app *Application) sharedTopic(w http.ResponseWriter, r *http.Request) {
 	data, id := app.galleryState.DisplaySharedTopic(code)
 	if data == nil {
 		// polite rejection because code may have been shared long ago.
-		app.session.Put(r.Context(), "flash", "Shared topic not available.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "Shared topic not available.")
 		return
 	}
 	app.setCache(w, id, models.SlideshowPublic)
@@ -571,8 +560,7 @@ func (app *Application) slides(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r.Context(), "flash", "Contribution removed from topic.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "Contribution removed from topic.")
 		return
 	}
 
@@ -600,8 +588,7 @@ func (app *Application) slideshow(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r.Context(), "flash", "Slideshow removed.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "Slideshow removed.")
 		return
 	}
 
@@ -634,10 +621,6 @@ func (app *Application) slideshowsOwn(w http.ResponseWriter, r *http.Request) {
 
 	// user
 	userId := app.authenticatedUser(r)
-	if !app.isAuthenticated(r, models.UserMember) {
-		httpUnauthorized(w)
-		return
-	}
 
 	data := app.galleryState.DisplayGallery(userId)
 	if data == nil {
@@ -684,8 +667,7 @@ func (app *Application) topic(w http.ResponseWriter, r *http.Request) {
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
 		// ## could be more specific about what is missing
-		app.session.Put(r.Context(), "flash", "Topic removed.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "Topic removed.")
 		return
 	}
 
@@ -712,8 +694,7 @@ func (app *Application) topicContributors(w http.ResponseWriter, r *http.Request
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r.Context(), "flash", "Topic removed.")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		app.redirectWithFlash(w, r, "/", "Topic removed.")
 		return
 	}
 
@@ -749,8 +730,7 @@ func (app *Application) topicUser(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// polite rejection because this could have come from browser history or the current page read long ago.
-		app.session.Put(r.Context(), "flash", "Contribution removed from topic.")
-		http.Redirect(w, r, ref, http.StatusSeeOther)
+		app.redirectWithFlash(w, r, ref, "Contribution removed from topic.")
 		return
 	}
 
@@ -805,8 +785,7 @@ func (app *Application) userShow(w http.ResponseWriter, r *http.Request) {
 
 	if data == nil {
 		// unlikely unless user saved a link to own slideshow or changed ID
-		app.session.Put(r.Context(), "flash", "Slideshow not known.")
-		http.Redirect(w, r, ref, http.StatusSeeOther)
+		app.redirectWithFlash(w, r, ref, "Slideshow not known.")
 		return
 	}
 
@@ -836,8 +815,7 @@ func (app *Application) userTopic(w http.ResponseWriter, r *http.Request) {
 			return ref
 		})
 	if data == nil {
-		app.session.Put(r.Context(), "flash", "No slides for this topic yet.")
-		http.Redirect(w, r, ref, http.StatusSeeOther)
+		app.redirectWithFlash(w, r, ref, "No slides for this topic yet.")
 		return
 	}
 

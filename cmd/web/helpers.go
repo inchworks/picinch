@@ -181,11 +181,55 @@ func (app *Application) isAuthenticated(r *http.Request, minRole int) bool {
 	return auth.role >= minRole
 }
 
-// Log an error for debugging
-
+// log records an error for debugging.
 func (app *Application) log(err error) {
 	trace := fmt.Sprintf("%s\n%s", err.Error(), debug.Stack())
 	app.errorLog.Output(2, trace)
+}
+
+// redirectWithFlash shows a flash message on the specified page.
+func (app *Application) redirectWithFlash(w http.ResponseWriter, r *http.Request, url string, flash string) {
+
+	// A flash message can only be on a non-cached (no-store) page.
+	switch url {
+	case "/":
+		url = "/msg"
+
+	case "/members":
+		url = "/members-msg"
+
+	case "/my-slideshows":
+		url = "/my-slideshows-msg"
+
+	case "/assign-slideshows", "/topics":
+		// page is no-store
+
+	default:
+		// put message on its own page
+		app.session.Put(r.Context(), "afterMsg", url)
+		url = "/next"
+	}
+	app.session.Put(r.Context(), "flash", flash)
+	http.Redirect(w, r, url, http.StatusSeeOther)	
+}
+
+// refToContributor returns the contributor page for a slideshow or topic.
+func (app *Application) refToContributor(w http.ResponseWriter,r *http.Request, s *models.Slideshow, userId int64) string {
+
+	// ## The need for this function is a mess. We're displaying a slideshow or topic contribution
+	// ## from a contributors page and have to work out how to get back to the right version of that page.
+	// ## I.e. for members or for the public. Caching depends on whether the slideshow or topic is public.
+
+	ref := ""
+	if app.allowViewShow(r, s) {
+		if app.isAuthenticated(r, models.UserFriend) {
+			ref = "/contrib-members/" + strconv.FormatInt(userId, 10)
+		} else {
+			ref = "/contributor/" + strconv.FormatInt(userId, 10)
+		}
+		app.setCache(w, s.Id, s.Access)
+	}
+	return ref
 }
 
 // render fetches a template from the cache and writes the result as an HTTP response.
