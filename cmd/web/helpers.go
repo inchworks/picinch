@@ -192,20 +192,25 @@ func (app *Application) redirectWithFlash(w http.ResponseWriter, r *http.Request
 
 	// A flash message can only be on a non-cached (no-store) page.
 	switch url {
-	case "/":
-		url = "/msg"
 
+	// pages with no-store variant
+	case "/":
+		// check session data, not isAuthenticated because we can't modify the context on logout
+		if app.session.GetInt64(r.Context(), "authenticatedUserID") != 0 {
+			url = "/members-msg"
+		} else {
+			url = "/msg"
+		}
 	case "/members":
 		url = "/members-msg"
-
 	case "/my-slideshows":
 		url = "/my-slideshows-msg"
 
-	case "/assign-slideshows", "/topics":
-		// page is no-store
+	// pages that are no-store
+	case "/assign-slideshows":
 
+	// put message on its own page	
 	default:
-		// put message on its own page
 		app.session.Put(r.Context(), "afterMsg", url)
 		url = "/next"
 	}

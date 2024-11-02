@@ -81,7 +81,7 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 	status, _ := app.galleryState.OnAssignShows(slideshows)
 	switch status {
 	case 0:
-		app.redirectWithFlash(w, r, "/topics", "Slideshow assignments saved.")
+		app.redirectWithFlash(w, r, "/assign-slideshows", "Slideshow assignments saved.")
 
 	case http.StatusConflict:
 		app.redirectWithFlash(w, r, "/assign-slideshows", "Slideshow or topic deleted - check.")
@@ -576,7 +576,7 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 	status, tx := app.galleryState.OnEditTopics(slideshows)
 	if status == 0 {
 		app.tm.Do(tx)
-		app.redirectWithFlash(w, r, "/members", "Topic changes saved.")
+		app.redirectWithFlash(w, r, "/topics", "Topic changes saved.")
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
