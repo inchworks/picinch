@@ -228,7 +228,7 @@ func (app *Application) refToContributor(w http.ResponseWriter,r *http.Request, 
 	ref := ""
 	if app.allowViewShow(r, s) {
 		if app.isAuthenticated(r, models.UserFriend) {
-			ref = "/contrib-members/" + strconv.FormatInt(userId, 10)
+			ref = "/contrib-member/" + strconv.FormatInt(userId, 10)
 		} else {
 			ref = "/contributor/" + strconv.FormatInt(userId, 10)
 		}
