@@ -44,7 +44,9 @@ const (
 
 	slideOrder  = ` ORDER BY show_order ASC, revised DESC LIMIT ?`
 	slideRecent = ` ORDER BY created DESC LIMIT ?`
+	slideStart  = ` ORDER BY revised ASC`
 
+	slidesWhereEvent      = slideSelect + ` WHERE slideshow = ?` + slideStart
 	slideWhereId          = slideSelect + ` WHERE id = ?`
 	slidesWhereShow       = slideSelect + ` WHERE slideshow = ?`
 	slidesWhereShowOlder  = slideSelect + ` WHERE slideshow = ?` + slideOrder
@@ -60,7 +62,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible > -10 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible > -5 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
 			)
 		SELECT id
 		FROM s1
@@ -77,7 +79,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible > -10 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible > -5 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
 			)
 		SELECT id
 		FROM s1
@@ -95,7 +97,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible > -10 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible > -5 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
 			)
 		SELECT format, title, caption, image, name
 		FROM s1
@@ -120,6 +122,18 @@ func NewSlideStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *SlideStore {
 			sqlUpdate: slideUpdate,
 		},
 	}
+}
+
+// AllEvents returns a list of events, ordered by date.
+func (st *SlideStore) AllEvents(showId int64) []*models.Slide {
+
+	var slides []*models.Slide
+
+	if err := st.DBX.Select(&slides, slidesWhereEvent, showId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slides
 }
 
 // ForSlideshow returns all slides for slideshow, unordered.

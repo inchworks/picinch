@@ -20,6 +20,7 @@ package mysql
 // Setup application database
 
 import (
+	"database/sql"
 	"errors"
 	"time"
 
@@ -310,6 +311,50 @@ func MigrateSessions(stSession *SessionStore) error {
 	if _, err := stSession.Count(); err != nil {
 		return setupTables(stSession.DBX, *stSession.ptx, cmdsSessions[:])
 	}
+	return nil
+}
+
+// MigrateInfo adds the user and slideshows for club information. Needed for version 1.3.0.
+func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore) error {
+
+	infoName := "Info"
+
+	// dummy user to own gallery information
+	_, err := stUser.GetNamed(infoName)
+	if err == nil || err != models.ErrNoRecord {
+		return err
+	}
+
+	u := &users.User{
+		Username: infoName,
+		Name:     infoName,
+		Role:     models.UserSystem,
+		Status:   users.UserActive,
+		Password: []byte(""),
+		Created:  time.Now(),
+	}
+
+	if err := stUser.Update(u); err != nil {
+		return err
+	}
+
+	// events
+	t := time.Now()
+	e := &models.Slideshow{
+		GalleryOrder: 10,
+		Access: models.SlideshowSystem, 
+		Visible: models.SlideshowSystem,
+		User:         sql.NullInt64{Int64: u.Id, Valid: true},
+		Created:      t,
+		Revised:      t,
+		Title: "Events",
+		Format: "E",
+	}
+
+	if err = stSlideshow.Update(e); err != nil {
+		return err
+	}
+	stSlideshow.EventsId = e.Id
 	return nil
 }
 

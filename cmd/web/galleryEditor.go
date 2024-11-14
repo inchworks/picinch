@@ -167,6 +167,105 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.AssignShowFormData) (int, etx
 	}
 }
 
+// ForEditEvents returns data to edit events.
+func (s *GalleryState) ForEditEvents(tok string) (f *form.EventsForm) {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// get events
+	events := s.app.SlideStore.AllEvents(s.app.SlideshowStore.EventsId)
+
+	// form
+	var d = make(url.Values)
+	f = form.NewEvents(d, 10, tok)
+
+	// add template and events to form
+	f.AddTemplate(len(events))
+	for i, e := range events {
+		f.Add(i, e.Created, e.Revised, e.Title, e.Caption)
+	}
+
+	return
+}
+
+// OnEditEvents processes changes when events are modified.
+// It returns 0 or an HTTP status code.
+func (s *GalleryState) OnEditEvents(rsSrc []*form.EventFormData) (int, etx.TxId) {
+
+	// serialisation
+	defer s.updatesGallery()()
+
+	// start extended transaction
+	tx := s.app.tm.Begin()
+
+	// compare modified slideshows against current ones, and update
+	rsDest := s.app.SlideStore.AllEvents(s.app.SlideshowStore.EventsId)
+	nSrc := len(rsSrc)
+	nDest := len(rsDest)
+
+	// skip template
+	iSrc := 1
+	var iDest int
+
+	for iSrc < nSrc || iDest < nDest {
+
+		if iSrc == nSrc {
+			// no more source events - delete from destination
+			s.app.SlideStore.DeleteId(rsDest[iDest].Id)
+			iDest++
+
+		} else if iDest == nDest {
+			// no more destination events - add new one
+			qd := models.Slide{
+				Slideshow: s.app.SlideshowStore.EventsId,
+				Format:    s.app.eventFormat(rsSrc[iSrc]),
+				Created:   rsSrc[iSrc].Publish,
+				Revised:   rsSrc[iSrc].Start,
+				Title:     s.sanitize(rsSrc[iSrc].Title, ""),
+				Caption:   s.sanitize(rsSrc[iSrc].Caption, ""),
+			}
+
+			s.app.SlideStore.Update(&qd)
+			iSrc++
+
+		} else {
+			ix := rsSrc[iSrc].ChildIndex
+			rDest := rsDest[iDest]
+
+			if ix > iDest {
+				// source event removed - delete from destination
+				s.app.SlideStore.DeleteId(rDest.Id)
+				iDest++
+
+			} else if ix == iDest {
+				// check if details changed
+				if rsSrc[iSrc].Publish != rDest.Created ||
+					rsSrc[iSrc].Start != rDest.Revised ||
+					rsSrc[iSrc].Title != rDest.Title ||
+					rsSrc[iSrc].Caption != rDest.Caption {
+
+					rDest.Format = s.app.eventFormat(rsSrc[iSrc])
+					rDest.Created = rsSrc[iSrc].Publish
+					rDest.Revised = rsSrc[iSrc].Start
+					rDest.Title = s.sanitize(rsSrc[iSrc].Title, rDest.Title)
+					rDest.Caption = s.sanitize(rsSrc[iSrc].Caption, rDest.Caption)
+
+					s.app.SlideStore.Update(rDest)
+				}
+				iSrc++
+				iDest++
+
+			} else {
+				// out of sequence index
+				return s.rollback(http.StatusBadRequest, nil), 0
+			}
+		}
+	}
+
+	return 0, tx
+}
+
 // Get data to edit gallery
 
 func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
@@ -1113,6 +1212,20 @@ func (app *Application) editTags(f *multiforms.Form, userId int64, slideshowId i
 		}
 	}
 	return true
+}
+
+// eventFormat returns an auto-format for an event slide.
+func (app *Application) eventFormat(e *form.EventFormData) int {
+
+	var f int
+	if len(e.Title) > 0 {
+		f = models.SlideTitle
+	}
+	if len(e.Caption) > 0 {
+		f = f + models.SlideCaption
+	}
+
+	return f
 }
 
 // releaseSlideshows releases the contributing slideshows for a topic back to the users.

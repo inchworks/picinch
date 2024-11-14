@@ -48,7 +48,7 @@ const (
 
 	userWhereId       = userSelect + ` WHERE id = ?`
 	userWhereName     = userSelect + ` WHERE parent = ? AND username = ? AND status > -10`
-	usersWhereGallery = userSelect + ` WHERE parent = ? AND status > -10`
+	usersWhereGallery = userSelect + ` WHERE parent = ? AND status > -10 AND role < 10`
 
 	usersByName = usersWhereGallery + userOrderName
 

@@ -139,6 +139,8 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/edit-tags", adminNoStoreHs.ThenFunc(app.getFormTags))
 	router.Handler("POST", "/edit-tags", adminHs.ThenFunc(app.postFormTags))
 
+	router.Handler("GET", "/edit-events", curatorNoStoreHs.ThenFunc(app.getFormEvents))
+	router.Handler("POST", "/edit-events", curatorHs.ThenFunc(app.postFormEvents))
 	router.Handler("GET", "/edit-topics", curatorNoStoreHs.ThenFunc(app.getFormTopics))
 	router.Handler("POST", "/edit-topics", curatorHs.ThenFunc(app.postFormTopics))
 

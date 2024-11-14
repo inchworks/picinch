@@ -206,6 +206,12 @@ type compFormData struct {
 	DataCommon
 }
 
+type eventsFormData struct {
+	Form  *form.EventsForm
+	Title string
+	DataCommon
+}
+
 type simpleFormData struct {
 	Form *multiforms.Form
 	DataCommon
@@ -259,12 +265,14 @@ type usersFormData struct {
 // Define functions callable from a template
 
 var templateFuncs = template.FuncMap{
-	"checked":    checked,
-	"isWorking":  isWorking,
-	"humanDate":  humanDate,
-	"thumbnail":  thumbnail,
-	"userStatus": userStatus,
-	"viewable":   viewable,
+	"checked":      checked,
+	"htmlDate":     htmlDate,
+	"htmlDateTime": htmlDateTime,
+	"humanDate":    humanDate,
+	"isWorking":    isWorking,
+	"thumbnail":    thumbnail,
+	"userStatus":   userStatus,
+	"viewable":     viewable,
 }
 
 // checked returns "checked" if the parameter is true, for use with a form checkbox.
@@ -277,13 +285,31 @@ func checked(isChecked bool) string {
 	}
 }
 
+// htmlDate returns the date in HTML input type format.
+func htmlDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	return t.Local().Format("2006-01-02")
+}
+
+// htmlDateTime returns the date-time in HTML input type format.
+func htmlDateTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	return t.Local().Format("2006-01-02T15:04")
+}
+
 // humanDate returns the date in a user-friendly format.
 func humanDate(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
 
-	return t.UTC().Format("02 Jan 2006 at 15:04")
+	return t.Local().Format("02 Jan 2006 at 15:04")
 }
 
 // isWorking returns true if a media file is not ready to be viewed.

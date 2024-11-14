@@ -211,6 +211,58 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// getFormEvents displays a form to edit events.
+func (app *Application) getFormEvents(w http.ResponseWriter, r *http.Request) {
+
+	f := app.galleryState.ForEditEvents(nosurf.Token(r))
+	if f == nil {
+		httpServerError(w)
+		return
+	}
+
+	// display form
+	app.render(w, r, "edit-events.page.tmpl", &eventsFormData{
+		Form:  f,
+	})
+}
+
+// postFormEvents handles a request to update events.
+func (app *Application) postFormEvents(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// process form data
+	f := form.NewEvents(r.PostForm, 10, nosurf.Token(r))
+	events, err := f.GetEvents(app.validTypeCheck())
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// redisplay form if data invalid
+	if !f.Valid() {
+		app.render(w, r, "edit-events.page.tmpl", &eventsFormData{
+			Form:  f,
+		})
+		return
+	}
+
+	// save changes
+	status, tx := app.galleryState.OnEditEvents(events)
+	if status == 0 {
+		// claim updated media, now that update is committed
+		app.tm.Do(tx)
+		app.redirectWithFlash(w, r, "/members", "Event changes saved.")
+
+	} else {
+		http.Error(w, http.StatusText(status), status)
+	}
+}
+
 // Main form to setup gallery
 
 func (app *Application) getFormGallery(w http.ResponseWriter, r *http.Request) {

@@ -39,6 +39,7 @@ const (
 
 	// slideshow visibility
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
+	SlideshowSystem = -5
 	SlideshowTopic   = -1
 	SlideshowPrivate = 0
 	SlideshowClub    = 1
@@ -51,6 +52,7 @@ const (
 	UserMember  = 2
 	UserCurator = 3
 	UserAdmin   = 4
+	UserSystem  = 10
 
 	// field sizes
 	MaxName   = 60

@@ -46,4 +46,4 @@ require (
 )
 
 // replace github.com/inchworks/usage v1.3.1 => ../usage
-// replace github.com/inchworks/webparts/v2 v2.1.1 => ../webparts
+replace github.com/inchworks/webparts/v2 v2.1.1 => ../webparts
