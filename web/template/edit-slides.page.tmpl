@@ -130,19 +130,20 @@
 
 		function childAdded($prototype, $newForm) {
 
-			// add change handler (not copied with prototype, it seems)
-			$newForm.find(".upload-input").on("change", function() {
-				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
-			});
-
 			// increment showOrder in prototype
 			$f = $prototype.find(".showOrder");
 			$f.val(Number($f.val())+1);
 
-			// link label to upload input
+			// link labels to upload input
 			var id = "U" + $newForm.attr("id");
+			$newForm.find(".upload-text").attr("for", id);
 			$newForm.find(".upload-input").attr("id", id);
 			$newForm.find(".upload-label").attr("for", id);
+
+			// add change handler (not copied with prototype, it seems)
+			$newForm.find(".upload-input").on("change", function() {
+				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
+			});
 		}
 
     </script>
