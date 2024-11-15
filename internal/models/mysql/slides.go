@@ -219,9 +219,8 @@ func (st *SlideStore) RecentForTopic(topicId int64, perUser int, max int) []*mod
 	return slides
 }
 
-// Insert or update slide. Round ID must be set in struct.
+// Update inserts or updates a slide. The slideshow ID must be set.
+func (st *SlideStore) Update(s *models.Slide) error {
 
-func (st *SlideStore) Update(q *models.Slide) error {
-
-	return st.updateData(&q.Id, q)
+	return st.updateData(&s.Id, s)
 }
