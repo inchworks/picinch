@@ -69,7 +69,8 @@ var (
 var VisibleOpts = []string{"none", "club", "public"}
 
 type Gallery struct {
-	Id int64
+	Id      int64
+	Version int
 
 	// parameters
 	Organiser  string
@@ -108,7 +109,7 @@ type Slideshow struct {
 	Caption      string
 	Format       string
 	Image        string
-	ETag         string        `db:"etag"` // latent support: entity tag for caching
+	ETag         string `db:"etag"` // latent support: entity tag for caching
 }
 
 type Tag struct {

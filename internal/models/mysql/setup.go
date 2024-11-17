@@ -51,8 +51,8 @@ var cmds = [...]string{
 	n_showcased int(11) NOT NULL,
 	PRIMARY KEY (id));`,
 
-	`INSERT INTO gallery (id, organiser, n_max_slides, n_showcased) VALUES
-	(1,	'PicInch Gallery', 10, 2);`,
+	`INSERT INTO gallery (id, version, organiser, n_max_slides, n_showcased) VALUES
+	(1,	1, 'PicInch Gallery', 10, 2);`,
 
 	`CREATE TABLE redoV2 (
 		id BIGINT NOT NULL,

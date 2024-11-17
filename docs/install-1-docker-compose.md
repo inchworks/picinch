@@ -17,6 +17,8 @@ services:
       MYSQL_DATABASE: picinch
       MYSQL_USER: server
       MYSQL_PASSWORD: "<server-password>"
+      MARIADB_AUTO_UPGRADE: 1
+      MARIADB_DISABLE_UPGRADE_BACKUP: 1
     volumes:
       - mysql:/var/lib/mysql
     logging:
