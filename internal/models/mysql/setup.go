@@ -20,7 +20,6 @@ package mysql
 // Setup application database
 
 import (
-	"errors"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -32,7 +31,11 @@ import (
 
 var cmds = [...]string{
 
-	"SET NAMES utf8;",
+	"SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci';",
+
+	"SET character_set_server = 'utf8mb4';",
+
+	"SET collation_server = 'utf8mb4_unicode_ci';",
 
 	"SET time_zone = '+00:00';",
 
@@ -45,12 +48,28 @@ var cmds = [...]string{
 	organiser varchar(60) COLLATE utf8_unicode_ci NOT NULL,
 	n_max_slides int(11) NOT NULL,
 	n_showcased int(11) NOT NULL,
-	PRIMARY KEY (id)
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
+	PRIMARY KEY (id));`,
 
-	`INSERT INTO gallery (id, organiser, n_max_slides, n_showcased) VALUES
-	(1,	'PicInch Gallery', 10, 2);`,
+	`INSERT INTO gallery (id, version, organiser, n_max_slides, n_showcased) VALUES
+	(1,	1, 'PicInch Gallery', 10, 2);`,
 
+	`CREATE TABLE redoV2 (
+		id BIGINT NOT NULL,
+		tx BIGINT NOT NULL,
+		manager varchar(32) NOT NULL,
+		redotype int(11) NOT NULL,
+		delay int(11) NOT NULL,
+		optype int(11) NOT NULL,
+		operation JSON NOT NULL,
+		PRIMARY KEY (id));`,
+
+	`CREATE TABLE sessions (
+		token CHAR(43) PRIMARY KEY,
+		data BLOB NOT NULL,
+		expiry TIMESTAMP(6) NOT NULL);`,
+	
+	`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
+	
 	`CREATE TABLE slide (
 	id int(11) NOT NULL AUTO_INCREMENT,
 	slideshow int(11) NOT NULL,
@@ -58,13 +77,12 @@ var cmds = [...]string{
 	show_order int(11) NOT NULL,
 	created datetime NOT NULL,
 	revised datetime NOT NULL,
-	title varchar(512) COLLATE utf8_unicode_ci NOT NULL,
-	caption varchar(512) COLLATE utf8_unicode_ci NOT NULL,
-	image varchar(256) COLLATE utf8_unicode_ci NOT NULL,
+	title varchar(512) NOT NULL,
+	caption varchar(512) NOT NULL,
+	image varchar(256) NOT NULL,
 	PRIMARY KEY (id),
 	KEY IDX_SLIDESHOW (slideshow),
-	CONSTRAINT FK_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
+	CONSTRAINT FK_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,
 
 	`CREATE TABLE slideshow (
 	id int(11) NOT NULL AUTO_INCREMENT,
@@ -77,10 +95,10 @@ var cmds = [...]string{
 	topic int(11) NOT NULL,
 	created datetime NOT NULL,
 	revised datetime NOT NULL,
-	title varchar(128) COLLATE utf8_unicode_ci NOT NULL,
-	caption varchar(512) COLLATE utf8_unicode_ci NOT NULL,
-	format varchar(16) COLLATE utf8_unicode_ci NOT NULL,
-	image varchar(256) COLLATE utf8_unicode_ci NOT NULL,
+	title varchar(128) NOT NULL,
+	caption varchar(512) NOT NULL,
+	format varchar(16) NOT NULL,
+	image varchar(256) NOT NULL,
 	etag varchar(64) NOT NULL,
 	PRIMARY KEY (id),
 	KEY IDX_SLIDESHOW_GALLERY (gallery),
@@ -88,81 +106,32 @@ var cmds = [...]string{
 	KEY IDX_SHARED (shared),
 	KEY IDX_TOPIC (topic),
 	CONSTRAINT FK_SLIDESHOW_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id),
-	CONSTRAINT FK_SLIDESHOW_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
+	CONSTRAINT FK_SLIDESHOW_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE)`,
 
 	`INSERT INTO slideshow (id, gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image) VALUES
 	(1,	1, 10, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '');`,
 
 	`CREATE TABLE statistic (
 		id int(11) NOT NULL AUTO_INCREMENT,
-		event varchar(60) COLLATE utf8_unicode_ci NOT NULL,
-		category varchar(60) COLLATE utf8_unicode_ci NOT NULL,
+		event varchar(60) NOT NULL,
+		category varchar(60) NOT NULL,
 		count int(11) NOT NULL,
 		detail smallint(6) NOT NULL,
 		start datetime NOT NULL,
 		PRIMARY KEY (id),
 		UNIQUE KEY IDX_STATISTIC (event, start, detail),
-		KEY IDX_START_DETAIL (start, detail)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
-
-	`CREATE TABLE user (
-		id int(11) NOT NULL AUTO_INCREMENT,
-		parent int(11) NOT NULL,
-		username varchar(60) COLLATE utf8_unicode_ci NOT NULL,
-		name varchar(60) COLLATE utf8_unicode_ci NOT NULL,
-		role smallint(6) NOT NULL,
-		status smallint(6) NOT NULL,
-		password char(60) COLLATE utf8_unicode_ci NOT NULL,
-		created datetime NOT NULL,
-		PRIMARY KEY (id),
-		UNIQUE KEY IDX_USERNAME (username),
-		KEY IDX_USER_PARENT (parent),
-		CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
-}
-
-var cmdsRedo = [...]string{
-
-	`CREATE TABLE redoV2 (
-		id BIGINT NOT NULL,
-		tx BIGINT NOT NULL,
-		manager varchar(32) COLLATE utf8_unicode_ci NOT NULL,
-		redotype int(11) NOT NULL,
-		delay int(11) NOT NULL,
-		optype int(11) NOT NULL,
-		operation JSON NOT NULL,
-		PRIMARY KEY (id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
-
-	`ALTER TABLE slideshow
-		ADD COLUMN access smallint(6) NOT NULL,
-		ADD COLUMN etag varchar(64) NOT NULL;`,
-}
-
-var cmdsSessions = [...]string{
-	`CREATE TABLE sessions (
-		token CHAR(43) PRIMARY KEY,
-		data BLOB NOT NULL,
-		expiry TIMESTAMP(6) NOT NULL
-	);`,
-	
-	`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
-}
-
-var cmdsTags = [...]string{
+		KEY IDX_START_DETAIL (start, detail));`,
 
 	`CREATE TABLE tag (
 		id int(11) NOT NULL AUTO_INCREMENT,
 		gallery int(11) NOT NULL,
 		parent int(11) NOT NULL,
-		name varchar(60) COLLATE utf8_unicode_ci NOT NULL,
-		action varchar(60) COLLATE utf8_unicode_ci NOT NULL,
-		format varchar(60) COLLATE utf8_unicode_ci NOT NULL,
+		name varchar(60) NOT NULL,
+		action varchar(60) NOT NULL,
+		format varchar(60) NOT NULL,
 		PRIMARY KEY (id),
 		UNIQUE KEY IDX_TAG (gallery, parent, name),
-		CONSTRAINT FK_TAG_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
+		CONSTRAINT FK_TAG_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id));`,
 
 	`INSERT INTO tag (id, gallery, parent, name, action, format) VALUES
 		(1, 1, 0, 'new', '', ''),
@@ -174,7 +143,7 @@ var cmdsTags = [...]string{
 		tag int(11) NOT NULL,
 		user int(11) NULL,
 		added datetime NOT NULL,
-		detail varchar(512) COLLATE utf8_unicode_ci NOT NULL,
+		detail varchar(512) NOT NULL,
 		PRIMARY KEY (id),
 		KEY IDX_TAG_ITEM (item),
 		KEY IDX_TAG_TAG (tag),
@@ -182,8 +151,47 @@ var cmdsTags = [...]string{
 		UNIQUE KEY IDX_TAGREF (item, tag, user),
 		CONSTRAINT FK_TAG_SLIDESHOW FOREIGN KEY (item) REFERENCES slideshow (id) ON DELETE CASCADE,
 		CONSTRAINT FK_TAG_TAG FOREIGN KEY (tag) REFERENCES tag (id) ON DELETE CASCADE,
-		CONSTRAINT FK_TAG_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;`,
+		CONSTRAINT FK_TAG_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE);`,
+
+	`CREATE TABLE user (
+		id int(11) NOT NULL AUTO_INCREMENT,
+		parent int(11) NOT NULL,
+		username varchar(60) NOT NULL,
+		name varchar(60) NOT NULL,
+		role smallint(6) NOT NULL,
+		status smallint(6) NOT NULL,
+		password char(60) NOT NULL,
+		created datetime NOT NULL,
+		PRIMARY KEY (id),
+		UNIQUE KEY IDX_USERNAME (username),
+		KEY IDX_USER_PARENT (parent),
+		CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id));`,
+}
+
+var cmdsRedo = [...]string{
+
+	`CREATE TABLE redoV2 (
+		id BIGINT NOT NULL,
+		tx BIGINT NOT NULL,
+		manager varchar(32) NOT NULL,
+		redotype int(11) NOT NULL,
+		delay int(11) NOT NULL,
+		optype int(11) NOT NULL,
+		operation JSON NOT NULL,
+		PRIMARY KEY (id));`,
+
+	`ALTER TABLE slideshow
+		ADD COLUMN access smallint(6) NOT NULL,
+		ADD COLUMN etag varchar(64) NOT NULL;`,
+}
+
+var cmdsSessions = [...]string{
+	`CREATE TABLE sessions (
+		token CHAR(43) PRIMARY KEY,
+		data BLOB NOT NULL,
+		expiry TIMESTAMP(6) NOT NULL);`,
+	
+	`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
 }
 
 // Setup initialises a new database, if it has no tables.
@@ -198,9 +206,6 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 
 				// no gallery table - make the database
 				err = setupTables(stGallery.DBX, *stGallery.ptx, cmds[:])
-				if err == nil {
-					err = setupTables(stGallery.DBX, *stGallery.ptx, cmdsTags[:])
-				}
 			}
 		} else if stGallery.convertError(err) != models.ErrNoRecord {
 			// ok if no gallery record yet
@@ -313,82 +318,37 @@ func MigrateSessions(stSession *SessionStore) error {
 	return nil
 }
 
-// MigrateTags adds tag tables. Needed for version 0.9.8.
-func MigrateTags(stTag *TagStore) error {
+// MigrateMB4 converts text fields to accept 4-byte Unicode characters, instead of 3-byte.
+// It also adds a database version for future migrations. Needed for version 1.3.0.
+func MigrateMB4(stGallery *GalleryStore) error {
 
-	if _, err := stTag.Count(); err != nil {
-		return setupTables(stTag.DBX, *stTag.ptx, cmdsTags[:])
-	}
-	return nil
-}
+	var cmd1 = `ALTER TABLE gallery ADD COLUMN version smallint(6);`
 
-// MigrateWebparts1 upgrades the database with changes needed by inchworks/webparts/v2,
-// before first table access. Needed for version 0.9.4.
-func MigrateWebparts1(tx *sqlx.Tx) error {
+	var cmds2 = [...]string{
+		"SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci';",
+		"SET character_set_server = 'utf8mb4';",
+		"SET collation_server = 'utf8mb4_unicode_ci';",
+	
+		`ALTER TABLE gallery CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
+		`ALTER TABLE slide CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
+		`ALTER TABLE slideshow CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
+		`ALTER TABLE tag CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
+		`ALTER TABLE tagref CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
+		`ALTER TABLE user CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
 
-	var cmdUser1 = `ALTER TABLE user
-		DROP FOREIGN KEY FK_USER_GALLERY,
-		CHANGE COLUMN gallery parent int(11),
-		ADD COLUMN role smallint(6) NOT NULL;`
-
-	var cmdUser2 = `ALTER TABLE user
-		ADD CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id);`
-
-	// new user table definition, if needed
-	_, err := tx.Exec(cmdUser1)
-	if driverErr, ok := err.(*mysql.MySQLError); ok {
-		if driverErr.Number == 1054 || driverErr.Number == 1146 {
-			return nil // ER_BAD_FIELD_ERROR is expected
-		}
-	}
-	if err != nil {
-		return err
+		`UPDATE gallery SET version = 1;`,
 	}
 
-	// reinstate foreign key (cannot be done in same command - I hate SQL)
-	_, err = tx.Exec(cmdUser2)
-
-	return err
-}
-
-// MigrateWebparts2 upgrades the database with changes needed by inchworks/webparts/v2,
-// after stores are ready. Needed for version 0.9.4.
-func MigrateWebparts2(stUser *UserStore, tx *sqlx.Tx) error {
-
-	var cmdStatistic = `ALTER TABLE statistic CHANGE COLUMN period detail smallint(6);`
-
-	// has statistics column been renamed yet?
-	if _, err := tx.Exec(cmdStatistic); err != nil {
-		return nil
-	}
-
-	// assign roles for all users
-	us := stUser.All()
-	for _, u := range us {
-
-		switch u.Status {
-		case 0, 1, 2: // Suspended, Known, Active
-			// don't overwrite a newly added admin
-			if u.Role == 0 {
-				u.Role = models.UserMember
-			}
-
-		case 3: // Curator
-			u.Status = users.UserActive
-			u.Role = models.UserCurator
-
-		case 4: // Admin
-			u.Status = users.UserActive
-			u.Role = models.UserAdmin
-
-		default:
-			return errors.New("Unknown user status")
-		}
-
-		if err := stUser.Update(u); err != nil {
+	// add database version
+	tx := *stGallery.ptx
+	if _, err := tx.Exec(cmd1); err != nil {
+		if err.(*mysql.MySQLError).Number == 1060 {
+			return nil // duplicate column - already migrated
+		} else {
 			return err
 		}
 	}
 
-	return nil
+	// set v1 and convert tables
+	return setupTables(stGallery.DBX, *stGallery.ptx, cmds2[:])
 }

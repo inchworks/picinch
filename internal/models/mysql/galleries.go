@@ -28,12 +28,12 @@ import (
 const (
 	galleryInsert = `
 		INSERT INTO gallery
-		(organiser, n_max_slides, n_showcased)
-		VALUES (:organiser, :n_max_slides, :n_showcased)
+		(version, organiser, n_max_slides, n_showcased)
+		VALUES (:version, :organiser, :n_max_slides, :n_showcased)
 	`
 	galleryUpdate = `
 		UPDATE gallery
-		SET organiser=:organiser, n_max_slides=:n_max_slides, n_showcased=:n_showcased
+		SET version=:version, organiser=:organiser, n_max_slides=:n_max_slides, n_showcased=:n_showcased
 		WHERE id=:id
 	`
 )

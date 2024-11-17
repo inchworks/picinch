@@ -54,7 +54,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.2.3"
+	version = "1.2.4"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -609,13 +609,6 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	// this is to handle V1 transactions from before upgrade, to be deleted if not needed
 	app.redoV1Store = mysql.NewRedoV1Store(app.db, &app.tx, app.errorLog)
 
-	// database change to users table, to use webparts
-	// The first part must be done before we add a missing admin,
-	var err error
-	if err = mysql.MigrateWebparts1(app.tx); err != nil {
-		app.errorLog.Fatal(err)
-	}
-
 	// setup new database and administrator, if needed, and get gallery record
 	g, err := mysql.Setup(app.GalleryStore, app.userStore, 1, cfg.AdminName, cfg.AdminPassword)
 	if err != nil {
@@ -631,12 +624,6 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.SlideshowStore.HighlightsId = 1
 
 	// database changes from previous version(s)
-	if err = mysql.MigrateWebparts2(app.userStore, app.tx); err != nil {
-		app.errorLog.Fatal(err)
-	}
-	if err = mysql.MigrateTags(app.tagger.TagStore); err != nil {
-		app.errorLog.Fatal(err)
-	}
 	if err = mysql.MigrateRedo2(app.redoStore, app.SlideshowStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
@@ -644,6 +631,9 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 		app.redoV1Store = nil
 	}
 	if err = mysql.MigrateSessions(mysql.NewSessionStore(app.db, &app.tx, app.errorLog)); err != nil {
+		app.errorLog.Fatal(err)
+	}
+	if err = mysql.MigrateMB4(app.GalleryStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
 
