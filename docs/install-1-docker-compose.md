@@ -7,7 +7,7 @@ version: '3'
 services:
 
   db:
-    image: mariadb:10.4
+    image: mariadb:11.4
     container_name: picinch_db
     expose:
       - 3306
