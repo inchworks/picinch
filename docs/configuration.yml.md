@@ -1,5 +1,5 @@
 # configuration.yml
-Configuration parameters may be specified in this file, or as environment variables. Settings here will be overridden by environment variables in docker-compose.yml.
+Configuration parameters may be specified in this file, or as environment variables. Settings here will be overridden by environment variables in `docker-compose.yml`.
 This an example configuration file with just the essential settings.  
 
 ```yml

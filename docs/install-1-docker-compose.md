@@ -42,7 +42,7 @@ services:
       - geodb:/usr/share/GeoIP
 
   gallery:
-    image: inchworks/picinch:1.0
+    image: inchworks/picinch:1.2
     ports:
       - 443:4000:
       - 80:8000
@@ -92,7 +92,5 @@ Geo-blocking requires an account for [free geo-location data from MaxMind][1]. C
 - `GEOIPUPDATE_LICENSE_KEY` Issued by MaxMind after registration.
 - `geo-block` The countries to be blocked.
 If you do not want geo-blocking, remove all the lines for the service `geoipupdate`, and don't set `geo-block`.
-
-Run `docker-compose up` to fetch PicInch and MariaDB from Docker Hub and start them.
 
 [1]:  https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
