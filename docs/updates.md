@@ -11,9 +11,9 @@ Optionally, set `gallery:image` to `inchworks/picinch:1` to get the latest minor
 For site changes to `configuration.yml` and templates, without an updated image, use `docker compose restart`.
 
 ## Versions
-1.1 Implements a more robust media upload process. It also allows access to media being deleted for the lifetime of cached pages, and handles videos that may take several minutes to be converted.
+`1.1` Implements a more robust media upload process. It also allows access to media being deleted for the lifetime of cached pages, and handles videos that may take several minutes to be converted. This update changes the format of new media file names.
 
-1.2 Lists contributors with public slideshows on the public home page.
+`1.2` Lists contributors with public slideshows on the public home page.
 
 ## MariaDB Database
 The original example `docker-compose.yml` specified `db:image` as `mariadb:10.4`.
