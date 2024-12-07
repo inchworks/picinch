@@ -19,7 +19,7 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}Edit Events{{end}}
+{{define "title"}}Edit Diary{{end}}
 
 {{define "pagemeta"}}
     <meta name="robots" content="noindex">
@@ -31,33 +31,25 @@
 
 		<h2>{{ .Title }}</h2>
 
-		<form action='/edit-events' method='POST' enctype="multipart/form-data" >
+		<form action='/edit-diary' method='POST' enctype="multipart/form-data" >
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
  				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
 							<input type='hidden' name='index' value='{{ .ChildIndex }}'>								
+							<input type='hidden' name='publish' value='{{ htmlDate .Publish }}'>								
 							<div class="row mb-2">
-								<label class="col-md-1 col-form-label">EVENT</label>
-								<div class="col-md-4">
-									<input type='datetime-local' class='form-control {{.ChildValid "start"}}' name='start' value='{{ htmlDateTime .Start }}'>
+								<div class="col-md-2">
+									<input type='date' class='form-control {{.ChildValid "start"}}' name='start' value='{{ htmlDate .Start }}'>
 									<div class='invalid-feedback'>{{ .ChildError "start"}}</div>
 								</div>
-								<label class="offset-md-1 col-md-1 col-form-label">Publish</label>
-								<div class="col-md-3">
-									<input type='date' class='form-control {{.ChildValid "publish"}}' name='publish' value='{{ htmlDate .Publish }}'>
+								<div class="col-md-8">
+									<input type='text' class='form-control {{.ChildValid "title"}}' name='title' value='{{ .Title }}'>
 									<div class='invalid-feedback'>{{ .ChildError "title"}}</div>
 								</div>
 								<div class="col-md-2">
 									<a href="#" class="btn btn-secondary btnDeleteChild">Delete</a>
-								</div>
-							</div>
-							<div class="row mb-2">
-								<label class="offset-md-1 col-md-1 col-form-label">Title</label>
-								<div class="col-md-8">
-									<input type='text' class='form-control {{.ChildValid "title"}}' name='title' value='{{ .Title }}'>
-									<div class='invalid-feedback'>{{ .ChildError "title"}}</div>
 								</div>
 							</div>
 							<div class="row mb-3">
@@ -83,8 +75,6 @@
 				</div>
 			{{end}}
 		</form>
-
-		<p>Note: You must click the Update button to save your changes.</p>
 	</div>
 
 {{end}}

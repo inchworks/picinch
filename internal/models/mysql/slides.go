@@ -19,6 +19,7 @@ package mysql
 
 import (
 	"log"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 
@@ -46,7 +47,8 @@ const (
 	slideRecent = ` ORDER BY created DESC LIMIT ?`
 	slideStart  = ` ORDER BY revised ASC`
 
-	slidesWhereEvent      = slideSelect + ` WHERE slideshow = ?` + slideStart
+	slidesWhereDiary      = slideSelect + ` WHERE slideshow = ?` + slideStart
+	slidesWhereNext       = slideSelect + ` WHERE slideshow = ? AND revised >= ?` + slideStart + ` LIMIT ?`
 	slideWhereId          = slideSelect + ` WHERE id = ?`
 	slidesWhereShow       = slideSelect + ` WHERE slideshow = ?`
 	slidesWhereShowOlder  = slideSelect + ` WHERE slideshow = ?` + slideOrder
@@ -62,7 +64,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible > -5 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible >= -1 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
 			)
 		SELECT id
 		FROM s1
@@ -79,7 +81,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible > -5 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible >= -1 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
 			)
 		SELECT id
 		FROM s1
@@ -97,7 +99,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible > -5 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible >= -1 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
 			)
 		SELECT format, title, caption, image, name
 		FROM s1
@@ -129,7 +131,7 @@ func (st *SlideStore) AllEvents(showId int64) []*models.Slide {
 
 	var slides []*models.Slide
 
-	if err := st.DBX.Select(&slides, slidesWhereEvent, showId); err != nil {
+	if err := st.DBX.Select(&slides, slidesWhereDiary, showId); err != nil {
 		st.logError(err)
 		return nil
 	}
@@ -202,6 +204,18 @@ func (st *SlideStore) ForSlideshowOrdered(showId int64, recent bool, max int) []
 		return nil
 	}
 
+	return slides
+}
+
+// NextEvents returns the first few events at or after the specified time.
+func (st *SlideStore) NextEvents(showId int64, from time.Time, max int) []*models.Slide {
+
+	var slides []*models.Slide
+
+	if err := st.DBX.Select(&slides, slidesWhereNext, showId, from, max); err != nil {
+		st.logError(err)
+		return nil
+	}
 	return slides
 }
 

@@ -28,6 +28,7 @@ import (
 	"github.com/inchworks/webparts/v2/users"
 	"github.com/justinas/nosurf"
 
+	"inchworks.com/picinch/internal/cache"
 	"inchworks.com/picinch/internal/form"
 	"inchworks.com/picinch/internal/models"
 )
@@ -51,9 +52,11 @@ type DataCommon struct {
 	IsCompetition   bool // competitions enabled
 	IsCurator       bool // user is curator
 	IsFriend        bool // user is friend
+	IsGallery       bool // gallery with contributors
 	IsMember        bool // user is member
 
-	Page string
+	Page  string
+	Menus []*cache.MenuItem
 }
 
 func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page string) {
@@ -65,8 +68,11 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page stri
 	d.IsCompetition = (app.cfg.Options == "main-comp")
 	d.IsCurator = app.isAuthenticated(r, models.UserCurator)
 	d.IsFriend = app.isAuthenticated(r, models.UserFriend)
+	d.IsGallery = true // ## no non-gallery configuration yet
 	d.IsMember = app.isAuthenticated(r, models.UserMember)
 	d.Page = page
+	d.Menus = app.publicPages.MainMenu
+
 }
 
 // template data for display pages
@@ -76,11 +82,38 @@ type dataCompetition struct {
 	DataCommon
 }
 
+type DataDiary struct {
+	Title   string
+	Caption string
+	Events  []*DataEvent
+	DataCommon
+}
+
+type DataEvent struct {
+	Start   string
+	Title   template.HTML
+	Details template.HTML
+}
+
 type DataHome struct {
 	DisplayName string
+	HEvents     string
+	Events      []*DataEvent
 	Highlights  []*DataSlide
 	Slideshows  []*DataPublished
 	DataCommon
+}
+
+type DataInfo struct {
+	Title   string
+	Caption string
+	Divs    []*DataInfoDiv
+	DataCommon
+}
+
+type DataInfoDiv struct {
+	Title template.HTML
+	Div   template.HTML
 }
 
 type DataMyGallery struct {
@@ -206,8 +239,8 @@ type compFormData struct {
 	DataCommon
 }
 
-type eventsFormData struct {
-	Form  *form.EventsForm
+type diaryFormData struct {
+	Form  *form.DiaryForm
 	Title string
 	DataCommon
 }

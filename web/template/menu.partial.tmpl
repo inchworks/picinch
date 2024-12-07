@@ -54,27 +54,45 @@
     <li class="nav-item dropdown">
         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">CURATOR</a>
         <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-	        <li><a class="dropdown-item" href="/edit-events">EVENTS</a></li>
+	        <li><a class="dropdown-item" href="/edit-diary">DIARY</a></li>
 	        <li><a class="dropdown-item" href="/topics">TOPICS</a></li>
 	        <li><a class="dropdown-item" href="/users-curator">USERS</a></li>
         </ul>
     </li>
 {{end}}
 
-{{define "menu-friend"}}
-    <li class="nav-item"><a class="nav-link" href="/members">GALLERY</a></li>
-    <li class="nav-item"><a class="nav-link" href="/contrib-members">CONTRIBUTORS</a></li>
+{{define "menu-gallery"}}
+    {{if .IsAuthenticated}}
+        <li class="nav-item"><a class="nav-link" href="/members">GALLERY</a></li>
+        <li class="nav-item"><a class="nav-link" href="/contrib-members">CONTRIBUTORS</a></li>
+    {{else}}
+        <li class="nav-item"><a class="nav-link" href="/">GALLERY</a></li>
+        <li class="nav-item"><a class="nav-link" href="/contributors">CONTRIBUTORS</a></li>
+    {{end}}
+{{end}}
+
+{{define "menu-info"}}
+	{{range .Menus}}
+        {{if eq (len .Sub) 0 }}
+            <li class="nav-item"><a class="nav-link" href="{{.Path}}">{{.Name}}</a></li>
+        {{else}}
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">{{.Name}}</a>
+                <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                    {{range .Sub}}
+                        <li><a class="dropdown-item" href="{{.Path}}">{{.Name}}</a></li>
+                    {{end}}
+                </ul>
+            </li>
+        {{end}}
+    {{end}}
 {{end}}
 
 {{define "menu-member"}}
-    <li class="nav-item"><a class="nav-link" href="/members">GALLERY</a></li>
-    <li class="nav-item"><a class="nav-link" href="/contrib-members">CONTRIBUTORS</a></li>
     <li class="nav-item"><a class="nav-link" href="/my-slideshows">MY SLIDESHOWS</a></li>
 {{end}}
 
 {{define "menu-public"}}
-    <li class="nav-item"><a class="nav-link" href="/">GALLERY</a></li>
-    <li class="nav-item"><a class="nav-link" href="/contributors">CONTRIBUTORS</a></li>
     <li class="nav-item"><a class="nav-link" href="/user-login">LOGIN</a></li>
     <li class="nav-item"><a class="nav-link" href="/user/signup">SIGN-UP</a></li>
 {{end}}

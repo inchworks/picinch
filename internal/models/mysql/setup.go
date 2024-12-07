@@ -68,9 +68,9 @@ var cmds = [...]string{
 		token CHAR(43) PRIMARY KEY,
 		data BLOB NOT NULL,
 		expiry TIMESTAMP(6) NOT NULL);`,
-	
+
 	`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
-	
+
 	`CREATE TABLE slide (
 	id int(11) NOT NULL AUTO_INCREMENT,
 	slideshow int(11) NOT NULL,
@@ -107,10 +107,14 @@ var cmds = [...]string{
 	KEY IDX_SHARED (shared),
 	KEY IDX_TOPIC (topic),
 	CONSTRAINT FK_SLIDESHOW_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id),
-	CONSTRAINT FK_SLIDESHOW_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE)`,
+	CONSTRAINT FK_SLIDESHOW_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE);`,
 
-	`INSERT INTO slideshow (id, gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image) VALUES
-	(1,	1, 10, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '');`,
+	`INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag) VALUES
+		(1,	1, 10, 2, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '', ''),
+		(2,	1, 0, -7, -7, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', '$Home', '', '', '', ''),
+		(3,	1, 0, -6, -6, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Next Meeting', '', 'N.1', '', ''),
+		(4,	1, 0, -5,-5, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', '$Pages', '', '', '', ''),
+		(5,	1, 0, 2, 2, 1, 0, 3, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Meetings', '', '', '', '');`,
 
 	`CREATE TABLE statistic (
 		id int(11) NOT NULL AUTO_INCREMENT,
@@ -167,6 +171,19 @@ var cmds = [...]string{
 		UNIQUE KEY IDX_USERNAME (username),
 		KEY IDX_USER_PARENT (parent),
 		CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id));`,
+
+	`INSERT INTO user (id, parent, username, name, role, status, password, created) VALUES
+		(1,	1, 'SystemInfo', 'System Info', 10, -1, '', '2024-12-01 15:52:42');`,
+}
+
+var cmdsInfo = [...]string{
+	`INSERT INTO slideshow (gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag) VALUES
+		(1, 0, -7, -7, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', '$Home', '', '', '', ''),
+		(1, 0, -6, -6, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Next Meeting', '', 'N.1', '', ''),
+		(1, 0, -5, -5, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', '$Pages', '', '', '', '');`,
+
+	`INSERT INTO user (parent, username, name, role, status, password, created) VALUES
+		(1, 'SystemInfo', 'System Info', 10, -1, '', '2024-12-01 15:52:42');`,
 }
 
 var cmdsRedo = [...]string{
@@ -191,7 +208,7 @@ var cmdsSessions = [...]string{
 		token CHAR(43) PRIMARY KEY,
 		data BLOB NOT NULL,
 		expiry TIMESTAMP(6) NOT NULL);`,
-	
+
 	`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
 }
 
@@ -299,7 +316,7 @@ func MigrateRedo2(stRedo *RedoStore, stSlideshow *SlideshowStore) error {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -322,45 +339,55 @@ func MigrateSessions(stSession *SessionStore) error {
 // MigrateInfo adds the user and slideshows for club information. Needed for version 1.3.0.
 func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore) error {
 
-	infoName := "Info"
-
 	// dummy user to own gallery information
-	_, err := stUser.GetNamed(infoName)
-	if err == nil || err != models.ErrNoRecord {
+	if _, err := stUser.getSystem("SystemInfo"); err == nil {
+		return nil // nothing to do
+	}
+
+	// add system user and topics
+	if err := setupTables(stUser.DBX, *stUser.ptx, cmdsInfo[:]); err != nil {
 		return err
 	}
 
-	u := &users.User{
-		Username: infoName,
-		Name:     infoName,
-		Role:     models.UserSystem,
-		Status:   users.UserActive,
-		Password: []byte(""),
-		Created:  time.Now(),
+	// read them
+	var u *users.User
+	var et *models.Slideshow
+	var ht *models.Slideshow
+	var err error
+	if u, err = stUser.getSystemTx("SystemInfo"); err != nil {
+		return err
 	}
-
-	if err := stUser.Update(u); err != nil {
+	if ht, err = stSlideshow.getSystemTopicTx(models.SlideshowHome); err != nil {
+		return err
+	}
+	if et, err = stSlideshow.getSystemTopicTx(models.SlideshowDiaries); err != nil {
 		return err
 	}
 
-	// events
-	t := time.Now()
-	e := &models.Slideshow{
-		GalleryOrder: 10,
-		Access: models.SlideshowSystem, 
-		Visible: models.SlideshowSystem,
-		User:         sql.NullInt64{Int64: u.Id, Valid: true},
-		Created:      t,
-		Revised:      t,
-		Title: "Events",
-		Format: "E",
-	}
-
-	if err = stSlideshow.Update(e); err != nil {
+	// system slideshows
+	g := stSlideshow.GalleryId
+	if err := stSlideshow.Update(sysShow(g, u.Id, ht.Id, "$Home", "")); err != nil {
 		return err
 	}
-	stSlideshow.EventsId = e.Id
+	if err := stSlideshow.Update(sysShow(g, u.Id, et.Id, "Meetings", "Meetings")); err != nil {
+		return err
+	}
 	return nil
+}
+
+func sysShow(galleryId int64, userId int64, topicId int64, title string, format string) *models.Slideshow {
+	now := time.Now()
+	return &models.Slideshow{
+		Gallery: galleryId,
+		Access:  models.SlideshowPublic,
+		Visible: models.SlideshowPublic,
+		User:    sql.NullInt64{Int64: userId, Valid: true},
+		Topic:   topicId,
+		Created: now,
+		Revised: now,
+		Title:   title,
+		Format:  format,
+	}
 }
 
 // MigrateMB4 converts text fields to accept 4-byte Unicode characters, instead of 3-byte.
@@ -373,7 +400,7 @@ func MigrateMB4(stGallery *GalleryStore) error {
 		"SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci';",
 		"SET character_set_server = 'utf8mb4';",
 		"SET collation_server = 'utf8mb4_unicode_ci';",
-	
+
 		`ALTER TABLE gallery CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
 		`ALTER TABLE slide CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
 		`ALTER TABLE slideshow CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,

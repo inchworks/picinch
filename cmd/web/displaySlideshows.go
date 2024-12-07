@@ -31,8 +31,6 @@ import (
 	"inchworks.com/picinch/internal/models"
 )
 
-// Copyright © Rob Burke inchworks.com, 2020.
-
 // DisplayClasses returns data for competition classes.
 func (s *GalleryState) DisplayClasses(_ bool) *dataCompetition {
 
@@ -230,6 +228,9 @@ func (s *GalleryState) DisplayHome(member bool) *DataHome {
 
 	a := s.app
 
+	// diary events
+	dEvents := s.dataEvents(true, a.cfg.MaxNextEvents)
+
 	// highlight slides
 	dHighlights := s.dataHighlights(a.cfg.MaxHighlightsTotal)
 
@@ -244,6 +245,8 @@ func (s *GalleryState) DisplayHome(member bool) *DataHome {
 
 	// template and its data
 	return &DataHome{
+		HEvents: a.SlideshowStore.DiariesTopic.Title,
+		Events: dEvents,
 		Highlights: dHighlights,
 		Slideshows: dShows,
 	}

@@ -1,0 +1,18 @@
+{{define "events-next"}}
+    <h5>{{ .HEvents }}</h5>
+    {{range .Events}}
+        <div class="row">
+            <div class="col-md-2 col-sm-3">
+                <span >{{ .Start }}</span>
+            </div>
+            <div class="col-md-8 col-sm-7">
+                <span>{{ .Title }}</span>
+            </div>
+        </div>
+        <div class="row">
+            <div class="offset-md-2 offset-sm-3 col-md-8 col-sm-7">
+                <span>{{ .Details }}</span>
+            </div>
+        </div>
+    {{end}}
+{{end}}

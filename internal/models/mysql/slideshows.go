@@ -47,23 +47,24 @@ const (
 const (
 	// note that ID is included for stable ordering of selections for editing
 	slideshowSelect         = `SELECT * FROM slideshow`
+	slideshowOrderGallery   = ` ORDER BY gallery_order ASC` // ## doesn't matter?
 	slideshowOrderPublished = ` ORDER BY gallery_order DESC, created DESC, id`
 	slideshowOrderRevised   = ` ORDER BY gallery_order DESC, revised DESC, id`
 	slideshowOrderTitle     = ` ORDER BY title, id`
 
-	slideshowCountForUser = `SELECT COUNT(*) FROM slideshow WHERE user = ? AND  visible > -5`
+	slideshowCountForUser = `SELECT COUNT(*) FROM slideshow WHERE user = ? AND visible >= -1`
 
-    slideshowIdWhereTitle = `SELECT id FROM slideshow WHERE title = ? AND access = -5`
+	slideshowWhereAccess = slideshowSelect + ` WHERE access = ?`
+	slideshowWhereId     = slideshowSelect + ` WHERE id = ?`
+	slideshowWhereTopic  = slideshowSelect + ` WHERE topic = ? AND user = ? AND  visible >= -1`
 
-	slideshowWhereId    = slideshowSelect + ` WHERE id = ?`
-	slideshowWhereTopic = slideshowSelect + ` WHERE topic = ? AND user = ? AND  visible > -5`
+	slideshowsWhereTopic      = slideshowSelect + ` WHERE topic = ? AND visible >= -1`
+	slideshowsWhereTopicOrder = slideshowSelect + ` WHERE topic = ? AND visible >= -1` + slideshowOrderGallery
+	slideshowsWhereTopicUser  = slideshowSelect + ` WHERE topic = ? AND user = ? AND visible >= -1`
+	slideshowsWhereUser       = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
+	slideshowsNotTopics       = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL AND visible >= -1` + slideshowOrderTitle
 
-	slideshowsWhereTopic     = slideshowSelect + ` WHERE topic = ? AND  visible > -5`
-	slideshowsWhereTopicUser = slideshowSelect + ` WHERE topic = ? AND user = ? AND  visible > -5`
-	slideshowsWhereUser      = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
-	slideshowsNotTopics      = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL AND visible > -5` + slideshowOrderTitle
-
-	slideshowWhereShared = slideshowSelect + ` WHERE shared = ? AND visible > -5`
+	slideshowWhereShared = slideshowSelect + ` WHERE shared = ? AND visible >= -1`
 
 	// next slideshow ID in sequence for a topic, excluding suspended users
 	slideshowWhereTopicAfter = `
@@ -85,7 +86,14 @@ const (
 	slideshowWhereTopicVisible = `
 		SELECT slideshow.* FROM slideshow
 		JOIN slideshow AS topic ON topic.id = slideshow.topic
-		WHERE slideshow.topic = ? AND visible > -5 AND slideshow.user = ? AND topic.visible >= ?
+		WHERE slideshow.topic = ? AND visible >= -1 AND slideshow.user = ? AND topic.visible >= ?
+	`
+
+	// all slideshows for system page topics
+	slideshowsWhereSystem = `
+		SELECT slideshow.* FROM slideshow
+		JOIN slideshow AS topic ON topic.id = slideshow.topic
+		WHERE topic.gallery = ? AND topic.visible =? AND slideshow.visible = ?
 	`
 
 	// tagged slideshows
@@ -93,7 +101,7 @@ const (
 		SELECT slideshow.* FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
-		WHERE tag.parent = ? AND tag.name = ? AND slideshow.visible > -5
+		WHERE tag.parent = ? AND tag.name = ? AND slideshow.visible >= -1
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -103,7 +111,7 @@ const (
 		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
 		WHERE tag.gallery = ? AND tag.parent = ? AND tag.name = ?
-		AND slideshow.revised < ? AND slideshow.visible > -5
+		AND slideshow.revised < ? AND slideshow.visible >= -1
 	`
 
 	slideshowsWhereTagSystem = `
@@ -111,7 +119,7 @@ const (
 		FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
 		WHERE tagref.tag = ? AND tagref.user IS NULL
-		AND slideshow.visible > -5
+		AND slideshow.visible >= -1
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -121,7 +129,7 @@ const (
 		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
 		WHERE tag.parent = ? AND tag.name = ?
-		AND slideshow.topic = ? AND slideshow.visible > -5
+		AND slideshow.topic = ? AND slideshow.visible >= -1
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -130,7 +138,7 @@ const (
 		SELECT slideshow.*, tagref.id AS tagrefid
 		FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
-		WHERE tagref.tag = ? AND tagref.user = ? AND slideshow.visible > -5
+		WHERE tagref.tag = ? AND tagref.user = ? AND slideshow.visible >= -1
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -145,9 +153,9 @@ const (
 		ORDER BY slideshow.revised DESC
 	`
 
-	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ? AND slideshow.visible > -5` + slideshowOrderTitle
-	topicsWhereFormat   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ? AND slideshow.visible > -5` + slideshowOrderTitle
-	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND slideshow.visible > -5` + slideshowOrderPublished
+	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ? AND slideshow.visible >= -1` + slideshowOrderTitle
+	topicsWhereFormat   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ? AND slideshow.visible >= -1` + slideshowOrderTitle
+	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND slideshow.visible >= -1` + slideshowOrderPublished
 
 	// most recent visible topics and slideshows, with a per-user limit, excluding suspended users
 	slideshowsRecentPublished = `
@@ -175,8 +183,13 @@ const (
 
 type SlideshowStore struct {
 	GalleryId    int64
-	EventsId     int64
 	HighlightsId int64
+
+	// cached system info
+	DiariesTopic *models.Slideshow
+	HomeTopic   *models.Slideshow
+	Home        []*models.Slideshow
+
 	store
 }
 
@@ -219,7 +232,7 @@ func (st *SlideshowStore) AllForUsers() []*models.Slideshow {
 	return slideshows
 }
 
-// All topics returns a list of all topics for which contributions can be made.
+// AllTopics returns a list of all topics for which contributions can be made.
 func (st *SlideshowStore) AllTopics() []*models.Slideshow {
 
 	var topics []*models.Slideshow
@@ -266,6 +279,17 @@ func (st *SlideshowStore) CountForUser(userId int64) int {
 	}
 
 	return n
+}
+
+// ForSystem returns a list of system slideshows.
+func (st *SlideshowStore) ForSystem(topicVisible int, showVisible int) []*models.Slideshow {
+	var slideshows []*models.Slideshow
+
+	if err := st.DBX.Select(&slideshows, slideshowsWhereSystem, st.GalleryId, topicVisible, showVisible); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
 }
 
 // ForTag returns all slideshows for a tag.
@@ -349,7 +373,7 @@ func (st *SlideshowStore) ForTopicPublished(topicId int64, latest bool) []*model
 
 	var order string
 	if latest {
-		order = "  slideshow.revised DESC"
+		order = " slideshow.revised DESC"
 	} else {
 		order = " slideshow.created ASC"
 	}
@@ -494,6 +518,24 @@ func (st *SlideshowStore) GetIfShared(shared int64) *models.Slideshow {
 	return &r
 }
 
+// InitSystem finds the slideshows that implement system facilities.
+func (st *SlideshowStore) InitSystem() error {
+	var err error
+	if st.DiariesTopic, err = st.getSystemTopic(models.SlideshowDiaries); err != nil {
+		return err
+	}
+	if st.HomeTopic, err = st.getSystemTopic(models.SlideshowHome); err != nil {
+		return err
+	}
+
+	// #### move to cache
+	if st.Home, err = st.forTopicByOrder(st.HomeTopic.Id); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Most recent shows, up to N per user, excluding RecentPublic and including topics, in descending publication date
 
 func (st *SlideshowStore) RecentPublished(visible int, max int) []*models.Slideshow {
@@ -505,13 +547,6 @@ func (st *SlideshowStore) RecentPublished(visible int, max int) []*models.Slides
 		return nil
 	}
 	return slideshows
-}
-
-// SetupSystem finds the slideshows that implement system facilities.
-func (st *SlideshowStore) SetupSystem() error {
-	var err error
-	st.EventsId, err = st.getSystemId("Events")
-	return err
 }
 
 // Insert or update slideshow
@@ -540,13 +575,35 @@ func (st *SlideshowStore) Set(r *models.Slideshow) error {
 	return nil
 }
 
-// getSystemId looks up the ID for a system slideshow.
-func (st *SlideshowStore) getSystemId(name string) (int64, error) {
+// forTopicByOrder returns the slideshows for system topic in gallery order.
+func (st *SlideshowStore) forTopicByOrder(topicId int64) ([]*models.Slideshow, error) {
 
-	var id int64
+	var ss []*models.Slideshow
 
-	if err := st.DBX.Get(&id, slideshowIdWhereTitle, name); err != nil {
-		return 0, st.logError(err)
+	if err := st.DBX.Select(&ss, slideshowsWhereTopicOrder, topicId); err != nil {
+		return nil, st.logError(err)
 	}
-	return id, nil
+	return ss, nil
+}
+
+// getSystemTopic returns a system topic.
+func (st *SlideshowStore) getSystemTopic(access int) (*models.Slideshow, error) {
+
+	var t models.Slideshow
+
+	if err := st.DBX.Get(&t, slideshowWhereAccess, access); err != nil {
+		return nil, st.logError(err)
+	}
+	return &t, nil
+}
+
+// getSystemTopic returns a system topic, as part of a transaction.
+func (st *SlideshowStore) getSystemTopicTx(access int) (*models.Slideshow, error) {
+
+	var t models.Slideshow
+
+	if err := (*st.ptx).Get(&t, slideshowWhereAccess, access); err != nil {
+		return nil, st.logError(err)
+	}
+	return &t, nil
 }

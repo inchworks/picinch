@@ -211,23 +211,23 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// getFormEvents displays a form to edit events.
-func (app *Application) getFormEvents(w http.ResponseWriter, r *http.Request) {
+// getFormDiary displays a form to edit a diary events.
+func (app *Application) getFormDiary(w http.ResponseWriter, r *http.Request) {
 
-	f := app.galleryState.ForEditEvents(nosurf.Token(r))
+	f := app.galleryState.ForEditDiary(nosurf.Token(r))
 	if f == nil {
 		httpServerError(w)
 		return
 	}
 
 	// display form
-	app.render(w, r, "edit-events.page.tmpl", &eventsFormData{
+	app.render(w, r, "edit-diary.page.tmpl", &diaryFormData{
 		Form:  f,
 	})
 }
 
-// postFormEvents handles a request to update events.
-func (app *Application) postFormEvents(w http.ResponseWriter, r *http.Request) {
+// postFormDiary handles a request to update diary events.
+func (app *Application) postFormDiary(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 	if err != nil {
@@ -245,14 +245,14 @@ func (app *Application) postFormEvents(w http.ResponseWriter, r *http.Request) {
 
 	// redisplay form if data invalid
 	if !f.Valid() {
-		app.render(w, r, "edit-events.page.tmpl", &eventsFormData{
+		app.render(w, r, "edit-diary.page.tmpl", &diaryFormData{
 			Form:  f,
 		})
 		return
 	}
 
 	// save changes
-	status, tx := app.galleryState.OnEditEvents(events)
+	status, tx := app.galleryState.OnEditDiary(events)
 	if status == 0 {
 		// claim updated media, now that update is committed
 		app.tm.Do(tx)

@@ -25,7 +25,7 @@ import (
 	"inchworks.com/picinch/internal/models"
 )
 
-type EventsForm struct {
+type DiaryForm struct {
 	*multiforms.Form
 	Children []*EventFormData
 }
@@ -33,21 +33,21 @@ type EventsForm struct {
 type EventFormData struct {
 	multiforms.Child
 	Publish time.Time // date
-	Start   time.Time // date-time
+	Start   time.Time // date
 	Title   string
 	Caption string
 }
 
 // NewSlides returns a form with the expected capacity.
-func NewEvents(data url.Values, nSlides int, token string) *EventsForm {
-	return &EventsForm{
+func NewEvents(data url.Values, nSlides int, token string) *DiaryForm {
+	return &DiaryForm{
 		Form:     multiforms.New(data, token),
 		Children: make([]*EventFormData, 0, nSlides+1),
 	}
 }
 
 // Add appends an event to the form.
-func (f *EventsForm) Add(index int, publish time.Time, start time.Time, title string, caption string) {
+func (f *DiaryForm) Add(index int, publish time.Time, start time.Time, title string, caption string) {
 
 	f.Children = append(f.Children, &EventFormData{
 		Child:   multiforms.Child{Parent: f.Form, ChildIndex: index},
@@ -59,7 +59,7 @@ func (f *EventsForm) Add(index int, publish time.Time, start time.Time, title st
 }
 
 // AddTemplate adds a template for new events to the form.
-func (f *EventsForm) AddTemplate(nSlides int) {
+func (f *DiaryForm) AddTemplate(nSlides int) {
 
 	f.Children = append(f.Children, &EventFormData{
 		Child: multiforms.Child{Parent: f.Form, ChildIndex: -1},
@@ -67,7 +67,7 @@ func (f *EventsForm) AddTemplate(nSlides int) {
 }
 
 // GetSlides returns event slides as structs. They are sent as arrays of values for each field name.
-func (f *EventsForm) GetEvents(vt ValidTypeFunc) (items []*EventFormData, err error) {
+func (f *DiaryForm) GetEvents(vt ValidTypeFunc) (items []*EventFormData, err error) {
 
 	now := time.Now()
 	nItems := f.NChildItems()

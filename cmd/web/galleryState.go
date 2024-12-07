@@ -23,9 +23,11 @@ import (
 	"net/http"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"inchworks.com/picinch/internal/cache"
 	"inchworks.com/picinch/internal/models"
 )
 
@@ -73,6 +75,49 @@ func (s *GalleryState) cacheHighlights() error {
 	s.highlights = images
 
 	return nil
+}
+
+// cachePages builds the cache of information pages.
+// It returns a list of menu confict warnings.
+func (s *GalleryState) cachePages() []string {
+
+	s.updatesNone()()
+	
+	var warn []string
+
+	// reset cache
+	cache := cache.NewPages()
+	s.app.publicPages = cache
+
+	// add any menu template files (always public)
+	for file := range s.app.templateCache {
+		if strings.HasPrefix(file, "menu-") {
+			cache.AddFile(file, "menu-", ".page.tmpl")
+		}
+	}
+
+	// add diary pages
+	for _, pg := range s.app.SlideshowStore.ForSystem(models.SlideshowDiaries, models.SlideshowPublic) {
+		w := cache.AddDiary(pg)
+		if len(w) > 0 {
+			warn = append(warn, w...)
+		}
+	}
+
+	// add other public information pages
+	for _, pg := range s.app.SlideshowStore.ForSystem(models.SlideshowPages, models.SlideshowPublic) {
+		w := cache.AddId(pg.Format, "/info/", pg.Id)
+		if len(w) > 0 {
+			warn = append(warn, w...)
+		}
+	}
+
+	// ## add private information slideshows to separate cache, if supported
+
+	// build
+	cache.BuildMenus()
+
+	return warn
 }
 
 // Construct response URL

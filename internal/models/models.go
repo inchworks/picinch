@@ -37,10 +37,12 @@ const (
 	SlideCaption = 4
 	SlideVideo   = 8
 
-	// slideshow visibility
+	// slideshow type and visibility
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
-	SlideshowSystem = -5
-	SlideshowTopic   = -1
+	SlideshowHome    = -7  // topic for home page
+	SlideshowDiaries = -6  // topic for diary pages
+	SlideshowPages   = -5  // topic for information pages
+	SlideshowTopic   = -1  // slideshow for a topic
 	SlideshowPrivate = 0
 	SlideshowClub    = 1
 	SlideshowPublic  = 2

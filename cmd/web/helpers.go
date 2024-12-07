@@ -241,6 +241,7 @@ func (app *Application) refToContributor(w http.ResponseWriter,r *http.Request, 
 func (app *Application) render(w http.ResponseWriter, r *http.Request, name string, td TemplateData) {
 
 	if td == nil {
+		// on thin ice here, because nil for a concrete struct is not nil :-(
 		td = &DataCommon{}
 	}
 

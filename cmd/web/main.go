@@ -28,9 +28,9 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/mysqlstore"
+	"github.com/alexedwards/scs/v2"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/inchworks/usage"
 	"github.com/inchworks/webparts/v2/etx"
@@ -44,6 +44,7 @@ import (
 	"github.com/justinas/nosurf"
 	"github.com/microcosm-cc/bluemonday"
 
+	"inchworks.com/picinch/internal/cache"
 	"inchworks.com/picinch/internal/emailer"
 	"inchworks.com/picinch/internal/models"
 	"inchworks.com/picinch/internal/models/mysql"
@@ -121,6 +122,7 @@ type Configuration struct {
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
 	MaxHighlightsTotal  int `yaml:"highlights-page" env-default:"12"`    // highlights for home page, and user's page
 	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`   // slides in highights slideshow
+	MaxNextEvents       int `yaml:"events-page" env-default:"1"`         // total events on home page
 	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`    // total slideshows on home page
 
 	// per user limits
@@ -230,9 +232,10 @@ type Application struct {
 	sanitizer *bluemonday.Policy
 
 	// private components
-	emailer  emailer.Emailer
-	tagger   tags.Tagger
-	staticFS fs.FS
+	publicPages *cache.PageCache
+	emailer     emailer.Emailer
+	tagger      tags.Tagger
+	staticFS    fs.FS
 
 	// HTML handlers for threats detected by application logic
 	wrongCode http.Handler
@@ -498,6 +501,13 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	if err := app.galleryState.setupCache(gallery); err != nil {
 		errorLog.Fatal(err)
 	}
+	warn := app.galleryState.cachePages()
+	if len(warn) > 0 {
+		infoLog.Print("Conflicting page menu items:")
+		for _, w := range warn {
+			infoLog.Print("\t" + w)
+		}
+	}
 
 	// setup emailing
 	var localHost string
@@ -575,18 +585,18 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 // initSession returns the session manager.
 func initSession(live bool, db *sqlx.DB) *scs.SessionManager {
 
-		sm := scs.New()
+	sm := scs.New()
 
-		sm.Cookie.Name = "session_v2" // changed from previous implementation
-		sm.Lifetime = 24 * time.Hour
-		sm.Store = mysqlstore.New(db.DB)
+	sm.Cookie.Name = "session_v2" // changed from previous implementation
+	sm.Lifetime = 24 * time.Hour
+	sm.Store = mysqlstore.New(db.DB)
 
-		// secure cookie over HTTPS except in test
-		if live {
-			sm.Cookie.Secure = true
-		}
-		
-		return sm
+	// secure cookie over HTTPS except in test
+	if live {
+		sm.Cookie.Secure = true
+	}
+
+	return sm
 }
 
 // Initialise data stores
@@ -640,8 +650,8 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 		app.errorLog.Fatal(err)
 	}
 
-	// system slideshows
-	if err = app.SlideshowStore.SetupSystem(); err != nil {
+	// system user and topics
+	if err = app.SlideshowStore.InitSystem(); err != nil {
 		app.errorLog.Fatal(err)
 	}
 

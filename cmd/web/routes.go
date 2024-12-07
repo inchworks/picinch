@@ -113,6 +113,7 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/", publicCacheHs.ThenFunc(app.homePublic))
 	router.Handler("GET", "/contributor/:nUser", publicCacheHs.ThenFunc(app.contributorPublic))
 	router.Handler("GET", "/contributors", publicCacheHs.ThenFunc(app.contributorsPublic))
+	router.Handler("GET", "/diary/:page", publicCacheHs.ThenFunc(app.diary))
 	router.Handler("GET", "/info/:page", publicCacheHs.ThenFunc(app.info))
 	router.Handler("GET", "/msg", publicNoStoreHs.ThenFunc(app.homePublic))
 
@@ -139,8 +140,8 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/edit-tags", adminNoStoreHs.ThenFunc(app.getFormTags))
 	router.Handler("POST", "/edit-tags", adminHs.ThenFunc(app.postFormTags))
 
-	router.Handler("GET", "/edit-events", curatorNoStoreHs.ThenFunc(app.getFormEvents))
-	router.Handler("POST", "/edit-events", curatorHs.ThenFunc(app.postFormEvents))
+	router.Handler("GET", "/edit-diary", curatorNoStoreHs.ThenFunc(app.getFormDiary))
+	router.Handler("POST", "/edit-diary", curatorHs.ThenFunc(app.postFormDiary))
 	router.Handler("GET", "/edit-topics", curatorNoStoreHs.ThenFunc(app.getFormTopics))
 	router.Handler("POST", "/edit-topics", curatorHs.ThenFunc(app.postFormTopics))
 

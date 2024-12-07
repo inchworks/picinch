@@ -27,6 +27,10 @@
 		{{block "homePage" .}}
 			<p>This website allows the members of a photography club to share their photos with the public and with each other.</p>
 		{{end}}
+		{{if .Events}}
+			{{block "events-next" .}}
+			{{end}}
+		{{end}}
 		<h3>Highlights</h3>
 	</div>
 

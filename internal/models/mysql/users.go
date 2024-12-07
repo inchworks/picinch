@@ -46,20 +46,15 @@ const (
 	userSelect    = `SELECT * FROM user`
 	userOrderName = ` ORDER BY name, id`
 
-	userWhereId       = userSelect + ` WHERE id = ?`
-	userWhereName     = userSelect + ` WHERE parent = ? AND username = ? AND status > -10`
-	usersWhereGallery = userSelect + ` WHERE parent = ? AND status > -10 AND role < 10`
+	userWhereId     = userSelect + ` WHERE id = ?`
+	userWhereName   = userSelect + ` WHERE parent = ? AND username = ? AND status >= 0`
+	userWhereSystem = userSelect + ` WHERE parent = ? AND username = ? AND role = 10`
+
+	usersWhereGallery = userSelect + ` WHERE parent = ? AND status >=0`
 
 	usersByName = usersWhereGallery + userOrderName
 
-	userCount = `SELECT COUNT(*) FROM user WHERE parent = ? AND status > -10`
-
-	usersHavingSlideshows = `
-		SELECT * FROM user
-			WHERE user.parent = ? AND user.status > -10 AND EXISTS
-				  ( SELECT * FROM slideshow WHERE slideshow.user = user.id )
-			ORDER BY user.name ASC
-	`
+	userCount = `SELECT COUNT(*) FROM user WHERE parent = ? AND status >= 0`
 
 	usersHavingTags = `
 		SELECT * FROM user
@@ -91,7 +86,7 @@ const (
 	usersWhereTag = `
 		SELECT user.* FROM tagref
 		JOIN user ON user.id = tagref.user
-		WHERE tagref.tag = ? AND tagref.item IS NULL AND user.status > -10
+		WHERE tagref.tag = ? AND tagref.item IS NULL AND user.status >= 0
 	`
 
 	usersWhereTagName = `
@@ -99,12 +94,16 @@ const (
 		JOIN tagref ON tagref.tag = tag.id 
 		JOIN user ON user.id = tagref.user
 		WHERE tag.gallery = ? AND tag.name = ? AND tag.parent = 0 AND tagref.item IS NULL
-		AND user.status > -10
+		AND user.status >= 0
 	`
 )
 
 type UserStore struct {
 	GalleryId int64
+
+	// cached system info
+	Info *users.User
+
 	threatLog *log.Logger
 	store
 }
@@ -150,7 +149,7 @@ func (st *UserStore) ByName() []*users.User {
 }
 
 // Contributors returns all users with published slideshows, ordered by latest slideshow.
-func (st *UserStore) Contributors( visible int) []*users.User {
+func (st *UserStore) Contributors(visible int) []*users.User {
 
 	var users []*users.User
 
@@ -229,6 +228,13 @@ func (st *UserStore) GetNamed(username string) (*users.User, error) {
 	return &t, nil
 }
 
+// InitSystem finds the system user that owns information slideshows.
+func (st *UserStore) InitSystem() error {
+	var err error
+	st.Info, err = st.getSystem("SystemInfo")
+	return err
+}
+
 // IsNoRecord returns true if error is "record not found"
 func (st *UserStore) IsNoRecord(err error) bool {
 	return err == models.ErrNoRecord
@@ -270,4 +276,27 @@ func (st *UserStore) Update(u *users.User) error {
 	u.Parent = st.GalleryId
 
 	return st.updateData(&u.Id, u)
+}
+
+// getSystem looks up a system user.
+func (st *UserStore) getSystem(username string) (*users.User, error) {
+
+	var u users.User
+
+	if err := st.DBX.Get(&u, userWhereSystem, st.GalleryId, username); err != nil {
+		return nil, st.convertError(err)
+	}
+	return &u, nil
+}
+
+// getSystemTx looks up a system user, as part of a transaction.
+func (st *UserStore) getSystemTx(username string) (*users.User, error) {
+
+	var u users.User
+
+
+	if err := (*st.ptx).Get(&u, userWhereSystem, st.GalleryId, username); err != nil {
+		return nil, st.convertError(err)
+	}
+	return &u, nil
 }
