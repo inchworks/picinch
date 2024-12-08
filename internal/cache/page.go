@@ -41,36 +41,16 @@ type item struct {
 type PageCache struct {
 	MainMenu []*MenuItem // top menu sorted
 
-	Diaries map[int64]*models.Slideshow
+	Diaries map[int64]*models.PageSlideshow
 	Files   map[string]string // path -> filename
-	Pages   map[string]int64  // path -> slideshow ID
+	Home    *models.PageSlideshow
+	Pages   map[string]int64  // path -> page ID
 
 	mainMenu map[string]*item // top menu indexed
 }
 
 // hold the same rules for pages by ID and pages by filename
 var normaliser = strings.NewReplacer("/", "", "_", " ")
-
-// AddDiary adds a diary, and optionally makes it a menu item.
-// It returns a list of warnings.
-func (pc *PageCache) AddDiary(d *models.Slideshow) []string {
-
-	pc.Diaries[d.Id] = d
-	return pc.AddId("/diary/", d.Format, d.Id)
-}
-
-// AddId adds an identification number for web item, and optionally makes it a menu item.
-// It returns a list of warnings.
-func (pc *PageCache) AddId(prefix string,spec string, id int64) []string {
-
-	// encode path and add to menu
-	path, warn := pc.addPage(prefix, spec)
-
-	// add to item map
-	pc.Pages[path] = id
-
-	return warn
-}
 
 // AddFile adds a filename as a menu item.
 // E.g prefix "menu-", suffix ".page.tmpl".
@@ -91,6 +71,36 @@ func (pc *PageCache) AddFile(filename string, prefix string, suffix string) (war
 	return
 }
 
+// AddPage adds a page, optionally as a diary and/or a menu item.
+// It returns a list of warnings.
+func (pc *PageCache) AddPage(p *models.PageSlideshow) []string {
+
+	var prefix string
+	switch p.PageFormat {
+	case models.PageHome:
+		pc.Home = p
+		return nil // no access by URL or menu
+
+	case models.PageDiary:
+		pc.Diaries[p.PageId] = p
+		prefix = "/diary/"
+
+	case models.PageInfo:
+		prefix = "/info/"
+
+	default:
+		return nil // unknown
+	}
+
+	// encode path and add to menu
+	path, warn := pc.addPage(prefix, p.Menu)
+
+	// add to item map
+	pc.Pages[path] = p.PageId
+
+	return warn
+}
+
 // BuildMenus makes ordered lists of menu items.
 func (pc *PageCache) BuildMenus() {
 	pc.MainMenu = buildMenu(pc.mainMenu)
@@ -100,7 +110,7 @@ func (pc *PageCache) BuildMenus() {
 // NewCache returns an empty page cache
 func NewPages() *PageCache {
 	return &PageCache{
-		Diaries:  make(map[int64]*models.Slideshow, 2),
+		Diaries:  make(map[int64]*models.PageSlideshow, 2),
 		Files:    make(map[string]string, 8),
 		Pages:    make(map[string]int64, 8),
 		mainMenu: make(map[string]*item, 8),

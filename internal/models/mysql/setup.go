@@ -54,6 +54,17 @@ var cmds = [...]string{
 	`INSERT INTO gallery (id, version, organiser, n_max_slides, n_showcased) VALUES
 	(1,	1, 'PicInch Gallery', 10, 2);`,
 
+	`CREATE TABLE page (
+		id int(11) NOT NULL AUTO_INCREMENT,
+		slideshow int(11) NOT NULL,
+		format int(11) NOT NULL,
+		menu varchar(256) NOT NULL,
+		description varchar(128) NOT NULL,
+		title varchar(128) NOT NULL,
+		PRIMARY KEY (id),
+		KEY IDX_SLIDESHOW (slideshow),
+		CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,	
+
 	`CREATE TABLE redoV2 (
 		id BIGINT NOT NULL,
 		tx BIGINT NOT NULL,
@@ -108,13 +119,6 @@ var cmds = [...]string{
 	KEY IDX_TOPIC (topic),
 	CONSTRAINT FK_SLIDESHOW_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id),
 	CONSTRAINT FK_SLIDESHOW_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE);`,
-
-	`INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag) VALUES
-		(1,	1, 10, 2, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '', ''),
-		(2,	1, 0, -7, -7, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', '$Home', '', '', '', ''),
-		(3,	1, 0, -6, -6, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Next Meeting', '', 'N.1', '', ''),
-		(4,	1, 0, -5,-5, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', '$Pages', '', '', '', ''),
-		(5,	1, 0, 2, 2, 1, 0, 3, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Meetings', '', '', '', '');`,
 
 	`CREATE TABLE statistic (
 		id int(11) NOT NULL AUTO_INCREMENT,
@@ -174,13 +178,26 @@ var cmds = [...]string{
 
 	`INSERT INTO user (id, parent, username, name, role, status, password, created) VALUES
 		(1,	1, 'SystemInfo', 'System Info', 10, -1, '', '2024-12-01 15:52:42');`,
+
+	`INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag) VALUES
+		(1,	1, 10, 2, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '', ''),
+		(2,	1, 0, 2, 2, 1, 0, 3, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Meetings', '', '', '', '');`,
+
+	`INSERT INTO page (id, slideshow, format, menu, description, title) VALUES
+		(1,	2, 1, "Meetings", "", "");`,
 }
 
 var cmdsInfo = [...]string{
-	`INSERT INTO slideshow (gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag) VALUES
-		(1, 0, -7, -7, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', '$Home', '', '', '', ''),
-		(1, 0, -6, -6, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Next Meeting', '', 'N.1', '', ''),
-		(1, 0, -5, -5, NULL, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', '$Pages', '', '', '', '');`,
+	`CREATE TABLE page (
+		id int(11) NOT NULL AUTO_INCREMENT,
+		slideshow int(11) NOT NULL,
+		format int(11) NOT NULL,
+		menu varchar(256) NOT NULL,
+		title varchar(512) NOT NULL,
+		description varchar(128) NOT NULL,
+		PRIMARY KEY (id),
+		KEY IDX_SLIDESHOW (slideshow),
+		CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,	
 
 	`INSERT INTO user (parent, username, name, role, status, password, created) VALUES
 		(1, 'SystemInfo', 'System Info', 10, -1, '', '2024-12-01 15:52:42');`,
@@ -337,52 +354,51 @@ func MigrateSessions(stSession *SessionStore) error {
 }
 
 // MigrateInfo adds the user and slideshows for club information. Needed for version 1.3.0.
-func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore) error {
+func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageStore) error {
 
 	// dummy user to own gallery information
 	if _, err := stUser.getSystem("SystemInfo"); err == nil {
 		return nil // nothing to do
 	}
 
-	// add system user and topics
+	// add pages table and system user
 	if err := setupTables(stUser.DBX, *stUser.ptx, cmdsInfo[:]); err != nil {
 		return err
 	}
 
-	// read them
-	var u *users.User
-	var et *models.Slideshow
-	var ht *models.Slideshow
+	// add public diary
 	var err error
+	var u *users.User
 	if u, err = stUser.getSystemTx("SystemInfo"); err != nil {
 		return err
 	}
-	if ht, err = stSlideshow.getSystemTopicTx(models.SlideshowHome); err != nil {
+	s := sysShow(stSlideshow.GalleryId, u.Id, "Meetings", "Meetings")
+	if err := stSlideshow.Update(s); err != nil {
 		return err
 	}
-	if et, err = stSlideshow.getSystemTopicTx(models.SlideshowDiaries); err != nil {
+	if err := stPage.Update(sysPage(s.Id, models.PageDiary, "meetings", "Meetings")); err != nil {
 		return err
 	}
 
-	// system slideshows
-	g := stSlideshow.GalleryId
-	if err := stSlideshow.Update(sysShow(g, u.Id, ht.Id, "$Home", "")); err != nil {
-		return err
-	}
-	if err := stSlideshow.Update(sysShow(g, u.Id, et.Id, "Meetings", "Meetings")); err != nil {
-		return err
-	}
 	return nil
 }
 
-func sysShow(galleryId int64, userId int64, topicId int64, title string, format string) *models.Slideshow {
+func sysPage(showId int64, format int, menu string, title string) *models.Page {
+	return &models.Page{
+		Slideshow: showId,
+		Format:  format,
+		Menu: menu,
+		Title: title,
+	}
+}
+
+func sysShow(galleryId int64, userId int64, title string, format string) *models.Slideshow {
 	now := time.Now()
 	return &models.Slideshow{
 		Gallery: galleryId,
 		Access:  models.SlideshowPublic,
 		Visible: models.SlideshowPublic,
 		User:    sql.NullInt64{Int64: userId, Valid: true},
-		Topic:   topicId,
 		Created: now,
 		Revised: now,
 		Title:   title,

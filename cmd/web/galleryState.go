@@ -96,17 +96,9 @@ func (s *GalleryState) cachePages() []string {
 		}
 	}
 
-	// add diary pages
-	for _, pg := range s.app.SlideshowStore.ForSystem(models.SlideshowDiaries, models.SlideshowPublic) {
-		w := cache.AddDiary(pg)
-		if len(w) > 0 {
-			warn = append(warn, w...)
-		}
-	}
-
-	// add other public information pages
-	for _, pg := range s.app.SlideshowStore.ForSystem(models.SlideshowPages, models.SlideshowPublic) {
-		w := cache.AddId(pg.Format, "/info/", pg.Id)
+	// add public pages
+	for _, pg := range s.app.PageStore.AllVisible(models.SlideshowPublic) {
+		w := cache.AddPage(pg)
 		if len(w) > 0 {
 			warn = append(warn, w...)
 		}

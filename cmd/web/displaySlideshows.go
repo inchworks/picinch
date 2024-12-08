@@ -245,7 +245,7 @@ func (s *GalleryState) DisplayHome(member bool) *DataHome {
 
 	// template and its data
 	return &DataHome{
-		HEvents: a.SlideshowStore.DiariesTopic.Title,
+		HEvents: "To Do", // #### add to Gallery?
 		Events: dEvents,
 		Highlights: dHighlights,
 		Slideshows: dShows,

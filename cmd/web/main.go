@@ -209,10 +209,11 @@ type Application struct {
 	tx      *sqlx.Tx
 	statsTx *sqlx.Tx
 
-	SlideStore     *mysql.SlideStore
 	GalleryStore   *mysql.GalleryStore
+	PageStore      *mysql.PageStore
 	redoStore      *mysql.RedoStore
 	redoV1Store    *mysql.RedoV1Store
+	SlideStore     *mysql.SlideStore
 	SlideshowStore *mysql.SlideshowStore
 	statisticStore *mysql.StatisticStore
 	userStore      *mysql.UserStore
@@ -607,6 +608,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 
 	// setup stores, with reference to a common transaction
 	// ## transaction should be per-gallery if we support multiple galleries
+	app.PageStore = mysql.NewPageStore(app.db, &app.tx, app.errorLog)
 	app.SlideStore = mysql.NewSlideStore(app.db, &app.tx, app.errorLog)
 	app.GalleryStore = mysql.NewGalleryStore(app.db, &app.tx, app.errorLog)
 	app.redoStore = mysql.NewRedoStore(app.db, &app.tx, app.errorLog)
@@ -626,6 +628,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	}
 
 	// save gallery ID for stores that need it
+	app.PageStore.GalleryId = g.Id
 	app.SlideshowStore.GalleryId = g.Id
 	app.tagger.TagStore.GalleryId = g.Id
 	app.userStore.GalleryId = g.Id
@@ -643,15 +646,10 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	if err = mysql.MigrateSessions(mysql.NewSessionStore(app.db, &app.tx, app.errorLog)); err != nil {
 		app.errorLog.Fatal(err)
 	}
-	if err = mysql.MigrateInfo(app.userStore, app.SlideshowStore); err != nil {
+	if err = mysql.MigrateInfo(app.userStore, app.SlideshowStore, app.PageStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
 	if err = mysql.MigrateMB4(app.GalleryStore); err != nil {
-		app.errorLog.Fatal(err)
-	}
-
-	// system user and topics
-	if err = app.SlideshowStore.InitSystem(); err != nil {
 		app.errorLog.Fatal(err)
 	}
 

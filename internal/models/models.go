@@ -31,6 +31,11 @@ import (
 // Database field names are the same as structure names, with lower case first letter.
 
 const (
+	// page formats
+	PageDiary = 1
+	PageHome  = 2
+	PageInfo  = 3
+
 	// slide formats
 	SlideTitle   = 1
 	SlideImage   = 2
@@ -39,9 +44,6 @@ const (
 
 	// slideshow type and visibility
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
-	SlideshowHome    = -7  // topic for home page
-	SlideshowDiaries = -6  // topic for diary pages
-	SlideshowPages   = -5  // topic for information pages
 	SlideshowTopic   = -1  // slideshow for a topic
 	SlideshowPrivate = 0
 	SlideshowClub    = 1
@@ -82,6 +84,15 @@ type Gallery struct {
 	// announcements
 	NoticePublic string // appears on home page
 	NoticeUsers  string // appears on contributor's page
+}
+
+type Page struct {
+	Id          int64
+	Slideshow   int64
+	Format      int
+	Menu        string // sanitized HTML
+	Description string // for <meta>
+	Title       string // for <title>
 }
 
 type Slide struct {
@@ -133,6 +144,15 @@ type TagRef struct {
 }
 
 // Join results
+
+type PageSlideshow struct {
+	PageId      int64
+	PageFormat  int
+	Menu        string
+	Description string
+	PageTitle   string
+	Slideshow
+}
 
 type SlideshowTagRef struct {
 	Slideshow
