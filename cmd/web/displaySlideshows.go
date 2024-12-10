@@ -316,7 +316,7 @@ func (s *GalleryState) DisplaySharedTopic(code int64) (data *DataSlideshow, id i
 	// otherwise Bootstrap Carousel doesn't give any events to trigger loading of the first user's slideshow.
 	return &DataSlideshow{
 		Title:      topic.Title,
-		Caption:    s.app.galleryState.gallery.Organiser,
+		Caption:    models.Nl2br(s.app.galleryState.gallery.Organiser),
 		AfterHRef:  after,
 		BeforeHRef: before,
 		Single:     "Y",
@@ -783,7 +783,7 @@ func (s *GalleryState) dataSlides(show *models.Slideshow, forRole int, from stri
 
 	data := &DataSlideshow{
 		Title:       show.Title,
-		Caption:     show.Caption,
+		Caption:     models.Nl2br(show.Caption),
 		DisplayName: user.Name,
 		Reference:   ref,
 		AfterHRef:   from,
@@ -818,7 +818,7 @@ func (s *GalleryState) dataTopic(topic *models.Slideshow, origin string, from st
 	// otherwise Bootstrap Carousel doesn't give any events to trigger loading of the first user's slideshow.
 	return &DataSlideshow{
 		Title:      topic.Title,
-		Caption:    topic.Caption,
+		Caption:    models.Nl2br(topic.Caption),
 		AfterHRef:  after,
 		BeforeHRef: before,
 		Single:     "Y",

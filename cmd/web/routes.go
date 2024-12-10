@@ -142,6 +142,10 @@ func (app *Application) Routes() http.Handler {
 
 	router.Handler("GET", "/edit-diary", curatorNoStoreHs.ThenFunc(app.getFormDiary))
 	router.Handler("POST", "/edit-diary", curatorHs.ThenFunc(app.postFormDiary))
+	router.Handler("GET", "/edit-page/:nId", curatorNoStoreHs.ThenFunc(app.getFormPage))
+	router.Handler("POST", "/edit-page", curatorHs.ThenFunc(app.postFormPage))
+	router.Handler("GET", "/edit-pages", adminNoStoreHs.ThenFunc(app.getFormPages))
+	router.Handler("POST", "/edit-pages", adminHs.ThenFunc(app.postFormPages))
 	router.Handler("GET", "/edit-topics", curatorNoStoreHs.ThenFunc(app.getFormTopics))
 	router.Handler("POST", "/edit-topics", curatorHs.ThenFunc(app.postFormTopics))
 
@@ -168,6 +172,7 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/my-slideshows", memberNoCacheHs.ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/my-slideshows-msg", memberNoStoreHs.ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/next", authNoStoreHs.ThenFunc(app.next))
+	router.Handler("GET", "/pages", curatorNoCacheHs.ThenFunc(app.pages))
 	router.Handler("GET", "/slideshows-user/:nUser", curatorNoCacheHs.ThenFunc(app.slideshowsUser))
 	router.Handler("GET", "/topic-contributors/:nId", slideshowHs.ThenFunc(app.topicContributors))
 	router.Handler("GET", "/topics", curatorNoCacheHs.ThenFunc(app.topics))

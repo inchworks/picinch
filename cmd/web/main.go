@@ -627,11 +627,12 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 		app.errorLog.Fatal(err)
 	}
 
-	// save gallery ID for stores that need it
+	// save gallery ID for stores that need it, and link stores that update joins
 	app.PageStore.GalleryId = g.Id
 	app.SlideshowStore.GalleryId = g.Id
 	app.tagger.TagStore.GalleryId = g.Id
 	app.userStore.GalleryId = g.Id
+	app.PageStore.SlideshowStore = app.SlideshowStore
 
 	// highlights topic ID
 	app.SlideshowStore.HighlightsId = 1
@@ -653,6 +654,8 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 		app.errorLog.Fatal(err)
 	}
 
+	app.userStore.InitSystem()
+	
 	return g
 }
 

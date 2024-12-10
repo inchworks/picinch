@@ -84,7 +84,7 @@ type dataCompetition struct {
 
 type DataDiary struct {
 	Title   string
-	Caption string
+	Caption template.HTML
 	Events  []*DataEvent
 	DataCommon
 }
@@ -106,7 +106,7 @@ type DataHome struct {
 
 type DataInfo struct {
 	Title   string
-	Caption string
+	Caption template.HTML
 	Divs    []*DataInfoDiv
 	DataCommon
 }
@@ -132,6 +132,17 @@ type DataMySlideshow struct {
 	Shared  string
 }
 
+type DataPage struct {
+	NPage       int64
+	Title       string
+	Menu        string
+}
+
+type DataPages struct {
+	Pages  []*DataPage
+	DataCommon
+}
+
 type DataPublished struct {
 	Id          int64
 	Ref         string
@@ -147,7 +158,7 @@ type DataPublished struct {
 
 type DataSlideshow struct {
 	Title       string
-	Caption     string
+	Caption     template.HTML
 	DisplayName string
 	Reference   string
 	AfterHRef   string
@@ -244,6 +255,12 @@ type diaryFormData struct {
 	Title string
 	DataCommon
 }
+
+type pagesFormData struct {
+	Form  *form.PagesForm
+	DataCommon
+}
+
 
 type simpleFormData struct {
 	Form *multiforms.Form

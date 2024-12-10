@@ -41,21 +41,23 @@ const (
 
 const (
 	// note that ID is included for stable ordering of selections for editing
-	pageSelect         = `SELECT * FROM page`
-	pageOrderTitle     = ` ORDER BY title, id`
-
-	pageWhereId     = pageSelect + ` WHERE id = ?`
-
-	// all pages + slideshows with specified visibilty
-	pagesWhereVisible = `
+	pageSelect = `
 		SELECT page.id AS pageid, page.format AS pageformat, page.menu, page.description, page.title AS pagetitle, slideshow.* FROM page
 		JOIN slideshow ON slideshow.id = page.slideshow
-		WHERE slideshow.gallery = ? AND slideshow.visible = ?
 	`
+
+	pageOrderMenu  = ` ORDER BY page.menu, page.id`
+	pageOrderTitle = ` ORDER BY page.title, page.id`
+
+	pageWhereId = pageSelect + ` WHERE page.id = ?`
+
+	pagesWhereFormat  = pageSelect + ` WHERE slideshow.gallery = ? AND page.format = ?` + pageOrderTitle
+	pagesWhereVisible = pageSelect + ` WHERE slideshow.gallery = ? AND slideshow.visible = ?`
 )
 
 type PageStore struct {
-	GalleryId    int64
+	GalleryId      int64
+	SlideshowStore *SlideshowStore
 	store
 }
 
@@ -73,7 +75,7 @@ func NewPageStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *PageStore {
 	}
 }
 
-// ForFormat returns a list of pages of the specified format.
+// AllVisible returns a list of pages with specified visibility.
 func (st *PageStore) AllVisible(visible int) []*models.PageSlideshow {
 	var pages []*models.PageSlideshow
 
@@ -84,8 +86,55 @@ func (st *PageStore) AllVisible(visible int) []*models.PageSlideshow {
 	return pages
 }
 
+// ForFormat returns a list of pages of the specified format.
+func (st *PageStore) ForFormat(fmt int) []*models.PageSlideshow {
+	var pages []*models.PageSlideshow
+
+	if err := st.DBX.Select(&pages, pagesWhereFormat, st.GalleryId, fmt); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return pages
+}
+
+// GetIf returns the page if it exists.
+func (st *PageStore) GetIf(id int64) *models.PageSlideshow {
+
+	var r models.PageSlideshow
+
+	if err := st.DBX.Get(&r, pageWhereId, id); err != nil {
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+		}
+		return nil
+	}
+
+	return &r
+}
+
 // Update inserts or updates a page. The slideshow ID must be set.
 func (st *PageStore) Update(p *models.Page) error {
 
 	return st.updateData(&p.Id, p)
+}
+
+// UpdateWith inserts or updates a page with its slideshow.
+func (st *PageStore) UpdateWith(pg *models.PageSlideshow) error {
+
+	// insert/update the slideshow for the page
+	if err := st.SlideshowStore.Update(&pg.Slideshow); err != nil {
+		return err
+	}
+
+	// update the insert/update the page joined to the slideshow
+	p := models.Page{
+		Id:          pg.PageId,
+		Slideshow:   pg.Slideshow.Id,
+		Format:      pg.PageFormat,
+		Menu:        pg.Menu,
+		Description: pg.Description,
+		Title:       pg.PageTitle,
+	}
+
+	return st.updateData(&pg.PageId, p)
 }

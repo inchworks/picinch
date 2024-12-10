@@ -171,7 +171,7 @@ func (pc *PageCache) addPage(prefix string, spec string) (path string, warn []st
 	for i, e := range es {
 		es[i] = strings.TrimSpace(e)
 		if len(es[i]) == 0 {
-			if i == 0 && len(e) > 1 {
+			if i == 0 && len(es) > 1 {
 				toMenu = false // ".name" is a page without a menu item
 			} else {
 				warn = append(warn, `Blank menu item for "`+spec+`".`)

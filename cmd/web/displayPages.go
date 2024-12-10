@@ -43,7 +43,7 @@ func (s *GalleryState) DisplayDiary(name string) (data *DataDiary) {
 	ssEvents := s.app.publicPages.Diaries[id]
 	return &DataDiary{
 		Title:   ssEvents.Title,
-		Caption: ssEvents.Caption,
+		Caption: models.Nl2br(ssEvents.Caption),
 		Events:  s.dataEvents(false, 100),
 	}
 }
@@ -60,14 +60,14 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 	id := app.publicPages.Pages[name]
 	if id != 0 {
 
-		pg := app.SlideshowStore.GetIf(id)
+		pg := app.PageStore.GetIf(id)
 		if pg != nil {
 
 			template = "info.page.tmpl"
 			data = &DataInfo{
 				Title:   pg.Title,
-				Caption: pg.Caption,
-				Divs:    s.dataDivs(pg),
+				Caption: models.Nl2br(pg.Caption),
+				Divs:    s.dataDivs(&pg.Slideshow),
 			}
 			return
 		}
@@ -88,6 +88,32 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 		template = page
 	}
 	return
+}
+
+// DisplayPages returns the data for a list of information pages.
+func (s *GalleryState) DisplayPages() (data *DataPages) {
+
+	defer s.updatesNone()()
+
+	// get pages
+	pages := s.app.PageStore.ForFormat(models.PageInfo)
+
+	var dPages []*DataPage
+	for _, pg := range pages {
+
+		// add to template data
+		d := DataPage{
+			NPage: pg.Id, // slideshow ID to be edited, not page ID
+			Title: pg.Title,
+			Menu:  pg.Menu,
+		}
+
+		dPages = append(dPages, &d)
+	}
+
+	return &DataPages{
+		Pages: dPages,
+	}
 }
 
 // dataDivs returns sections for an information page.

@@ -372,6 +372,141 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	app.reply(w, RepUpload{Error: s})
 }
 
+// Form to edit the content of an information page.
+
+func (app *Application) getFormPage(w http.ResponseWriter, r *http.Request) {
+
+	ps := httprouter.ParamsFromContext(r.Context())
+	pageId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
+
+	// #### get slideshow ID
+
+	// editing identical to a slideshow
+	status, f, slideshow := app.galleryState.ForEditSlideshow(pageId, nosurf.Token(r))
+	if status != 0 {
+		http.Error(w, http.StatusText(status), status)
+		return
+	}
+
+	// display form (data identical to a slideshow)
+	app.render(w, r, "edit-page.page.tmpl", &slidesFormData{
+		Form:      f,
+		Title:     slideshow.Title,
+		Accept:    app.accept(),
+		MaxUpload: app.cfg.MaxUpload,
+	})
+}
+
+func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// process form data
+	f := form.NewSlides(r.PostForm, 10, nosurf.Token(r))
+	slides, err := f.GetSlides(app.validTypeCheck())
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	nPage, err := strconv.ParseInt(f.Get("nShow"), 36, 64)
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+	tx, err := etx.Id(f.Get("timestamp"))
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// redisplay form if data invalid
+	if !f.Valid() {
+		app.render(w, r, "edit-page.page.tmpl", &slidesFormData{
+			Form:      f,
+			Title:     "To Do",
+			Accept:    app.accept(),
+			MaxUpload: app.cfg.MaxUpload,
+		})
+		return
+	}
+
+	// save changes
+	status, _ := app.galleryState.OnEditSlideshow(nPage, 0, tx, app.userStore.Info.Id, slides)
+	if status == 0 {
+
+		// claim updated media, now that update is committed
+		app.tm.Do(tx)
+		app.redirectWithFlash(w, r, "/pages",  "Page content saved.")
+
+	} else {
+		http.Error(w, http.StatusText(status), status)
+	}
+}
+
+// Form to setup information pages
+func (app *Application) getFormPages(w http.ResponseWriter, r *http.Request) {
+
+	f := app.galleryState.ForEditPages(nosurf.Token(r))
+	if f == nil {
+		httpNotFound(w)
+		return
+	}
+
+	// display form
+	app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
+		Form:  f,
+	})
+}
+
+func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// process form data
+	f := form.NewPages(r.PostForm, nosurf.Token(r))
+	pages, err := f.GetPages()
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// redisplay form if data invalid
+	if !f.Valid() {
+		app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
+			Form:  f,
+		})
+		return
+	}
+
+	// save changes
+	status, tx := app.galleryState.OnEditPages(pages)
+	if status == 0 {
+
+		// rebuild page cache
+		warn := app.galleryState.cachePages()
+
+		// claim updated media, now that update is committed
+		app.tm.Do(tx)
+
+		app.redirectWithFlash(w, r, "/members",  warnings(
+			"Page changes saved.",
+			"Conflicting page menu items:",
+			warn))
+
+	} else {
+		http.Error(w, http.StatusText(status), status)
+	}
+}
+
 // Form to set slides for slideshow
 
 func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
@@ -486,7 +621,6 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 }
 
 // Form to setup slideshows
-
 func (app *Application) getFormSlideshows(w http.ResponseWriter, r *http.Request) {
 
 	// requested user
@@ -671,4 +805,16 @@ func (app *Application) validate(w http.ResponseWriter, r *http.Request) {
 		// display page
 		app.render(w, r, template, data)
 	}
+}
+
+// warnings returns a string of warnings for a flash message.
+func warnings(ok string, warn string, warns []string) string {
+
+	if len(warns) == 0 {
+		return ok
+	}
+	for _, w := range warns {
+		warn += "\n\t" + w
+	}
+	return warn + "."
 }

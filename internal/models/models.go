@@ -90,7 +90,7 @@ type Page struct {
 	Id          int64
 	Slideshow   int64
 	Format      int
-	Menu        string // sanitized HTML
+	Menu        string
 	Description string // for <meta>
 	Title       string // for <title>
 }
@@ -119,7 +119,7 @@ type Slideshow struct {
 	Created      time.Time
 	Revised      time.Time
 	Title        string
-	Caption      string
+	Caption      string // sanitized HTML
 	Format       string
 	Image        string
 	ETag         string `db:"etag"` // latent support: entity tag for caching

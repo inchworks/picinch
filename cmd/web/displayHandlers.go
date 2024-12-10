@@ -394,6 +394,18 @@ func (app *Application) ownTopic(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, tp, data)
 }
 
+// pages handles a request by the curator list information pages.
+func (app *Application) pages(w http.ResponseWriter, r *http.Request) {
+
+	data := app.galleryState.DisplayPages()
+	if data == nil {
+		httpNotFound(w)
+		return
+	}
+
+	app.render(w, r, "pages.page.tmpl", data)
+}
+
 // reviewHighlights handles a request by the curator to view highlight slides for a topic.
 func (app *Application) reviewHighlights(w http.ResponseWriter, r *http.Request) {
 

@@ -532,7 +532,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 				User:         sql.NullInt64{Int64: userId, Valid: true},
 				Created:      created,
 				Revised:      now,
-				Title:        s.sanitize(rsSrc[iSrc].Title, ""),
+				Title:        s.sanitize(rsSrc[iSrc].Title, ""), // ## not essential
 			}
 			s.app.SlideshowStore.Update(&r)
 			iSrc++
@@ -971,7 +971,7 @@ func (s *GalleryState) UserDisplayName(userId int64) string {
 	return u.Name
 }
 
-// removeSlideshow hides a slideshow or topic, initiates cleanup, and optionally requests deferred deletion.
+// removeSlideshow hides a page, slideshow or topic, initiates cleanup, and optionally requests deferred deletion.
 func (s *GalleryState) removeSlideshow(tx etx.TxId, slideshow *models.Slideshow, delete bool) error {
 
 	// set deletion in progress

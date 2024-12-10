@@ -22,8 +22,10 @@ package main
 // These functions may modify application state.
 
 import (
+	"database/sql"
 	"net/http"
 	"net/url"
+	"time"
 
 	"inchworks.com/picinch/internal/form"
 	"inchworks.com/picinch/internal/models"
@@ -122,6 +124,113 @@ func (s *GalleryState) OnEditDiary(rsSrc []*form.EventFormData) (int, etx.TxId) 
 
 			} else {
 				// out of sequence index
+				return s.rollback(http.StatusBadRequest, nil), 0
+			}
+		}
+	}
+
+	return 0, tx
+}
+
+// ForEditPages returns the form data to edit all information pages.
+func (s *GalleryState) ForEditPages(tok string) (f *form.PagesForm) {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// get pages
+	pages := s.app.PageStore.ForFormat(models.PageInfo)
+
+	// form
+	var d = make(url.Values)
+	f = form.NewPages(d, tok)
+
+	// add template and pages to form
+	f.AddTemplate()
+	for i, pg := range pages {
+		f.Add(i, pg.Menu, pg.Title)
+	}
+
+	return
+}
+
+// OnEditPages processes updates when slideshows are modified.
+// It returns an extended transaction ID if there are no client errors.
+func (s *GalleryState) OnEditPages(rsSrc []*form.PageFormData) (int, etx.TxId) {
+
+	// #### can I extract this pattern somehow?
+
+	// serialisation
+	defer s.updatesGallery()()
+
+	// start extended transaction
+	tx := s.app.tm.Begin()
+
+	now := time.Now()
+
+	// compare modified slideshows against current ones, and update
+	rsDest := s.app.PageStore.ForFormat(models.PageInfo)
+
+	nSrc := len(rsSrc)
+	nDest := len(rsDest)
+
+	// skip template
+	iSrc := 1
+	var iDest int
+
+	for iSrc < nSrc || iDest < nDest {
+
+		if iSrc == nSrc {
+			// no more source pages - delete from destination (deletes linked page)
+			if err := s.removeSlideshow(tx, &rsDest[iDest].Slideshow, true); err != nil {
+				return s.rollback(http.StatusBadRequest, err), 0
+			}
+			iDest++
+
+		} else if iDest == nDest {
+
+			// no more destination pages - add new one
+			r := models.PageSlideshow{
+				Menu: rsSrc[iSrc].Menu,
+				PageFormat: models.PageInfo,
+				PageTitle: rsSrc[iSrc].Title, // default
+				Slideshow: models.Slideshow{
+					Access:       models.SlideshowPublic,
+					Visible:      models.SlideshowPublic,
+					User:         sql.NullInt64{Int64: s.app.userStore.Info.Id, Valid: true},
+					Created:      now,
+					Revised:      now,
+					Title:        rsSrc[iSrc].Title,
+				},
+			}
+			s.app.PageStore.UpdateWith(&r)
+			iSrc++
+
+		} else {
+			ix := rsSrc[iSrc].ChildIndex
+			if ix > iDest {
+				// source page removed - delete from destination
+				if err := s.removeSlideshow(tx, &rsDest[iDest].Slideshow, true); err != nil {
+					return s.rollback(http.StatusBadRequest, err), 0
+				}
+				iDest++
+
+			} else if ix == iDest {
+				// check if details changed
+				rSrc := rsSrc[iSrc]
+				rDest := rsDest[iDest]
+
+				if rSrc.Menu != rDest.Menu || rSrc.Title != rDest.Title {
+					rDest.Menu = rSrc.Menu
+					rDest.Title = rSrc.Title
+					rDest.Revised = now
+					s.app.PageStore.UpdateWith(rDest)
+				}
+				iSrc++
+				iDest++
+
+			} else {
+				// out of sequence slideshow index
 				return s.rollback(http.StatusBadRequest, nil), 0
 			}
 		}

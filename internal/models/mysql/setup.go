@@ -58,12 +58,12 @@ var cmds = [...]string{
 		id int(11) NOT NULL AUTO_INCREMENT,
 		slideshow int(11) NOT NULL,
 		format int(11) NOT NULL,
-		menu varchar(256) NOT NULL,
+		menu varchar(128) NOT NULL,
 		description varchar(128) NOT NULL,
 		title varchar(128) NOT NULL,
 		PRIMARY KEY (id),
 		KEY IDX_SLIDESHOW (slideshow),
-		CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,	
+		CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,
 
 	`CREATE TABLE redoV2 (
 		id BIGINT NOT NULL,
@@ -192,12 +192,12 @@ var cmdsInfo = [...]string{
 		id int(11) NOT NULL AUTO_INCREMENT,
 		slideshow int(11) NOT NULL,
 		format int(11) NOT NULL,
-		menu varchar(256) NOT NULL,
-		title varchar(512) NOT NULL,
+		menu varchar(128) NOT NULL,
+		title varchar(128) NOT NULL,
 		description varchar(128) NOT NULL,
 		PRIMARY KEY (id),
 		KEY IDX_SLIDESHOW (slideshow),
-		CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,	
+		CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,
 
 	`INSERT INTO user (parent, username, name, role, status, password, created) VALUES
 		(1, 'SystemInfo', 'System Info', 10, -1, '', '2024-12-01 15:52:42');`,
@@ -372,7 +372,7 @@ func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageSto
 	if u, err = stUser.getSystemTx("SystemInfo"); err != nil {
 		return err
 	}
-	s := sysShow(stSlideshow.GalleryId, u.Id, "Meetings", "Meetings")
+	s := sysShow(stSlideshow.GalleryId, u.Id, "Meetings", "")
 	if err := stSlideshow.Update(s); err != nil {
 		return err
 	}
@@ -386,9 +386,9 @@ func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageSto
 func sysPage(showId int64, format int, menu string, title string) *models.Page {
 	return &models.Page{
 		Slideshow: showId,
-		Format:  format,
-		Menu: menu,
-		Title: title,
+		Format:    format,
+		Menu:      menu,
+		Title:     title,
 	}
 }
 
