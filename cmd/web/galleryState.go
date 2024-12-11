@@ -39,14 +39,15 @@ type GalleryState struct {
 	rollbackTx bool
 
 	// cached state
-	gallery       *models.Gallery
-	highlights    []string  // highlighted images
+	gallery     *models.Gallery
+	highlights  []string // highlighted images
+	publicPages *cache.PageCache
 
 	// for browser caching
-	muCache       sync.RWMutex
-	lastModified  time.Time         // (truncated to one second precision for HTTP Last-Modified header)
-	lastModifiedS string            // formatted for HTTP headers
-	publicSlideshow map[int64]bool  // true for public cache, false for private
+	muCache         sync.RWMutex
+	lastModified    time.Time      // (truncated to one second precision for HTTP Last-Modified header)
+	lastModifiedS   string         // formatted for HTTP headers
+	publicSlideshow map[int64]bool // true for public cache, false for private
 }
 
 // Initialisation
@@ -82,12 +83,12 @@ func (s *GalleryState) cacheHighlights() error {
 func (s *GalleryState) cachePages() []string {
 
 	s.updatesNone()()
-	
+
 	var warn []string
 
 	// reset cache
 	cache := cache.NewPages()
-	s.app.publicPages = cache
+	s.publicPages = cache
 
 	// add any menu template files (always public)
 	for file := range s.app.templateCache {
@@ -98,7 +99,8 @@ func (s *GalleryState) cachePages() []string {
 
 	// add public pages
 	for _, pg := range s.app.PageStore.AllVisible(models.SlideshowPublic) {
-		w := cache.AddPage(pg)
+		ss := s.app.SlideStore.ForSlideshowOrdered(pg.Id, false, 10)  // ## configure max
+		w := cache.AddPage(pg, ss)
 		if len(w) > 0 {
 			warn = append(warn, w...)
 		}
@@ -165,7 +167,7 @@ func (s *GalleryState) setLastModified() {
 
 // Setup cached context
 
-func (s *GalleryState) setupCache(g *models.Gallery) error {
+func (s *GalleryState) setupCache(g *models.Gallery) (warn []string, err error) {
 
 	// cache gallery record for dynamic parameters
 	s.gallery = g
@@ -173,8 +175,13 @@ func (s *GalleryState) setupCache(g *models.Gallery) error {
 	// assume everything has changed on server restart
 	s.setLastModified()
 
+	// information pages
+	warn = s.cachePages()
+
 	// cached highlight images
-	return s.cacheHighlights()
+	err = s.cacheHighlights()
+
+	return
 }
 
 // Take mutex and start transaction for update to gallery and, possibly, displays

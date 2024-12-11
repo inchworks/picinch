@@ -20,17 +20,38 @@ package cache
 // Configurable site pages.
 
 import (
+	"html/template"
 	"net/url"
 	"slices"
 	"strings"
+	"unicode"
+
+    "github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown/html"
+	"github.com/gomarkdown/markdown/parser"
+
+	"github.com/microcosm-cc/bluemonday"
 
 	"inchworks.com/picinch/internal/models"
 )
 
 type MenuItem struct {
-	Name       string
-	Path       string
-	Sub        []*MenuItem
+	Name string
+	Path string
+	Sub  []*MenuItem
+}
+
+type Info struct {
+	Id       int64
+	Title    string
+	Caption  template.HTML
+	Sections []*Section
+}
+
+type Section struct {
+	Title template.HTML
+	Div   template.HTML
+	Media string
 }
 
 type item struct {
@@ -41,16 +62,25 @@ type item struct {
 type PageCache struct {
 	MainMenu []*MenuItem // top menu sorted
 
-	Diaries map[int64]*models.PageSlideshow
+	Diaries map[int64]*models.PageSlideshow // #### to change
+	Pages   map[string]int64 // path -> ID
+
 	Files   map[string]string // path -> filename
 	Home    *models.PageSlideshow
-	Pages   map[string]int64  // path -> page ID
+	Infos   map[string]*Info // path -> information page
+	Paths   map[int64]string // slideshow ID -> path (for editing)
 
 	mainMenu map[string]*item // top menu indexed
 }
 
-// hold the same rules for pages by ID and pages by filename
-var normaliser = strings.NewReplacer("/", "", "_", " ")
+// '.' and '/' separate menu names.
+// '_' is a space (typically in a file name)
+var normaliser = strings.NewReplacer("/", ".", "_", " ")
+
+var mdRenderer = html.NewRenderer(html.RendererOptions{Flags: html.CommonFlags | html.HrefTargetBlank})
+
+// HTML sanitizer, used for titles and captions
+var sanitizer = bluemonday.UGCPolicy()
 
 // AddFile adds a filename as a menu item.
 // E.g prefix "menu-", suffix ".page.tmpl".
@@ -73,7 +103,7 @@ func (pc *PageCache) AddFile(filename string, prefix string, suffix string) (war
 
 // AddPage adds a page, optionally as a diary and/or a menu item.
 // It returns a list of warnings.
-func (pc *PageCache) AddPage(p *models.PageSlideshow) []string {
+func (pc *PageCache) AddPage(p *models.PageSlideshow, sections []*models.Slide) []string {
 
 	var prefix string
 	switch p.PageFormat {
@@ -82,7 +112,6 @@ func (pc *PageCache) AddPage(p *models.PageSlideshow) []string {
 		return nil // no access by URL or menu
 
 	case models.PageDiary:
-		pc.Diaries[p.PageId] = p
 		prefix = "/diary/"
 
 	case models.PageInfo:
@@ -95,9 +124,19 @@ func (pc *PageCache) AddPage(p *models.PageSlideshow) []string {
 	// encode path and add to menu
 	path, warn := pc.addPage(prefix, p.Menu)
 
-	// add to item map
+	// add to item maps
 	pc.Pages[path] = p.PageId
+	pc.Paths[p.Id] = path
 
+	// cache contents
+	switch p.PageFormat {
+
+	case models.PageDiary:
+		pc.Diaries[p.PageId] = p // ## more to do
+
+	case models.PageInfo:
+		pc.SetInformation(&p.Slideshow, sections)
+	}
 	return warn
 }
 
@@ -112,9 +151,41 @@ func NewPages() *PageCache {
 	return &PageCache{
 		Diaries:  make(map[int64]*models.PageSlideshow, 2),
 		Files:    make(map[string]string, 8),
+		Infos:    make(map[string]*Info, 8),
 		Pages:    make(map[string]int64, 8),
+		Paths:    make(map[int64]string, 8),
 		mainMenu: make(map[string]*item, 8),
 	}
+}
+
+// Sanitize makes user input safe to display as HTML
+func (pc *PageCache) Sanitize(unsafe string) string{
+	return sanitizer.Sanitize(unsafe)
+}
+
+// SetInformation sets an information page's content in the cache.
+func (pc *PageCache) SetInformation(page *models.Slideshow, sections []*models.Slide) {
+
+	p := &Info{
+		Id: page.Id,
+		Title: page.Title,
+		Caption: toHTML(page.Caption),
+	}
+
+	for _, s := range sections {
+		cs := &Section{
+			Title: template.HTML(s.Title),
+			Div: toHTML(s.Caption),
+			Media: s.Image,
+		}
+		p.Sections = append(p.Sections, cs)
+	}
+	path := pc.Paths[page.Id]
+	if path == "" {
+		panic("Lost ID for page in cache.")
+	}
+	pc.Infos[path] = p
+
 }
 
 // addMenu recusively adds page menu names to menu maps.
@@ -151,12 +222,12 @@ func addMenu(names []string, prefix string, path string, to map[string]*item, wa
 	return warn
 }
 
-// addpage adds an ID or file as a menu item.
+// addPage adds an ID or file as a menu item.
 func (pc *PageCache) addPage(prefix string, spec string) (path string, warn []string) {
 
 	warn = make([]string, 0)
 
-	// normalise names
+	// normalise menu item names
 	spec = normaliser.Replace(spec)
 
 	// elements of path
@@ -169,8 +240,13 @@ func (pc *PageCache) addPage(prefix string, spec string) (path string, warn []st
 	toMenu := true
 
 	for i, e := range es {
-		es[i] = strings.TrimSpace(e)
-		if len(es[i]) == 0 {
+
+		// simplify whitespace
+		ws := strings.Fields(e) // words
+		e = strings.Join(ws, " ")
+
+		// check for blank elements
+		if len(e) == 0 {
 			if i == 0 && len(es) > 1 {
 				toMenu = false // ".name" is a page without a menu item
 			} else {
@@ -178,12 +254,19 @@ func (pc *PageCache) addPage(prefix string, spec string) (path string, warn []st
 				return
 			}
 		}
-		path += es[i]
+		es[i] = e
 	}
+	if toMenu {
+		path = strings.Join(es, ".")
+	} else {
+		path = strings.Join(es[1:], ".")
+	}
+
+	// simplify path for page address
+	path = simplify(path)
 
 	// add to menu
 	if toMenu {
-		path = strings.ToLower(path) // non-menu items are capitalised as specified
 		warn = addMenu(es, prefix, path, pc.mainMenu, warn)
 	}
 
@@ -209,4 +292,35 @@ func buildMenu(from map[string]*item) (to []*MenuItem) {
 		return strings.Compare(a.Name, b.Name)
 	})
 	return
+}
+
+// toHTML converts markdown to HTML and sanitises it.
+func toHTML(md string) template.HTML {
+	mdParser := parser.NewWithExtensions(parser.CommonExtensions | parser.NoEmptyLineBeforeBlock)
+
+	doc := mdParser.Parse([]byte(md))
+
+	unsafe := markdown.Render(doc, mdRenderer)
+	html := sanitizer.SanitizeBytes(unsafe)
+	return template.HTML(html)
+}
+
+// simplify returns a lower-case path with spaces and '-' characters replaced by single '-' characters.
+func simplify(path string) string {
+	var b strings.Builder
+	var last rune
+
+	for _, r := range path {
+		r = unicode.ToLower(r)
+		if r == ' ' {
+			r = '-'
+		}
+
+		if r != '-' || r != last {
+			b.WriteRune(r)
+			last = r
+		}
+	}
+
+	return b.String()
 }

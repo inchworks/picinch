@@ -42,9 +42,7 @@ import (
 	"github.com/inchworks/webparts/v2/users"
 	"github.com/jmoiron/sqlx"
 	"github.com/justinas/nosurf"
-	"github.com/microcosm-cc/bluemonday"
 
-	"inchworks.com/picinch/internal/cache"
 	"inchworks.com/picinch/internal/emailer"
 	"inchworks.com/picinch/internal/models"
 	"inchworks.com/picinch/internal/models/mysql"
@@ -229,11 +227,7 @@ type Application struct {
 	// worker
 	chTopic chan OpUpdateTopic
 
-	// HTML sanitizer for titles and captions
-	sanitizer *bluemonday.Policy
-
 	// private components
-	publicPages *cache.PageCache
 	emailer     emailer.Emailer
 	tagger      tags.Tagger
 	staticFS    fs.FS
@@ -464,7 +458,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		threatLog:     threatLog,
 		templateCache: templateCache,
 		db:            db,
-		sanitizer:     bluemonday.UGCPolicy(),
 	}
 
 	// embedded static files from packages
@@ -499,10 +492,10 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.session = initSession(len(cfg.Domains) > 0, db)
 
 	// cached state
-	if err := app.galleryState.setupCache(gallery); err != nil {
+	warn, err := app.galleryState.setupCache(gallery)
+	if err != nil {
 		errorLog.Fatal(err)
 	}
-	warn := app.galleryState.cachePages()
 	if len(warn) > 0 {
 		infoLog.Print("Conflicting page menu items:")
 		for _, w := range warn {

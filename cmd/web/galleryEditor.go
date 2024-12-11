@@ -248,7 +248,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (status int, f
 
 // OnEditSlideshow processes the modification of a slideshow. It returns 0 and the user ID on success, or an HTTP status code.
 // topicId and userId are needed only for a new slideshow for a topic. Otherwise we prefer to trust the database.
-func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId, userId int64, qsSrc []*form.SlideFormData) (int, int64) {
+func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId, userId int64, qsSrc []*form.SlideFormData, cached bool) (int, int64) {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -392,6 +392,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 	// re-sequence slides, removing missing or duplicate orders
 	// If two slides have the same order, the later update comes first
+	var slides []*models.Slide
 	if updated {
 
 		// ## think I have to commit changes for them to appear in a new query
@@ -399,9 +400,9 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 		s.save()
 
 		nImages := 0
-		sls := s.app.SlideStore.ForSlideshowOrdered(showId, false, 100)
+		slides = s.app.SlideStore.ForSlideshowOrdered(showId, false, 100)
 
-		for ix, sl := range sls {
+		for ix, sl := range slides {
 			nOrder := ix + 1
 			if sl.ShowOrder != nOrder {
 
@@ -450,6 +451,11 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			Revised: revised,
 		}); err != nil {
 		return s.rollback(http.StatusInternalServerError, err), 0
+	}
+
+	// update cached page
+	if cached && updated {
+		s.publicPages.SetInformation(show, slides)
 	}
 
 	return 0, userId
@@ -1150,7 +1156,7 @@ func (s *GalleryState) sanitize(new string, current string) string {
 		return current
 	}
 
-	return s.app.sanitizer.Sanitize(new)
+	return s.publicPages.Sanitize(new)
 }
 
 // setVisible changes the visibility of a slideshow.

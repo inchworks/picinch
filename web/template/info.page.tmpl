@@ -14,7 +14,7 @@
     <div class="container">
 		<h2>{{ .Title }}</h2>
         <p>{{ .Caption }}</p>
-        {{range .Divs}}
+        {{range .Sections}}
             <h3>{{ .Title }}</h3>
             <div>{{ .Div }}</div>
         {{end}}

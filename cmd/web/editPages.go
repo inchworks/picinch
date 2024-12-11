@@ -40,7 +40,7 @@ func (s *GalleryState) ForEditDiary(tok string) (f *form.DiaryForm) {
 	defer s.updatesNone()()
 
 	// get events
-	events := s.app.SlideStore.AllEvents(s.app.publicPages.Diaries[1].Id)
+	events := s.app.SlideStore.AllEvents(s.publicPages.Diaries[1].Id)
 
 	// form
 	var d = make(url.Values)
@@ -66,7 +66,7 @@ func (s *GalleryState) OnEditDiary(rsSrc []*form.EventFormData) (int, etx.TxId) 
 	tx := s.app.tm.Begin()
 
 	// compare modified slideshows against current ones, and update
-	rsDest := s.app.SlideStore.AllEvents(s.app.publicPages.Diaries[1].Id)
+	rsDest := s.app.SlideStore.AllEvents(s.publicPages.Diaries[1].Id)
 	nSrc := len(rsSrc)
 	nDest := len(rsDest)
 
@@ -84,7 +84,7 @@ func (s *GalleryState) OnEditDiary(rsSrc []*form.EventFormData) (int, etx.TxId) 
 		} else if iDest == nDest {
 			// no more destination events - add new one
 			qd := models.Slide{
-				Slideshow: s.app.publicPages.Diaries[1].Id,
+				Slideshow: s.publicPages.Diaries[1].Id,
 				Format:    s.app.eventFormat(rsSrc[iSrc]),
 				Created:   rsSrc[iSrc].Publish,
 				Revised:   rsSrc[iSrc].Start,

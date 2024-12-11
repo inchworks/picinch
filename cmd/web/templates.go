@@ -71,7 +71,7 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page stri
 	d.IsGallery = true // ## no non-gallery configuration yet
 	d.IsMember = app.isAuthenticated(r, models.UserMember)
 	d.Page = page
-	d.Menus = app.publicPages.MainMenu
+	d.Menus = app.galleryState.publicPages.MainMenu
 
 }
 
@@ -107,13 +107,8 @@ type DataHome struct {
 type DataInfo struct {
 	Title   string
 	Caption template.HTML
-	Divs    []*DataInfoDiv
+	Sections    []*cache.Section
 	DataCommon
-}
-
-type DataInfoDiv struct {
-	Title template.HTML
-	Div   template.HTML
 }
 
 type DataMyGallery struct {

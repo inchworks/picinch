@@ -33,14 +33,13 @@ func (s *GalleryState) DisplayDiary(name string) (data *DataDiary) {
 
 	defer s.updatesNone()()
 
-	app := s.app
-	id := app.publicPages.Pages[name]
+	id := s.publicPages.Pages[name]
 	if id == 0 {
 		return
 	}
 
 	// diary data
-	ssEvents := s.app.publicPages.Diaries[id]
+	ssEvents := s.publicPages.Diaries[id]
 	return &DataDiary{
 		Title:   ssEvents.Title,
 		Caption: models.Nl2br(ssEvents.Caption),
@@ -55,28 +54,23 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 
 	name, _ = url.PathUnescape(name)
 
-	// page defined by slideshow?
-	app := s.app
-	id := app.publicPages.Pages[name]
-	if id != 0 {
+	// page cached from slideshow?
+	pg := s.publicPages.Infos[name]
+	if pg != nil {
 
-		pg := app.PageStore.GetIf(id)
-		if pg != nil {
-
-			template = "info.page.tmpl"
-			data = &DataInfo{
-				Title:   pg.Title,
-				Caption: models.Nl2br(pg.Caption),
-				Divs:    s.dataDivs(&pg.Slideshow),
-			}
-			return
+		template = "info.page.tmpl"
+		data = &DataInfo{
+			Title:   pg.Title,
+			Caption: pg.Caption,
+			Sections: pg.Sections,
 		}
+		return
 	}
 
 	data = &DataCommon{}
 
 	// menu page defined by template?
-	page := s.app.publicPages.Files[name]
+	page := s.publicPages.Files[name]
 	if page != "" {
 		return // assumed to be in template cache
 	}
@@ -84,7 +78,7 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 	// non-menu information page
 	page = "info-" + name + ".page.tmpl"
 
-	if _, ok := app.templateCache[page]; ok {
+	if _, ok := s.app.templateCache[page]; ok {
 		template = page
 	}
 	return
@@ -116,24 +110,6 @@ func (s *GalleryState) DisplayPages() (data *DataPages) {
 	}
 }
 
-// dataDivs returns sections for an information page.
-func (s *GalleryState) dataDivs(page *models.Slideshow) []*DataInfoDiv {
-
-	// get sections
-	divs := s.app.SlideStore.ForSlideshowOrdered(page.Id, false, 10) // ## configure max
-
-	// replace slide data with HTML formatted fields
-	var dataDivs []*DataInfoDiv
-	for _, div := range divs {
-		dataDivs = append(dataDivs, &DataInfoDiv{
-			Title: models.Nl2br(div.Title),
-			Div:   models.Nl2br(div.Caption),
-		})
-	}
-
-	return dataDivs
-}
-
 // dataEvents returns diary events.
 func (s *GalleryState) dataEvents(next bool, max int) []*DataEvent {
 
@@ -148,7 +124,7 @@ func (s *GalleryState) dataEvents(next bool, max int) []*DataEvent {
 	// get events following start time
 	// ## defined order for multiple diaries
 	var evs []*models.Slide
-	for _, d := range s.app.publicPages.Diaries {
+	for _, d := range s.publicPages.Diaries {
 		evs = s.app.SlideStore.NextEvents(d.Id, from, max)
 	}
 

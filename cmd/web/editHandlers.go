@@ -436,7 +436,7 @@ func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save changes
-	status, _ := app.galleryState.OnEditSlideshow(nPage, 0, tx, app.userStore.Info.Id, slides)
+	status, _ := app.galleryState.OnEditSlideshow(nPage, 0, tx, app.userStore.Info.Id, slides, true)
 	if status == 0 {
 
 		// claim updated media, now that update is committed
@@ -603,7 +603,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save changes
-	status, userId := app.galleryState.OnEditSlideshow(nShow, nTopic, tx, nUser, slides)
+	status, userId := app.galleryState.OnEditSlideshow(nShow, nTopic, tx, nUser, slides, false)
 	if status == 0 {
 
 		// claim updated media, now that update is committed
