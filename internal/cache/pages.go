@@ -26,7 +26,7 @@ import (
 	"strings"
 	"unicode"
 
-    "github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
 
@@ -39,6 +39,12 @@ type MenuItem struct {
 	Name string
 	Path string
 	Sub  []*MenuItem
+}
+
+type Diary struct {
+	Id int64
+	Title    string
+	Caption  template.HTML
 }
 
 type Info struct {
@@ -55,6 +61,7 @@ type Section struct {
 }
 
 type item struct {
+	name string // string case as specified
 	path string
 	sub  map[string]*item
 }
@@ -62,13 +69,10 @@ type item struct {
 type PageCache struct {
 	MainMenu []*MenuItem // top menu sorted
 
-	Diaries map[int64]*models.PageSlideshow // #### to change
-	Pages   map[string]int64 // path -> ID
-
-	Files   map[string]string // path -> filename
-	Home    *models.PageSlideshow
-	Infos   map[string]*Info // path -> information page
-	Paths   map[int64]string // slideshow ID -> path (for editing)
+	Diaries  map[string]*Diary // path -> diary
+	Files  map[string]string // path -> filename
+	Infos  map[string]*Info // path -> information page
+	Paths  map[int64]string // slideshow ID -> path (for editing)
 
 	mainMenu map[string]*item // top menu indexed
 }
@@ -105,36 +109,34 @@ func (pc *PageCache) AddFile(filename string, prefix string, suffix string) (war
 // It returns a list of warnings.
 func (pc *PageCache) AddPage(p *models.PageSlideshow, sections []*models.Slide) []string {
 
-	var prefix string
+	var path string
+	var warn []string
 	switch p.PageFormat {
 	case models.PageHome:
-		pc.Home = p
-		return nil // no access by URL or menu
+		path = "/" // no menu entry
 
 	case models.PageDiary:
-		prefix = "/diary/"
+		// encode path and add to menu
+		path, warn = pc.addPage("/diary/", p.Menu)
 
 	case models.PageInfo:
-		prefix = "/info/"
+		// encode path and add to menu
+		path, warn = pc.addPage("/info/", p.Menu)
 
 	default:
 		return nil // unknown
 	}
 
-	// encode path and add to menu
-	path, warn := pc.addPage(prefix, p.Menu)
-
 	// add to item maps
-	pc.Pages[path] = p.PageId
 	pc.Paths[p.Id] = path
 
 	// cache contents
 	switch p.PageFormat {
 
 	case models.PageDiary:
-		pc.Diaries[p.PageId] = p // ## more to do
+		pc.SetDiary(&p.Slideshow, sections)
 
-	case models.PageInfo:
+	case models.PageHome, models.PageInfo:
 		pc.SetInformation(&p.Slideshow, sections)
 	}
 	return warn
@@ -149,33 +151,50 @@ func (pc *PageCache) BuildMenus() {
 // NewCache returns an empty page cache
 func NewPages() *PageCache {
 	return &PageCache{
-		Diaries:  make(map[int64]*models.PageSlideshow, 2),
+		Diaries:  make(map[string]*Diary, 2),
 		Files:    make(map[string]string, 8),
 		Infos:    make(map[string]*Info, 8),
-		Pages:    make(map[string]int64, 8),
 		Paths:    make(map[int64]string, 8),
 		mainMenu: make(map[string]*item, 8),
 	}
 }
 
 // Sanitize makes user input safe to display as HTML
-func (pc *PageCache) Sanitize(unsafe string) string{
+func (pc *PageCache) Sanitize(unsafe string) string {
 	return sanitizer.Sanitize(unsafe)
 }
 
+// SetDiary sets a diary's content in the cache.
+// #### why public?
+func (pc *PageCache) SetDiary(page *models.Slideshow, sections []*models.Slide) {
+	d := &Diary{
+		Id:      page.Id,
+		Title:   page.Title,
+		Caption: models.Nl2br(page.Caption),
+	}
+	// #### don't cache events because they change often?
+
+	path := pc.Paths[page.Id]
+	if path == "" {
+		panic("Lost ID for diary in cache.")
+	}
+	pc.Diaries[path] = d
+}
+
 // SetInformation sets an information page's content in the cache.
+// #### why public?
 func (pc *PageCache) SetInformation(page *models.Slideshow, sections []*models.Slide) {
 
 	p := &Info{
-		Id: page.Id,
-		Title: page.Title,
-		Caption: toHTML(page.Caption),
+		Id:      page.Id,
+		Title:   page.Title,
+		Caption: toHTML(page.Caption), // #### don't need a page caption
 	}
 
 	for _, s := range sections {
 		cs := &Section{
-			Title: template.HTML(s.Title),
-			Div: toHTML(s.Caption),
+			Title: template.HTML(s.Title), // #### don't need a title
+			Div:   toHTML(s.Caption),
 			Media: s.Image,
 		}
 		p.Sections = append(p.Sections, cs)
@@ -185,14 +204,14 @@ func (pc *PageCache) SetInformation(page *models.Slideshow, sections []*models.S
 		panic("Lost ID for page in cache.")
 	}
 	pc.Infos[path] = p
-
 }
 
 // addMenu recusively adds page menu names to menu maps.
 func addMenu(names []string, prefix string, path string, to map[string]*item, warn []string) []string {
 
 	name := names[0]
-	m, exists := to[name]
+	ncb := strings.ToLower(name) // for case-blind index
+	m, exists := to[ncb]
 
 	if len(names) == 1 {
 		// add leaf
@@ -203,7 +222,7 @@ func addMenu(names []string, prefix string, path string, to map[string]*item, wa
 				warn = append(warn, `Menu dropdown "`+name+`" replaced.`)
 			}
 		}
-		to[name] = &item{path: prefix + url.PathEscape(path)} // construct path
+		to[ncb] = &item{name: name, path: prefix + url.PathEscape(path)} // construct path
 
 	} else {
 		// parent item
@@ -213,8 +232,8 @@ func addMenu(names []string, prefix string, path string, to map[string]*item, wa
 			}
 		} else {
 			// add new parent
-			m = &item{sub: make(map[string]*item, 3)}
-			to[name] = m
+			m = &item{name: name, sub: make(map[string]*item, 3)}
+			to[ncb] = m
 		}
 		// sub-menu
 		warn = addMenu(names[1:], prefix, path, m.sub, warn)
@@ -277,8 +296,8 @@ func (pc *PageCache) addPage(prefix string, spec string) (path string, warn []st
 func buildMenu(from map[string]*item) (to []*MenuItem) {
 
 	// menu to Item
-	for name, it := range from {
-		item := &MenuItem{Path: it.path, Name: strings.ToUpper(name)}
+	for _, it := range from {
+		item := &MenuItem{Name: it.name, Path: it.path, }
 		to = append(to, item)
 
 		// sub-menus

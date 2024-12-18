@@ -394,7 +394,7 @@ func (app *Application) ownTopic(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, tp, data)
 }
 
-// pages handles a request by the curator list information pages.
+// pages handles a request by the curator to list information pages.
 func (app *Application) pages(w http.ResponseWriter, r *http.Request) {
 
 	data := app.galleryState.DisplayPages()

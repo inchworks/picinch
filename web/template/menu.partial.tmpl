@@ -19,15 +19,16 @@
 
 {{define "menu-admin"}}
     <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">ADMIN</a>
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Admin</a>
         <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-	        <li><a class="dropdown-item" href="/setup">SETUP</a></li>
-            <li><a class="dropdown-item" href="/edit-pages">PAGES</a></li>
-	        <li><a class="dropdown-item" href="/edit-tags">TAGS</a></li>
- 	        <li><a class="dropdown-item" href="/edit-users">USERS</a></li>
+	        <li><a class="dropdown-item" href="/setup">Website</a></li>
+            <li><a class="dropdown-item" href="/edit-diaries">Diaries</a></li>
+            <li><a class="dropdown-item" href="/edit-pages">Pages</a></li>
+	        <li><a class="dropdown-item" href="/edit-tags">Tags</a></li>
+ 	        <li><a class="dropdown-item" href="/edit-users">Users</a></li>
             <li><div class="dropdown-divider"></div></li>
-	        <li><a class="dropdown-item" href="/usage-days">DAYS</a></li>
-	        <li><a class="dropdown-item" href="/usage-months">MONTHS</a></li>
+	        <li><a class="dropdown-item" href="/usage-days">Days</a></li>
+	        <li><a class="dropdown-item" href="/usage-months">Months</a></li>
         </ul>
     </li>
 {{end}}
@@ -36,40 +37,39 @@
     <li class="nav-item">
         <form action='/user/logout' method='POST'>
             <input class="form-control" type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
-            <button class="btn btn-outline-dark btn-sm">LOGOUT</button>
+            <button class="btn btn-outline-dark btn-sm">Logout</button>
         </form>
     </li>
 {{end}}
 
 {{define "menu-competition"}}
     <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">SELECT</a>
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Select</a>
         <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-            <li><a class="dropdown-item" href="/select-slideshow">ENTRY</a></li>
-	        <li><a class="dropdown-item" href="/user-tags">TAGS</a></li>
+            <li><a class="dropdown-item" href="/select-slideshow">Entry</a></li>
+	        <li><a class="dropdown-item" href="/user-tags">Tags</a></li>
         </ul>
     </li>
 {{end}}
 
 {{define "menu-curator"}}
     <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">CURATOR</a>
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Curator</a>
         <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-	        <li><a class="dropdown-item" href="/edit-diary">DIARY</a></li>
-	        <li><a class="dropdown-item" href="/pages">INFORMATION</a></li>
-	        <li><a class="dropdown-item" href="/topics">TOPICS</a></li>
-	        <li><a class="dropdown-item" href="/users-curator">USERS</a></li>
+	        <li><a class="dropdown-item" href="/pages">Information</a></li>
+	        <li><a class="dropdown-item" href="/topics">Topics</a></li>
+	        <li><a class="dropdown-item" href="/users-curator">Users</a></li>
         </ul>
     </li>
 {{end}}
 
 {{define "menu-gallery"}}
     {{if .IsAuthenticated}}
-        <li class="nav-item"><a class="nav-link" href="/members">GALLERY</a></li>
-        <li class="nav-item"><a class="nav-link" href="/contrib-members">CONTRIBUTORS</a></li>
+        <li class="nav-item"><a class="nav-link" href="/members">Gallery</a></li>
+        <li class="nav-item"><a class="nav-link" href="/contrib-members">Contributors</a></li>
     {{else}}
-        <li class="nav-item"><a class="nav-link" href="/">GALLERY</a></li>
-        <li class="nav-item"><a class="nav-link" href="/contributors">CONTRIBUTORS</a></li>
+        <li class="nav-item"><a class="nav-link" href="/">Gallery</a></li>
+        <li class="nav-item"><a class="nav-link" href="/contributors">Contributors</a></li>
     {{end}}
 {{end}}
 
@@ -91,10 +91,10 @@
 {{end}}
 
 {{define "menu-member"}}
-    <li class="nav-item"><a class="nav-link" href="/my-slideshows">MY SLIDESHOWS</a></li>
+    <li class="nav-item"><a class="nav-link" href="/my-slideshows">My Slideshows</a></li>
 {{end}}
 
 {{define "menu-public"}}
-    <li class="nav-item"><a class="nav-link" href="/user-login">LOGIN</a></li>
-    <li class="nav-item"><a class="nav-link" href="/user/signup">SIGN-UP</a></li>
+    <li class="nav-item"><a class="nav-link" href="/user-login">Login</a></li>
+    <li class="nav-item"><a class="nav-link" href="/user/signup">Sign-Up</a></li>
 {{end}}

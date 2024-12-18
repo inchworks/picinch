@@ -47,10 +47,16 @@ You may also add add additional images you wish to include in customised templat
 `/srv/picinch/misc`.
 
 ### Additional Content
-You may also add static pages with `templates/info-*.page.tmpl` files, and specify common page layouts with `*.layout.tmpl` files.
-Use `info-notices.page.tmpl` and `gallery.layout.tmpl` as examples. Static pages are accessed by path `info/*` with the same name as the page template.
+Add additional information pages and menu items by logging on as a user with `admin` role. Specify the menu path for a page as `name` for a top-level menu item or `name.sub` for a dropdown menu item. A leading "`.`", i.e. `.name` or `.name.sub` specifies a page with no menu item. Pages are accessed by `https://<your-domain/info/name` or `info/name.sub`.
 
-Use `static/css` and `static/js` to hold any additional stylesheets and scripts needed by your pages.
+Similarly, diaries can be added by the administrator. Typically just one diary is needed. By default the next upcoming event in each diary is shown automatically on the home page. Diaries are accessed by `https://<your-domain/diary/name` or `diary/name.sub`.
+
+Users with `curator` role can edit the content for information pages and diaries. Markdown is supported for the sections of an information page.
+
+You may also add static pages with `templates/info-*.page.tmpl` files, and specify common page layouts with `*.layout.tmpl` files. A static page with template `templates/menu/name.page.tmpl` or `templates/menu/name.sub.page.tmpl` is added with a corresponding top-level or dropdown menu item. 
+Use `info-notices.page.tmpl` and `gallery.layout.tmpl` as examples. Static pages are accessed by the same web addresses as editable information pages. Adding an information page overrides a static page with the same address.
+
+Use `static/css` and `static/js` to hold any additional stylesheets and scripts needed by your static pages.
 These are not included automatically; you will need to reference them as needed in your template files.
 
 Note that additional templates and files should have different names to those used in the PicInch code, unless you intend to override the corresponding parts of PicInch.

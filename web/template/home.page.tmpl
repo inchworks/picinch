@@ -12,20 +12,22 @@
 
 {{define "pagemeta"}}
 	{{block "homePageMeta" .}}
-		<meta name="description" content="This is a club photo gallery.">
+		<meta name="description" content="This is a photo gallery.">
 	{{end}}
 {{end}}
 
 {{define "page"}}
     <div class="container">
         <header> 
-            <span class="banner">{{block "banner" .}}PICINCH GALLERY{{end}}</span>
+            <span class="banner">{{block "banner" .}}{{ .DisplayName }}{{end}}</span>
         </header>
     </div>
 
 	<div class="container">
 		{{block "homePage" .}}
-			<p>This website allows the members of a photography club to share their photos with the public and with each other.</p>
+			{{range .Top}}
+				<div>{{ .Div }}</div>
+			{{end}}
 		{{end}}
 		{{if .Events}}
 			{{block "events-next" .}}
@@ -81,17 +83,25 @@
 
 	{{if not .IsAuthenticated}}
 		<div class="container">
-			<p><strong>More slideshows</strong> are available to to club members. Please sign up or log in.</p>
+			<p><strong>More slideshows</strong> are available to to members. Please sign up or log in.</p>
 		</div>
 	{{end}}
 
-	<div class="container">
-		<footer class="text-muted">
+	{{if .Bottom}}
+		<div class="container">
+			{{range .Bottom}}
+				<div>{{ .Div }}</div>
+			{{end}}
+		</div>
+	{{end}}
+
+	<footer>
+		<div class="container">
 			<p class="float-end">
 				<a href="/info/notices">Copyright and Data Privacy Notices</a>
 			</p>
-		</footer>
-	</div>
+		</div>
+	</footer>
 {{end}}
 
 {{ define "pagescripts" }}

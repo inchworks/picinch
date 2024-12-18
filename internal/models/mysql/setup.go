@@ -46,7 +46,8 @@ var cmds = [...]string{
 
 	`CREATE TABLE gallery (
 	id int(11) NOT NULL AUTO_INCREMENT,
-	organiser varchar(60) COLLATE utf8_unicode_ci NOT NULL,
+	organiser varchar(60) NOT NULL,
+	events varchar(128) NOT NULL,
 	n_max_slides int(11) NOT NULL,
 	n_showcased int(11) NOT NULL,
 	PRIMARY KEY (id));`,
@@ -90,7 +91,7 @@ var cmds = [...]string{
 	created datetime NOT NULL,
 	revised datetime NOT NULL,
 	title varchar(512) NOT NULL,
-	caption varchar(512) NOT NULL,
+	caption varchar(4096) NOT NULL,
 	image varchar(256) NOT NULL,
 	PRIMARY KEY (id),
 	KEY IDX_SLIDESHOW (slideshow),
@@ -181,13 +182,17 @@ var cmds = [...]string{
 
 	`INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag) VALUES
 		(1,	1, 10, 2, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '', ''),
-		(2,	1, 0, 2, 2, 1, 0, 3, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Meetings', '', '', '', '');`,
+		(2,	1, 0, 2, 2, 1, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Home Page', '', '', '', '');`,
 
 	`INSERT INTO page (id, slideshow, format, menu, description, title) VALUES
-		(1,	2, 1, "Meetings", "", "");`,
+		(2,	2, 2, ".", "", "");`,
 }
 
 var cmdsInfo = [...]string{
+	`ALTER TABLE gallery ADD COLUMN events varchar(128) NOT NULL;`,
+
+	`ALTER TABLE slide MODIFY COLUMN caption varchar(4096) NOT NULL;`,
+
 	`CREATE TABLE page (
 		id int(11) NOT NULL AUTO_INCREMENT,
 		slideshow int(11) NOT NULL,
@@ -366,17 +371,19 @@ func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageSto
 		return err
 	}
 
-	// add public diary
+	// system user for pages
 	var err error
 	var u *users.User
 	if u, err = stUser.getSystemTx("SystemInfo"); err != nil {
 		return err
 	}
-	s := sysShow(stSlideshow.GalleryId, u.Id, "Meetings", "")
+
+	// add home page
+	s := sysShow(stSlideshow.GalleryId, u.Id, "Home Page", "")
 	if err := stSlideshow.Update(s); err != nil {
 		return err
 	}
-	if err := stPage.Update(sysPage(s.Id, models.PageDiary, "meetings", "Meetings")); err != nil {
+	if err := stPage.Update(sysPage(s.Id, models.PageHome, ".", "Home Page")); err != nil {
 		return err
 	}
 

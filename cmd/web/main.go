@@ -120,7 +120,7 @@ type Configuration struct {
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
 	MaxHighlightsTotal  int `yaml:"highlights-page" env-default:"12"`    // highlights for home page, and user's page
 	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`   // slides in highights slideshow
-	MaxNextEvents       int `yaml:"events-page" env-default:"1"`         // total events on home page
+	MaxNextEvents       int `yaml:"events-page" env-default:"1"`         // next events per diary on home page
 	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`    // total slideshows on home page
 
 	// per user limits
@@ -143,12 +143,12 @@ type Configuration struct {
 	TimeoutUpload     time.Duration   `yaml:"timeout-upload" env-default:"5m"`                                 // maximum time for file upload. Units m.
 	TimeoutWeb        time.Duration   `yaml:"timeout-web" env-default:"20s"`                                   // maximum time for web request, same for response (default). Units s or m.
 	UsageAnonymised   usage.Anonymise `yaml:"usage-anon" env-default:"1"`
+	VideoSnapshot time.Duration `yaml:"video-snapshot"  env-default:"3s"`                       // snapshot time within video. -ve for no snapshots.
 
 	// variants
 	HomeSwitch    string        `yaml:"home-switch" env:"home-switch" env-default:""`           // switch home page to specified template, e.g when site disabled
 	MiscName      string        `yaml:"misc-name" env:"misc-name" env-default:"misc"`           // path in URL for miscellaneous files, as in "example.com/misc/file"
 	Options       string        `yaml:"options" env:"options" env-default:""`                   // site features: main-comp, with-comp
-	VideoSnapshot time.Duration `yaml:"video-snapshot"  env-default:"3s"`                       // snapshot time within video. -ve for no snapshots.
 	VideoPackage  string        `yaml:"video-package" env:"video-package" env-default:"ffmpeg"` // video processing package
 	VideoTypes    []string      `yaml:"video-types" env:"video-types" env-default:""`           // video types (.mp4, .mov, etc.)
 
@@ -251,6 +251,7 @@ func main() {
 	threatLog := log.New(os.Stdout, "THREAT\t", log.Ldate|log.Ltime)
 	infoLog.Printf("PicInch Gallery %s", version)
 	infoLog.Print(notice)
+	infoLog.Printf("Time zone is %s.", time.Now().Location().String())
 
 	// redirect to test folders
 	test := os.Getenv("test")
@@ -622,6 +623,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 
 	// save gallery ID for stores that need it, and link stores that update joins
 	app.PageStore.GalleryId = g.Id
+	app.SlideStore.GalleryId = g.Id
 	app.SlideshowStore.GalleryId = g.Id
 	app.tagger.TagStore.GalleryId = g.Id
 	app.userStore.GalleryId = g.Id

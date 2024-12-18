@@ -97,17 +97,19 @@ type DataEvent struct {
 
 type DataHome struct {
 	DisplayName string
+	Top         []*cache.Section
 	HEvents     string
 	Events      []*DataEvent
 	Highlights  []*DataSlide
 	Slideshows  []*DataPublished
+	Bottom      []*cache.Section
 	DataCommon
 }
 
 type DataInfo struct {
-	Title   string
-	Caption template.HTML
-	Sections    []*cache.Section
+	Title    string
+	Caption  template.HTML
+	Sections []*cache.Section
 	DataCommon
 }
 
@@ -128,13 +130,15 @@ type DataMySlideshow struct {
 }
 
 type DataPage struct {
-	NPage       int64
-	Title       string
-	Menu        string
+	NPage int64
+	Title string
+	Menu  string
 }
 
 type DataPages struct {
-	Pages  []*DataPage
+	Diaries []*DataPage
+	Home    []*DataPage
+	Pages   []*DataPage
 	DataCommon
 }
 
@@ -252,10 +256,9 @@ type diaryFormData struct {
 }
 
 type pagesFormData struct {
-	Form  *form.PagesForm
+	Form *form.PagesForm
 	DataCommon
 }
-
 
 type simpleFormData struct {
 	Form *multiforms.Form

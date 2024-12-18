@@ -10,9 +10,10 @@ COPY . .
 ARG TARGETOS TARGETARCH
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 go build -a -installsuffix cgo -o picinch ./cmd/web
 
-# New container for target platform, with certificates and ffmpeg
+# New container for target platform, with certificates, ffmpeg and timezone data
 FROM --platform=$TARGETPLATFORM alpine:3
 RUN apk --no-cache add ca-certificates ffmpeg
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 # Copy binary from previous stage
 COPY --from=builder /picinch/picinch /app/

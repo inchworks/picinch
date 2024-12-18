@@ -33,17 +33,16 @@ func (s *GalleryState) DisplayDiary(name string) (data *DataDiary) {
 
 	defer s.updatesNone()()
 
-	id := s.publicPages.Pages[name]
-	if id == 0 {
+	d := s.publicPages.Diaries[name]
+	if d == nil {
 		return
 	}
 
 	// diary data
-	ssEvents := s.publicPages.Diaries[id]
 	return &DataDiary{
-		Title:   ssEvents.Title,
-		Caption: models.Nl2br(ssEvents.Caption),
-		Events:  s.dataEvents(false, 100),
+		Title:   d.Title,
+		Caption: d.Caption,
+		Events:  s.dataEvents(d.Id, 100),
 	}
 }
 
@@ -60,8 +59,8 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 
 		template = "info.page.tmpl"
 		data = &DataInfo{
-			Title:   pg.Title,
-			Caption: pg.Caption,
+			Title:    pg.Title,
+			Caption:  pg.Caption,
 			Sections: pg.Sections,
 		}
 		return
@@ -89,8 +88,18 @@ func (s *GalleryState) DisplayPages() (data *DataPages) {
 
 	defer s.updatesNone()()
 
+	return &DataPages{
+		Diaries: s.dataPages(models.PageDiary),
+		Home:    s.dataPages(models.PageHome),
+		Pages:   s.dataPages(models.PageInfo),
+	}
+}
+
+// returns template data for pages of the specified type.
+func (s *GalleryState) dataPages(fmt int) []*DataPage {
+
 	// get pages
-	pages := s.app.PageStore.ForFormat(models.PageInfo)
+	pages := s.app.PageStore.ForFormat(fmt)
 
 	var dPages []*DataPage
 	for _, pg := range pages {
@@ -104,28 +113,26 @@ func (s *GalleryState) DisplayPages() (data *DataPages) {
 
 		dPages = append(dPages, &d)
 	}
-
-	return &DataPages{
-		Pages: dPages,
-	}
+	return dPages
 }
 
-// dataEvents returns diary events.
-func (s *GalleryState) dataEvents(next bool, max int) []*DataEvent {
+// dataEvents returns diary events. If no diary ID is specified, next events from all diaries are returned.
+func (s *GalleryState) dataEvents(id int64, max int) []*DataEvent {
 
 	var from time.Time
+	var evs []*models.Slide
 
-	if next {
+	if id == 0 {
 		// start of today
 		y, m, d := time.Now().Date()
 		from = time.Date(y, m, d, 0, 0, 0, 0, time.Local)
-	}
 
-	// get events following start time
-	// ## defined order for multiple diaries
-	var evs []*models.Slide
-	for _, d := range s.publicPages.Diaries {
-		evs = s.app.SlideStore.NextEvents(d.Id, from, max)
+		// get events following start time
+		evs = s.app.SlideStore.NextEvents(models.SlideshowPublic, from, max)
+
+	} else {
+		// all events for diary
+		evs = s.app.SlideStore.AllEvents(id)
 	}
 
 	// replace slide data with HTML formatted fields

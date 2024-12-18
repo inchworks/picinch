@@ -19,7 +19,7 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}Pages{{end}}
+{{define "title"}}Information Pages{{end}}
 
 {{define "pagemeta"}}
     <meta name="robots" content="noindex">
@@ -28,11 +28,37 @@
 {{define "page"}}
 
 	<div class="container pb-3">
-		<h3>Pages</h3>
+		<h3>Information Pages</h3>
         <div class="row mb-1">
         	<label class="col-xl-6 col-lg-5 col-md-6 col-sm-5 col-form-label">Title</label>
-			<label class="col-xl-4 col-lg-5 col-md-4 col-sm-4 col-form-label">Menu</label>
+			<label class="col-xl-4 col-lg-5 col-md-4 col-sm-4 col-form-label">Menu or Name</label>
         </div>
+         {{range .Diaries}}
+            <div class="row mb-1">
+                <div class="col-xl-6 col-lg-5 col-md-6 col-sm-5">
+                    <span class="input-group-text">{{ .Title }}</span>
+                </div>
+                <div class="col-xl-4 col-lg-5 col-md-4 col-sm-4">
+                        <span class="input-group-text">{{.Menu}}</span>
+                </div>
+                <div class="col-xl-2 col-lg-2 col-md-2 col-sm-3">
+                    <a class='btn btn-primary' href='/edit-diary/{{ .NPage }}'>Edit Diary</a>
+                </div>
+            </div>
+        {{end}}
+       {{range .Home}}
+            <div class="row mb-1">
+                <div class="col-xl-6 col-lg-5 col-md-6 col-sm-5">
+                    <span class="input-group-text">{{ .Title }}</span>
+                </div>
+                <div class="col-xl-4 col-lg-5 col-md-4 col-sm-4">
+                        <span class="input-group-text">{{.Menu}}</span>
+                </div>
+                <div class="col-xl-2 col-lg-2 col-md-2 col-sm-3">
+                    <a class='btn btn-primary' href='/edit-page/{{ .NPage }}'>Edit Home</a>
+                </div>
+            </div>
+        {{end}}
         {{range .Pages}}
             <div class="row mb-1">
                 <div class="col-xl-6 col-lg-5 col-md-6 col-sm-5">

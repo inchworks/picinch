@@ -97,9 +97,9 @@ func (s *GalleryState) cachePages() []string {
 		}
 	}
 
-	// add public pages
+	// add public diaries and information pages
 	for _, pg := range s.app.PageStore.AllVisible(models.SlideshowPublic) {
-		ss := s.app.SlideStore.ForSlideshowOrdered(pg.Id, false, 10)  // ## configure max
+		ss := s.app.SlideStore.ForSlideshowOrdered(pg.Id, false, 100)  // ## configure max
 		w := cache.AddPage(pg, ss)
 		if len(w) > 0 {
 			warn = append(warn, w...)
@@ -139,14 +139,6 @@ func (s *GalleryState) rollback(httpStatus int, err error) int {
 	}
 
 	return httpStatus
-}
-
-// Commit changes and start new transaction
-
-func (s *GalleryState) save() {
-
-	s.app.tx.Commit()
-	s.app.tx = s.app.db.MustBegin()
 }
 
 // setLastModified saves the last gallery update time for browser caching.

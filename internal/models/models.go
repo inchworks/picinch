@@ -78,6 +78,7 @@ type Gallery struct {
 
 	// parameters
 	Organiser  string
+	Events     string // heading for next events
 	NMaxSlides int `db:"n_max_slides"`
 	NShowcased int `db:"n_showcased"`
 

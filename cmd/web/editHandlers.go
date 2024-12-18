@@ -214,7 +214,10 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 // getFormDiary displays a form to edit a diary events.
 func (app *Application) getFormDiary(w http.ResponseWriter, r *http.Request) {
 
-	f := app.galleryState.ForEditDiary(nosurf.Token(r))
+	ps := httprouter.ParamsFromContext(r.Context())
+	diaryId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
+
+	f := app.galleryState.ForEditDiary(diaryId, nosurf.Token(r))
 	if f == nil {
 		httpServerError(w)
 		return
@@ -243,6 +246,12 @@ func (app *Application) postFormDiary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	nDiary, err := strconv.ParseInt(f.Get("nDiary"), 36, 64)
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
 	// redisplay form if data invalid
 	if !f.Valid() {
 		app.render(w, r, "edit-diary.page.tmpl", &diaryFormData{
@@ -252,11 +261,70 @@ func (app *Application) postFormDiary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save changes
-	status, tx := app.galleryState.OnEditDiary(events)
+	status, tx := app.galleryState.OnEditDiary(nDiary, events)
 	if status == 0 {
 		// claim updated media, now that update is committed
 		app.tm.Do(tx)
 		app.redirectWithFlash(w, r, "/members", "Event changes saved.")
+
+	} else {
+		http.Error(w, http.StatusText(status), status)
+	}
+}
+
+// Form to setup diaries
+func (app *Application) getFormDiaries(w http.ResponseWriter, r *http.Request) {
+
+	f := app.galleryState.ForEditPages(models.PageDiary, nosurf.Token(r))
+	if f == nil {
+		httpNotFound(w)
+		return
+	}
+
+	// display form
+	app.render(w, r, "edit-diaries.page.tmpl", &pagesFormData{
+		Form:  f,
+	})
+}
+
+func (app *Application) postFormDiaries(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// process form data
+	f := form.NewPages(r.PostForm, nosurf.Token(r))
+	pages, err := f.GetPages()
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// redisplay form if data invalid
+	if !f.Valid() {
+		app.render(w, r, "edit-diaries.page.tmpl", &pagesFormData{
+			Form:  f,
+		})
+		return
+	}
+
+	// save changes
+	status, tx := app.galleryState.OnEditPages(models.PageDiary, pages)
+	if status == 0 {
+
+		// rebuild page cache
+		warn := app.galleryState.cachePages()
+
+		// claim updated media, now that update is committed
+		app.tm.Do(tx)
+
+		app.redirectWithFlash(w, r, "/members",  warnings(
+			"Page changes saved.",
+			"Conflicting page menu items:",
+			warn))
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -287,6 +355,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	f := multiforms.New(r.PostForm, nosurf.Token(r))
 	f.Required("organiser", "nMaxSlides")
 	f.MaxLength("organiser", 60)
+	f.MaxLength("events", 100)
 	nMaxSlides := f.Positive("nMaxSlides")
 	nShowcased := f.Positive("nShowcased")
 
@@ -300,8 +369,8 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 
 	// save changes
 	// // ## could save organiser from MaxLength
-	status := app.galleryState.OnEditGallery(f.Get("organiser"), nMaxSlides, nShowcased)
-	if status != 0 {
+	status := app.galleryState.OnEditGallery(f.Get("organiser"), f.Get("events"), nMaxSlides, nShowcased)
+	if status == 0 {
 		app.redirectWithFlash(w, r, "/members", "Gallery settings saved.")
 
 	} else {
@@ -379,8 +448,6 @@ func (app *Application) getFormPage(w http.ResponseWriter, r *http.Request) {
 	ps := httprouter.ParamsFromContext(r.Context())
 	pageId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
-	// #### get slideshow ID
-
 	// editing identical to a slideshow
 	status, f, slideshow := app.galleryState.ForEditSlideshow(pageId, nosurf.Token(r))
 	if status != 0 {
@@ -451,7 +518,7 @@ func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
 // Form to setup information pages
 func (app *Application) getFormPages(w http.ResponseWriter, r *http.Request) {
 
-	f := app.galleryState.ForEditPages(nosurf.Token(r))
+	f := app.galleryState.ForEditPages(models.PageInfo, nosurf.Token(r))
 	if f == nil {
 		httpNotFound(w)
 		return
@@ -488,7 +555,7 @@ func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save changes
-	status, tx := app.galleryState.OnEditPages(pages)
+	status, tx := app.galleryState.OnEditPages(models.PageInfo, pages)
 	if status == 0 {
 
 		// rebuild page cache

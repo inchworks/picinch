@@ -140,8 +140,10 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/edit-tags", adminNoStoreHs.ThenFunc(app.getFormTags))
 	router.Handler("POST", "/edit-tags", adminHs.ThenFunc(app.postFormTags))
 
-	router.Handler("GET", "/edit-diary", curatorNoStoreHs.ThenFunc(app.getFormDiary))
+	router.Handler("GET", "/edit-diary/:nId", curatorNoStoreHs.ThenFunc(app.getFormDiary))
 	router.Handler("POST", "/edit-diary", curatorHs.ThenFunc(app.postFormDiary))
+	router.Handler("GET", "/edit-diaries", adminNoStoreHs.ThenFunc(app.getFormDiaries))
+	router.Handler("POST", "/edit-diaries", adminHs.ThenFunc(app.postFormDiaries))
 	router.Handler("GET", "/edit-page/:nId", curatorNoStoreHs.ThenFunc(app.getFormPage))
 	router.Handler("POST", "/edit-page", curatorHs.ThenFunc(app.postFormPage))
 	router.Handler("GET", "/edit-pages", adminNoStoreHs.ThenFunc(app.getFormPages))

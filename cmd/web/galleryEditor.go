@@ -178,6 +178,7 @@ func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
 	var d = make(url.Values)
 	f = multiforms.New(d, tok)
 	f.Set("organiser", s.gallery.Organiser)
+	f.Set("events", s.gallery.Events)
 	f.Set("nMaxSlides", strconv.Itoa(s.gallery.NMaxSlides))
 	f.Set("nShowcased", strconv.Itoa(s.gallery.NShowcased))
 
@@ -188,13 +189,14 @@ func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
 //
 // Returns HTTP status or 0.
 
-func (s *GalleryState) OnEditGallery(organiser string, nMaxSlides int, nShowcased int) int {
+func (s *GalleryState) OnEditGallery(organiser string, events string, nMaxSlides int, nShowcased int) int {
 
 	// serialisation
 	defer s.updatesGallery()()
 
 	// save changes via cache (conversions already checked)
 	s.gallery.Organiser = organiser
+	s.gallery.Events = events
 	s.gallery.NMaxSlides = nMaxSlides
 	s.gallery.NShowcased = nShowcased
 	if err := s.app.GalleryStore.Update(s.gallery); err != nil {
@@ -330,7 +332,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				Created:   now,
 				Revised:   now,
 				Title:     s.sanitize(qsSrc[iSrc].Title, ""),
-				Caption:   s.sanitize(qsSrc[iSrc].Caption, ""),
+				Caption:   s.sanitizeUnless(cached, qsSrc[iSrc].Caption, ""),
 				Image:     uploader.FileFromName(tx, qsSrc[iSrc].Version, mediaName),
 			}
 			if mediaName != "" {
@@ -372,7 +374,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 					qDest.ShowOrder = qsSrc[iSrc].ShowOrder
 					qDest.Revised = now
 					qDest.Title = s.sanitize(qsSrc[iSrc].Title, qDest.Title)
-					qDest.Caption = s.sanitize(qsSrc[iSrc].Caption, qDest.Caption)
+					qDest.Caption = s.sanitizeUnless(cached, qsSrc[iSrc].Caption, qDest.Caption)
 
 					if qsSrc[iSrc].Version != 0 {
 						// replace media file
@@ -395,12 +397,8 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 	var slides []*models.Slide
 	if updated {
 
-		// ## think I have to commit changes for them to appear in a new query
-		// ## but this makes the unsequenced changes visible briefly, or would if I weren't serialising at server level
-		s.save()
-
 		nImages := 0
-		slides = s.app.SlideStore.ForSlideshowOrdered(showId, false, 100)
+		slides = s.app.SlideStore.ForSlideshowOrderedTx(showId, 100)
 
 		for ix, sl := range slides {
 			nOrder := ix + 1
@@ -1149,14 +1147,21 @@ func (app *Application) releaseSlideshows(t *models.Slideshow) {
 	}
 }
 
-// Sanitize HTML for reuse
-
+// sanitize returns HTML safe for display, assuming the current value is safe.
 func (s *GalleryState) sanitize(new string, current string) string {
 	if new == current {
 		return current
 	}
 
 	return s.publicPages.Sanitize(new)
+}
+
+// sanitizeUnless sanitizes HTML, unless it is markdown, in which case the cached version will be sanitised.
+func (s *GalleryState) sanitizeUnless(markdown bool, new string, current string) string {
+	if markdown {
+		return new
+	}
+	return s.sanitize(new, current)
 }
 
 // setVisible changes the visibility of a slideshow.

@@ -22,7 +22,7 @@
         {{block "galleryStylesheets" .}}
             {{template "bootstrapStylesheet" .}}
             {{template "lightboxStylesheet" .}}
-            <link rel='stylesheet' href='/static/css/gallery-04.css'>
+            <link rel='stylesheet' href='/static/css/gallery-05.css'>
             {{block "siteStyle" .}}
             {{end}}
         {{end}}
@@ -63,18 +63,18 @@
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav">
-                        {{if .IsAdmin}}
-                            {{template "menu-admin" .}}
-                        {{end}}
-                        {{if .IsCurator}}
-                            {{template "menu-curator" .}}
-                        {{end}}
                         {{if .IsGallery}}
                             {{template "menu-gallery" .}}
                         {{end}}
                         {{template "menu-info" .}}
                         {{if .IsMember}}
                             {{template "menu-member" .}}
+                        {{end}}
+                        {{if .IsCurator}}
+                            {{template "menu-curator" .}}
+                        {{end}}
+                        {{if .IsAdmin}}
+                            {{template "menu-admin" .}}
                         {{end}}
                         {{if .IsAuthenticated}}
                             {{if .IsCompetition}}
@@ -84,7 +84,7 @@
                         {{else}}
                             {{template "menu-public" .}}
                         {{end}}
-                    </ul>
+                  </ul>
                 </div>
             </div>
          </nav>

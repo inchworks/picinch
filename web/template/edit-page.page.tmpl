@@ -43,19 +43,13 @@
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
 							<input type='hidden' name='index' value='{{ .ChildIndex }}'>								
+							<input type='hidden' name='title' value='{{ .Title }}'>
 							<div class="row mb-2">
 								<div class="col-md-1">
 									<input type='number' class='form-control showOrder {{.ChildValid "showOrder"}}' name='showOrder' style='width:60px; margin-right:540px' value='{{ .ShowOrder }}'>
 									<div class='invalid-feedback'>{{ .ChildError "showOrder"}}</div>
 								</div>
-								<label class="col-md-1 col-form-label">Heading</label>
-								<div class="col-md-8">
-									<input type='text' class='form-control {{.ChildValid "title"}}' name='title' value='{{ .Title }}'>
-									<div class='invalid-feedback'>{{ .ChildError "title"}}</div>
-								</div>
-							</div>
-								<div class="row mb-2">
-								<label class="offset-md-1 col-md-1 col-form-label">Text</label>
+								<label class="col-md-1 col-form-label">Text</label>
 								<div class="col-md-8">
 									<textarea name='caption' rows='8' class='form-control {{.ChildValid "caption"}}'>{{ .Caption }}</textarea>
 									<div class='invalid-feedback'>{{ .ChildError "caption"}}</div>

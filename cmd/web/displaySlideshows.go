@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"time"
 
+	"inchworks.com/picinch/internal/cache"
 	"inchworks.com/picinch/internal/models"
 )
 
@@ -116,7 +117,7 @@ func (s *GalleryState) DisplayContributors(member bool) (string, *DataUsers) {
 	} else {
 		visible = models.SlideshowPublic
 	}
-	
+
 	users := s.app.userStore.Contributors(visible)
 	if users == nil {
 		return "no-contributors.page.tmpl", &DataUsers{}
@@ -228,8 +229,26 @@ func (s *GalleryState) DisplayHome(member bool) *DataHome {
 
 	a := s.app
 
+	// sections from system slideshow
+	var top []*cache.Section
+	var bottom []*cache.Section
+
+	pg := s.publicPages.Infos["/"]
+	if pg != nil {
+		ss := pg.Sections
+
+		// final section at the bottom
+		n := len(ss)
+		if n == 1 {
+			top = ss
+		} else if n > 1 {
+			top = ss[:n-1]
+			bottom = ss[n-1:]
+		}
+	}
+
 	// diary events
-	dEvents := s.dataEvents(true, a.cfg.MaxNextEvents)
+	dEvents := s.dataEvents(0, a.cfg.MaxNextEvents)
 
 	// highlight slides
 	dHighlights := s.dataHighlights(a.cfg.MaxHighlightsTotal)
@@ -245,10 +264,13 @@ func (s *GalleryState) DisplayHome(member bool) *DataHome {
 
 	// template and its data
 	return &DataHome{
-		HEvents: "To Do", // #### add to Gallery?
-		Events: dEvents,
-		Highlights: dHighlights,
-		Slideshows: dShows,
+		DisplayName: s.gallery.Organiser,
+		Top:         top,
+		HEvents:     s.gallery.Events,
+		Events:      dEvents,
+		Highlights:  dHighlights,
+		Slideshows:  dShows,
+		Bottom:      bottom,
 	}
 }
 
@@ -316,7 +338,7 @@ func (s *GalleryState) DisplaySharedTopic(code int64) (data *DataSlideshow, id i
 	// otherwise Bootstrap Carousel doesn't give any events to trigger loading of the first user's slideshow.
 	return &DataSlideshow{
 		Title:      topic.Title,
-		Caption:    models.Nl2br(s.app.galleryState.gallery.Organiser),
+		Caption:    models.Nl2br(s.gallery.Organiser),
 		AfterHRef:  after,
 		BeforeHRef: before,
 		Single:     "Y",
@@ -694,7 +716,7 @@ func (s *GalleryState) dataShowsPublished(shows []*models.Slideshow, maxUser int
 	for _, show := range shows {
 
 		fmt, _ := show.ParseFormat(0)
-	
+
 		if show.User.Valid {
 			// slideshow - check if user's limit reached
 			userId := show.User.Int64

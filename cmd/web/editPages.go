@@ -25,6 +25,7 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"inchworks.com/picinch/internal/form"
@@ -34,17 +35,21 @@ import (
 )
 
 // ForEditDiary returns data to edit events.
-func (s *GalleryState) ForEditDiary(tok string) (f *form.DiaryForm) {
+func (s *GalleryState) ForEditDiary(diaryId int64, tok string) (f *form.DiaryForm) {
 
 	// serialisation
 	defer s.updatesNone()()
 
+	// #### check it is really a diary
+
 	// get events
-	events := s.app.SlideStore.AllEvents(s.publicPages.Diaries[1].Id)
+	events := s.app.SlideStore.AllEvents(diaryId)
 
 	// form
 	var d = make(url.Values)
 	f = form.NewEvents(d, 10, tok)
+	f.Set("nDiary", strconv.FormatInt(diaryId, 36))
+
 
 	// add template and events to form
 	f.AddTemplate(len(events))
@@ -57,7 +62,7 @@ func (s *GalleryState) ForEditDiary(tok string) (f *form.DiaryForm) {
 
 // OnEditDiary processes changes when diary events are modified.
 // It returns 0 or an HTTP status code.
-func (s *GalleryState) OnEditDiary(rsSrc []*form.EventFormData) (int, etx.TxId) {
+func (s *GalleryState) OnEditDiary(nDiary int64, rsSrc []*form.EventFormData) (int, etx.TxId) {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -66,7 +71,7 @@ func (s *GalleryState) OnEditDiary(rsSrc []*form.EventFormData) (int, etx.TxId) 
 	tx := s.app.tm.Begin()
 
 	// compare modified slideshows against current ones, and update
-	rsDest := s.app.SlideStore.AllEvents(s.publicPages.Diaries[1].Id)
+	rsDest := s.app.SlideStore.AllEvents(nDiary)
 	nSrc := len(rsSrc)
 	nDest := len(rsDest)
 
@@ -84,7 +89,7 @@ func (s *GalleryState) OnEditDiary(rsSrc []*form.EventFormData) (int, etx.TxId) 
 		} else if iDest == nDest {
 			// no more destination events - add new one
 			qd := models.Slide{
-				Slideshow: s.publicPages.Diaries[1].Id,
+				Slideshow: nDiary,
 				Format:    s.app.eventFormat(rsSrc[iSrc]),
 				Created:   rsSrc[iSrc].Publish,
 				Revised:   rsSrc[iSrc].Start,
@@ -133,13 +138,13 @@ func (s *GalleryState) OnEditDiary(rsSrc []*form.EventFormData) (int, etx.TxId) 
 }
 
 // ForEditPages returns the form data to edit all information pages.
-func (s *GalleryState) ForEditPages(tok string) (f *form.PagesForm) {
+func (s *GalleryState) ForEditPages(fmt int, tok string) (f *form.PagesForm) {
 
 	// serialisation
 	defer s.updatesNone()()
 
 	// get pages
-	pages := s.app.PageStore.ForFormat(models.PageInfo)
+	pages := s.app.PageStore.ForFormat(fmt)
 
 	// form
 	var d = make(url.Values)
@@ -154,11 +159,9 @@ func (s *GalleryState) ForEditPages(tok string) (f *form.PagesForm) {
 	return
 }
 
-// OnEditPages processes updates when slideshows are modified.
+// OnEditPages processes updates when page definitions are modified.
 // It returns an extended transaction ID if there are no client errors.
-func (s *GalleryState) OnEditPages(rsSrc []*form.PageFormData) (int, etx.TxId) {
-
-	// #### can I extract this pattern somehow?
+func (s *GalleryState) OnEditPages(fmt int, rsSrc []*form.PageFormData) (int, etx.TxId) {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -168,8 +171,8 @@ func (s *GalleryState) OnEditPages(rsSrc []*form.PageFormData) (int, etx.TxId) {
 
 	now := time.Now()
 
-	// compare modified slideshows against current ones, and update
-	rsDest := s.app.PageStore.ForFormat(models.PageInfo)
+	// compare modified pages against current ones, and update
+	rsDest := s.app.PageStore.ForFormat(fmt)
 
 	nSrc := len(rsSrc)
 	nDest := len(rsDest)
@@ -192,7 +195,7 @@ func (s *GalleryState) OnEditPages(rsSrc []*form.PageFormData) (int, etx.TxId) {
 			// no more destination pages - add new one
 			r := models.PageSlideshow{
 				Menu: rsSrc[iSrc].Menu,
-				PageFormat: models.PageInfo,
+				PageFormat: fmt,
 				PageTitle: rsSrc[iSrc].Title, // default
 				Slideshow: models.Slideshow{
 					Access:       models.SlideshowPublic,
@@ -221,6 +224,9 @@ func (s *GalleryState) OnEditPages(rsSrc []*form.PageFormData) (int, etx.TxId) {
 				rDest := rsDest[iDest]
 
 				if rSrc.Menu != rDest.Menu || rSrc.Title != rDest.Title {
+					if rDest.PageTitle == rDest.Title {
+						rDest.PageTitle = rSrc.Title // still defaulted
+					}
 					rDest.Menu = rSrc.Menu
 					rDest.Title = rSrc.Title
 					rDest.Revised = now
