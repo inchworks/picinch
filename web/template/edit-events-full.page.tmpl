@@ -29,7 +29,7 @@
 
 	<div class="container">
 
-		<h2>{{ .Title }}</h2>
+		<h1>{{ .Title }}</h1>
 
 		<form action='/edit-diary' method='POST' enctype="multipart/form-data" >
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>

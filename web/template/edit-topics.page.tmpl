@@ -28,7 +28,7 @@
 {{define "page"}}
 
 	<div class="container">
-		<h3>{{ .User }}</h3>
+		<h1>{{ .User }}</h1>
 
 		<form action='/edit-topics' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>

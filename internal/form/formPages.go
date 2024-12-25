@@ -19,6 +19,7 @@ package form
 
 import (
 	"net/url"
+	"strconv"
 
 	"github.com/inchworks/webparts/v2/multiforms"
 
@@ -35,6 +36,7 @@ type PageFormData struct {
 	multiforms.Child
 	Menu  string
 	Title string
+	Page  string // page ID, not trusted and only for a URL 
 }
 
 // NewPages returns a form to edit pages.
@@ -47,12 +49,13 @@ func NewPages(data url.Values, token string) *PagesForm {
 }
 
 // Add appends a page to the form.
-func (f *PagesForm) Add(index int, menu string, title string) {
+func (f *PagesForm) Add(index int, menu string, title string, pageId int64) {
 
 	f.Children = append(f.Children, &PageFormData{
 		Child: multiforms.Child{Parent: f.Form, ChildIndex: index},
 		Menu:  menu,
 		Title: title,
+		Page:  strconv.FormatInt(pageId, 64),
 	})
 }
 
@@ -80,6 +83,7 @@ func (f *PagesForm) GetPages() (items []*PageFormData, err error) {
 			Child: multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			Menu:  f.ChildText("menu", i, ix, 1, models.MaxTitle),
 			Title: f.ChildText("title", i, ix, 1, models.MaxTitle),
+			Page: f.ChildText("page", i, ix, 1, 12),
 		})
 	}
 

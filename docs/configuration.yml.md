@@ -71,7 +71,7 @@ Photos uploaded are resized to fit these dimensions.
 
 **parent-highlights** `16` highlights available for parent website
 
-**events-page** `1` next upcoming events per diary shown on hone page
+**events-page** `1` mumber of upcoming events per diary shown on home page (0 for none)
 
 **slideshows-page** `16` slideshows shown on home page
 
@@ -116,6 +116,8 @@ The local time zone **TZ** must be specified as an environment variable in `dock
 
 ## Website variants
 Options to change the operation of the website.
+
+**date-format** `2 January` displayed date format, using the Go reference time `01/02 03:04:05PM '06`.
 
 **home-switch** ` ` switches the home page to a specified template, for example, `disabled` to show `disabled.page.tmpl` when the website is offline.
 

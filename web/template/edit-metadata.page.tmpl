@@ -1,5 +1,5 @@
 {{/*
-  Copyright © Rob Burke inchworks.com, 2020.
+  Copyright © Rob Burke inchworks.com, 2024.
 
   This file is part of PicInch.
   
@@ -19,7 +19,7 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}Edit Gallery{{end}}
+{{define "title"}}Edit Page Metadata{{end}}
 
 {{define "pagemeta"}}
     <meta name="robots" content="noindex">
@@ -27,45 +27,31 @@
 
 {{define "page"}}
 	<div class="container">
-		<h1>Setup Gallery</h1>
+		<h1>{{ .Title }} Metadata</h1>
 
 		<form action='/setup' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
+				<input type='hidden' name='nPage' value='{{.Get "nPage"}}'>
 				<div class="col-md-6 mb-3">
-					<label>Website Name</label>
-					<input type='text' class='form-control {{.Errors.Valid "organiser"}}' name='organiser' value='{{.Get "organiser"}}'>
+					<label>Short Title - for browser favourites, tabs, etc. (blank = Page Heading)</label>
+					<input type='text' class='form-control {{.Errors.Valid "title"}}' name='title' value='{{.Get "title"}}'>
 					{{with .Errors.Get "organiser"}}
 						<div class='invalid-feedback'>{{.}}</div>
 					{{end}}
 				</div>
 				<div class="col-md-6 mb-3">
-					<label>Short Title - for browser favourites, tabs, etc. (blank = Website Name)</label>
-					<input type='text' class='form-control {{.Errors.Valid "title"}}' name='title' value='{{.Get "title"}}'>
-					{{with .Errors.Get "title"}}
-						<div class='invalid-feedback'>{{.}}</div>
-					{{end}}
-				</div>
-				<div class="col-md-6 mb-3">
-					<label>Events heading</label>
-					<input type='text' class='form-control {{.Errors.Valid "events"}}' name='events' value='{{.Get "events"}}'>
-					{{with .Errors.Get "events"}}
+					<label>Description - for links on social media, search engines, etc.</label>
+					<input type='text' class='form-control {{.Errors.Valid "desc"}}' name='desc' value='{{.Get "desc"}}'>
+					{{with .Errors.Get "desc"}}
 						<div class='invalid-feedback'>{{.}}</div>
 					{{end}}
 				</div>
 				<div class="col-md-2 mb-3">
-					<label>Max. slides</label>
-					<input type='number' class='form-control {{.Errors.Valid "nMaxSlides"}}' name='nMaxSlides' value='{{.Get "nMaxSlides"}}'>
-					{{with .Errors.Get "nMaxSlides"}}
-						<div class='invalid-feedback'>{{.}}</div>
-					{{end}}
-				</div>
-				<div class="col-md-2 mb-3">
-					<label>Showcased for club, per user</label>
-					<input type='number' class='form-control {{.Errors.Valid "nShowcased"}}' name='nShowcased' value='{{.Get "nShowcased"}}'>
-					{{with .Errors.Get "nShowcased"}}
-						<div class='invalid-feedback'>{{.}}</div>
-					{{end}}
+					<div class="form-check">
+						<input type='checkbox' class='form-check-input' name='noIndex' value='1' {{.Get "noIndex"}}>
+						<label class="form-check-label">Block search indexing</label>
+					</div>
 				</div>
 				<button type='submit' class="btn btn-primary" id='submit'>Save</button>
 			{{end}}

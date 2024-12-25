@@ -42,16 +42,24 @@ type MenuItem struct {
 }
 
 type Diary struct {
-	Id int64
-	Title    string
-	Caption  template.HTML
+	Page
+	Id      int64
+	Title   string
+	Caption template.HTML
 }
 
 type Info struct {
+	Page
 	Id       int64
 	Title    string
 	Caption  template.HTML
 	Sections []*Section
+}
+
+type Page struct {
+	MetaTitle   string
+	Description string
+	NoIndex     bool
 }
 
 type Section struct {
@@ -69,10 +77,10 @@ type item struct {
 type PageCache struct {
 	MainMenu []*MenuItem // top menu sorted
 
-	Diaries  map[string]*Diary // path -> diary
-	Files  map[string]string // path -> filename
-	Infos  map[string]*Info // path -> information page
-	Paths  map[int64]string // slideshow ID -> path (for editing)
+	Diaries map[string]*Diary // path -> diary
+	Files   map[string]string // path -> filename
+	Infos   map[string]*Info  // path -> information page
+	Paths   map[int64]string  // slideshow ID -> path (for editing)
 
 	mainMenu map[string]*item // top menu indexed
 }
@@ -134,10 +142,10 @@ func (pc *PageCache) AddPage(p *models.PageSlideshow, sections []*models.Slide) 
 	switch p.PageFormat {
 
 	case models.PageDiary:
-		pc.SetDiary(&p.Slideshow, sections)
+		pc.SetDiary(p, sections)
 
 	case models.PageHome, models.PageInfo:
-		pc.SetInformation(&p.Slideshow, sections)
+		pc.SetInformation(p, sections)
 	}
 	return warn
 }
@@ -164,15 +172,19 @@ func (pc *PageCache) Sanitize(unsafe string) string {
 	return sanitizer.Sanitize(unsafe)
 }
 
-// SetDiary sets a diary's content in the cache.
-// #### why public?
-func (pc *PageCache) SetDiary(page *models.Slideshow, sections []*models.Slide) {
+// SetDiary updates a diary's content in the cache.
+func (pc *PageCache) SetDiary(page *models.PageSlideshow, _ []*models.Slide) {
 	d := &Diary{
+		Page: Page{
+			MetaTitle:   page.MetaTitle,
+			Description: page.Description,
+			NoIndex:     page.NoIndex,
+		},
 		Id:      page.Id,
 		Title:   page.Title,
-		Caption: models.Nl2br(page.Caption),
+		Caption: toHTML(page.Caption),
 	}
-	// #### don't cache events because they change often?
+	// ## don't cache events because they change often?
 
 	path := pc.Paths[page.Id]
 	if path == "" {
@@ -181,29 +193,56 @@ func (pc *PageCache) SetDiary(page *models.Slideshow, sections []*models.Slide) 
 	pc.Diaries[path] = d
 }
 
-// SetInformation sets an information page's content in the cache.
-// #### why public?
-func (pc *PageCache) SetInformation(page *models.Slideshow, sections []*models.Slide) {
+// SetInformation updates an information page's content in the cache.
+func (pc *PageCache) SetInformation(page *models.PageSlideshow, sections []*models.Slide) {
 
 	p := &Info{
+		Page: Page{
+			MetaTitle:   page.MetaTitle,
+			Description: page.Description,
+			NoIndex:     page.NoIndex,
+		},
 		Id:      page.Id,
 		Title:   page.Title,
 		Caption: toHTML(page.Caption), // #### don't need a page caption
 	}
 
-	for _, s := range sections {
-		cs := &Section{
-			Title: template.HTML(s.Title), // #### don't need a title
-			Div:   toHTML(s.Caption),
-			Media: s.Image,
-		}
-		p.Sections = append(p.Sections, cs)
-	}
+	setSections(sections, p)
+
 	path := pc.Paths[page.Id]
 	if path == "" {
 		panic("Lost ID for page in cache.")
 	}
 	pc.Infos[path] = p
+}
+
+// SetSections updates an information page's sections in the cache.
+func (pc *PageCache) SetSections(showId int64, sections []*models.Slide) {
+
+	path := pc.Paths[showId]
+	if path == "" {
+		panic("Lost ID for page in cache.")
+	}
+	setSections(sections, pc.Infos[path])
+}
+
+// SetMetadata updates a diary or information pages' metadata in the cache.
+func (pc *PageCache) SetMetadata(page *models.PageSlideshow) {
+
+	path := pc.Paths[page.Slideshow.Id]
+	if path == "" {
+		panic("Lost ID for metadata in cache.")
+	}
+
+	// cache contents
+	switch page.PageFormat {
+
+	case models.PageDiary:
+		setMetadata(page, &pc.Diaries[path].Page)
+
+	case models.PageHome, models.PageInfo:
+		setMetadata(page, &pc.Infos[path].Page)
+	}
 }
 
 // addMenu recusively adds page menu names to menu maps.
@@ -297,7 +336,7 @@ func buildMenu(from map[string]*item) (to []*MenuItem) {
 
 	// menu to Item
 	for _, it := range from {
-		item := &MenuItem{Name: it.name, Path: it.path, }
+		item := &MenuItem{Name: it.name, Path: it.path}
 		to = append(to, item)
 
 		// sub-menus
@@ -313,15 +352,27 @@ func buildMenu(from map[string]*item) (to []*MenuItem) {
 	return
 }
 
-// toHTML converts markdown to HTML and sanitises it.
-func toHTML(md string) template.HTML {
-	mdParser := parser.NewWithExtensions(parser.CommonExtensions | parser.NoEmptyLineBeforeBlock)
+// setMetadata updates common metadata for diary and information pages
+func setMetadata(from *models.PageSlideshow, to *Page) {
+	// ## why not cache whole records? Just because of markdown processing?
+	to.MetaTitle = from.MetaTitle
+	to.Description = from.Description
+	to.NoIndex = from.NoIndex
+}
 
-	doc := mdParser.Parse([]byte(md))
+func setSections(sections []*models.Slide, to *Info) {
 
-	unsafe := markdown.Render(doc, mdRenderer)
-	html := sanitizer.SanitizeBytes(unsafe)
-	return template.HTML(html)
+	toS := make([]*Section, 0, len(sections))
+
+	for _, s := range sections {
+		cs := &Section{
+			Title: template.HTML(s.Title), // #### don't need a title
+			Div:   toHTML(s.Caption),
+			Media: s.Image,
+		}
+		toS = append(toS, cs)
+	}
+	to.Sections = toS
 }
 
 // simplify returns a lower-case path with spaces and '-' characters replaced by single '-' characters.
@@ -342,4 +393,15 @@ func simplify(path string) string {
 	}
 
 	return b.String()
+}
+
+// toHTML converts markdown to HTML and sanitises it.
+func toHTML(md string) template.HTML {
+	mdParser := parser.NewWithExtensions(parser.CommonExtensions | parser.NoEmptyLineBeforeBlock)
+
+	doc := mdParser.Parse([]byte(md))
+
+	unsafe := markdown.Render(doc, mdRenderer)
+	html := sanitizer.SanitizeBytes(unsafe)
+	return template.HTML(html)
 }

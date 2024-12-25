@@ -21,6 +21,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -132,9 +133,9 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	// process form data
 	f := form.NewPublicComp(r.PostForm, 1, nosurf.Token(r))
 	f.Required("class", "timestamp", "name", "email", "location")
-	f.MaxLength("name", 60)
-	f.MaxLength("email", 60)
-	f.MaxLength("location", 60)
+	f.MaxLength("name", models.MaxName)
+	f.MaxLength("email", models.MaxName)
+	f.MaxLength("location", models.MaxName)
 
 	f.MatchesPattern("email", multiforms.EmailRX)
 
@@ -211,20 +212,21 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// getFormDiary displays a form to edit a diary events.
+// getFormDiary displays a form to edit diary events.
 func (app *Application) getFormDiary(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
 	diaryId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
-	f := app.galleryState.ForEditDiary(diaryId, nosurf.Token(r))
+	f, page := app.galleryState.ForEditDiary(diaryId, nosurf.Token(r))
 	if f == nil {
-		httpServerError(w)
+		httpNotFound(w)
 		return
 	}
 
 	// display form
 	app.render(w, r, "edit-diary.page.tmpl", &diaryFormData{
+		Title: page.Title,
 		Form:  f,
 	})
 }
@@ -252,19 +254,21 @@ func (app *Application) postFormDiary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	f.MaxLength("caption", models.MaxMarkdown)
+
 	// redisplay form if data invalid
 	if !f.Valid() {
+		t := app.galleryState.SlideshowTitle(nDiary)
 		app.render(w, r, "edit-diary.page.tmpl", &diaryFormData{
+			Title: t,
 			Form:  f,
 		})
 		return
 	}
 
 	// save changes
-	status, tx := app.galleryState.OnEditDiary(nDiary, events)
+	status := app.galleryState.OnEditDiary(nDiary, f.Get("caption"), events)
 	if status == 0 {
-		// claim updated media, now that update is committed
-		app.tm.Do(tx)
 		app.redirectWithFlash(w, r, "/members", "Event changes saved.")
 
 	} else {
@@ -283,7 +287,7 @@ func (app *Application) getFormDiaries(w http.ResponseWriter, r *http.Request) {
 
 	// display form
 	app.render(w, r, "edit-diaries.page.tmpl", &pagesFormData{
-		Form:  f,
+		Form: f,
 	})
 }
 
@@ -306,7 +310,7 @@ func (app *Application) postFormDiaries(w http.ResponseWriter, r *http.Request) 
 	// redisplay form if data invalid
 	if !f.Valid() {
 		app.render(w, r, "edit-diaries.page.tmpl", &pagesFormData{
-			Form:  f,
+			Form: f,
 		})
 		return
 	}
@@ -321,7 +325,7 @@ func (app *Application) postFormDiaries(w http.ResponseWriter, r *http.Request) 
 		// claim updated media, now that update is committed
 		app.tm.Do(tx)
 
-		app.redirectWithFlash(w, r, "/members",  warnings(
+		app.redirectWithFlash(w, r, "/members", warnings(
 			"Page changes saved.",
 			"Conflicting page menu items:",
 			warn))
@@ -354,8 +358,9 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	// process form data
 	f := multiforms.New(r.PostForm, nosurf.Token(r))
 	f.Required("organiser", "nMaxSlides")
-	f.MaxLength("organiser", 60)
-	f.MaxLength("events", 100)
+	f.MaxLength("title", models.MaxName)
+	f.MaxLength("organiser", models.MaxName)
+	f.MaxLength("events", models.MaxTitle)
 	nMaxSlides := f.Positive("nMaxSlides")
 	nShowcased := f.Positive("nShowcased")
 
@@ -369,7 +374,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 
 	// save changes
 	// // ## could save organiser from MaxLength
-	status := app.galleryState.OnEditGallery(f.Get("organiser"), f.Get("events"), nMaxSlides, nShowcased)
+	status := app.galleryState.OnEditGallery(f.Get("organiser"), f.Get("title"), f.Get("events"), nMaxSlides, nShowcased)
 	if status == 0 {
 		app.redirectWithFlash(w, r, "/members", "Gallery settings saved.")
 
@@ -441,6 +446,58 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 	app.reply(w, RepUpload{Error: s})
 }
 
+// Form to edit page metadata
+func (app *Application) getFormMetadata(w http.ResponseWriter, r *http.Request) {
+
+	ps := httprouter.ParamsFromContext(r.Context())
+	pageId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
+
+	f := app.galleryState.ForEditMetadata(pageId, nosurf.Token(r))
+
+	// display form
+	app.render(w, r, "edit-metadata.page.tmpl", &simpleFormData{
+		Form: f,
+	})
+}
+
+func (app *Application) postFormMetadata(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// process form data
+	f := multiforms.New(r.PostForm, nosurf.Token(r))
+	pageId, err := strconv.ParseInt(f.Get("nPage"), 36, 64)
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	f.MaxLength("title", models.MaxTitle)
+	f.MaxLength("desc", models.MaxTitle)
+	noIndex := f.Get("noIndex") != "" // any non-empty string means true
+
+	// redisplay form if data invalid
+	if !f.Valid() {
+		app.render(w, r, "edit-gallery.page.tmpl", &simpleFormData{
+			Form: f,
+		})
+		return
+	}
+
+	// save changes
+	status := app.galleryState.OnEditMetadata(pageId, f.Get("title"), f.Get("description"), noIndex)
+	if status == 0 {
+		app.redirectWithFlash(w, r, "/setup", "Page metadata saved.")
+
+	} else {
+		http.Error(w, http.StatusText(status), status)
+	}
+}
+
 // Form to edit the content of an information page.
 
 func (app *Application) getFormPage(w http.ResponseWriter, r *http.Request) {
@@ -460,6 +517,7 @@ func (app *Application) getFormPage(w http.ResponseWriter, r *http.Request) {
 		Form:      f,
 		Title:     slideshow.Title,
 		Accept:    app.accept(),
+		IsHome:    app.isHome(pageId),
 		MaxUpload: app.cfg.MaxUpload,
 	})
 }
@@ -493,10 +551,12 @@ func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
 
 	// redisplay form if data invalid
 	if !f.Valid() {
+		t := app.galleryState.SlideshowTitle(nPage)
 		app.render(w, r, "edit-page.page.tmpl", &slidesFormData{
 			Form:      f,
-			Title:     "To Do",
+			Title:     t,
 			Accept:    app.accept(),
+			IsHome:    app.isHome(nPage),
 			MaxUpload: app.cfg.MaxUpload,
 		})
 		return
@@ -508,7 +568,7 @@ func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
 
 		// claim updated media, now that update is committed
 		app.tm.Do(tx)
-		app.redirectWithFlash(w, r, "/pages",  "Page content saved.")
+		app.redirectWithFlash(w, r, "/pages", "Page content saved.")
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -526,11 +586,15 @@ func (app *Application) getFormPages(w http.ResponseWriter, r *http.Request) {
 
 	// display form
 	app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
-		Form:  f,
+		Form: f,
 	})
 }
 
 func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request) {
+
+	// page for detail editing
+	ps := httprouter.ParamsFromContext(r.Context())
+	pageId, _ := strconv.ParseInt(ps.ByName("nPage"), 36, 64)
 
 	err := r.ParseForm()
 	if err != nil {
@@ -549,9 +613,17 @@ func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request) {
 	// redisplay form if data invalid
 	if !f.Valid() {
 		app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
-			Form:  f,
+			Form: f,
 		})
 		return
+	}
+
+	// page to be edited next?
+	var url string
+	if pageId != 0 {
+		url = fmt.Sprintf("/edit-metadata/%d", pageId)
+	} else {
+		url = "/members"
 	}
 
 	// save changes
@@ -561,13 +633,20 @@ func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request) {
 		// rebuild page cache
 		warn := app.galleryState.cachePages()
 
-		// claim updated media, now that update is committed
+		// claim any updated media, now that update is committed
 		app.tm.Do(tx)
 
-		app.redirectWithFlash(w, r, "/members",  warnings(
+		app.redirectWithFlash(w, r, url, warnings(
 			"Page changes saved.",
 			"Conflicting page menu items:",
 			warn))
+
+	} else if status < 0 {
+
+		// no changes - just end transaction
+		app.tm.Do(tx)
+
+		http.Redirect(w, r, url, http.StatusSeeOther)
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -677,7 +756,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		app.tm.Do(tx)
 
 		if app.allowAccessUser(r, userId, false) {
-			app.redirectWithFlash(w, r, "/my-slideshows",  "Slide changes saved.")
+			app.redirectWithFlash(w, r, "/my-slideshows", "Slide changes saved.")
 		} else {
 			app.redirectWithFlash(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), "Slide changes saved.")
 		}
@@ -747,7 +826,7 @@ func (app *Application) postFormSlideshows(w http.ResponseWriter, r *http.Reques
 		app.tm.Do(tx)
 
 		if app.allowAccessUser(r, userId, false) {
-			app.redirectWithFlash(w, r, "/my-slideshows",  "Slideshow changes saved.")
+			app.redirectWithFlash(w, r, "/my-slideshows", "Slideshow changes saved.")
 		} else {
 			app.redirectWithFlash(w, r, "/slideshows-user/"+strconv.FormatInt(userId, 10), "Slideshow changes saved.")
 		}

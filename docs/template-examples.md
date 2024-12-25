@@ -3,8 +3,6 @@ This example file reproduces the content of the default website.
 
 ```html
 {% raw %}
-{{define "banner"}}PICINCH GALLERY{{end}}
-
 {{define "copyrightNotice"}}
     <h2>Copyright Notice</h2>
     <p>The copyright for all images and and slideshows on this website belongs to the individual contributors. You may not use the content of the website for any purpose, except to view it on your web browser.</p>
@@ -29,19 +27,11 @@ This example file reproduces the content of the default website.
     </ul>
     </p>
 {{end}}
-
-{{define "homePage"}}
-	<p>This website allows the members of a photography club to share their photos with the public and with each other.</p>
-{{end}}
-	
-{{define "homePageMeta"}}
-	<meta name="description" content="This is a club photo gallery.">
-{{end}}
 	
 {{define "signupPage" .}}
     <p>For invited users of PicInch Gallery only. See your invitation email for your username, and choose your own password.</p>
 {{end}}
-	
+
 {{define "website"}}PicInch Gallery{{end}}
 {% endraw %}
 ```

@@ -1,13 +1,15 @@
 {{define "events-next"}}
-    <h5>{{ .HEvents }}</h5>
-    {{range .Events}}
-        <div class="row">
-            <div class="col-md-2 col-sm-3">
-                <span >{{ .Start }}</span>
+    <div class="mb-2">
+        <h2>{{ .HEvents }}</h2>
+        {{range .Events}}
+            <div class="row">
+                <div class="col-md-2 col-sm-3">
+                    <span >{{ .Start }}</span>
+                </div>
+                <div class="col-md-8 col-sm-7">
+                    <span>{{ .Title }}</span>
+                </div>
             </div>
-            <div class="col-md-8 col-sm-7">
-                <span>{{ .Title }}</span>
-            </div>
-        </div>
-    {{end}}
+        {{end}}
+    </div>
 {{end}}

@@ -15,7 +15,8 @@
         <meta charset='utf-8'>
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-        <title>{{if ne .Page "home"}}{{template "title" .}} | {{end}}{{block "website" .}}PicInch Gallery{{end}}</title>
+        <title>{{template "title" .}}{{ .SiteTitle }}</title>
+
         {{block "pagemeta" .}}
         {{end}}
 
@@ -46,6 +47,9 @@
 {{define "layout"}}
 	{{template "gallery" .}}
 {{end}}
+
+{{/* For webparts pages*/}}
+{{define "website"}}{{.SiteTitle}}{{end}}  
 
 {{define "galleryContent"}}
 	<!-- // Copyright © Rob Burke, Inchworks, 2020. -->

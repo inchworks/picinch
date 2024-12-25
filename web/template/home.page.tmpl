@@ -8,18 +8,18 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}Latest{{end}}
+{{define "title"}}{{ .Title }}{{end}}
 
 {{define "pagemeta"}}
-	{{block "homePageMeta" .}}
-		<meta name="description" content="This is a photo gallery.">
-	{{end}}
+	<meta name="description" content="{{ .Meta.Description }}">
+    {{if .Meta.NoIndex}}<meta name="robots" content="noindex">{{end}}
+	{{block "homePageMeta" .}}{{end}}
 {{end}}
 
 {{define "page"}}
     <div class="container">
         <header> 
-            <span class="banner">{{block "banner" .}}{{ .DisplayName }}{{end}}</span>
+            {{block "banner" .}}<h1 class="banner mt-2">{{ .DisplayName }}</h1>{{end}}
         </header>
     </div>
 
@@ -33,7 +33,7 @@
 			{{block "events-next" .}}
 			{{end}}
 		{{end}}
-		<h3>Highlights</h3>
+		<h2>Highlights</h2>
 	</div>
 
 	<div class="container lightbox2 photo-thumbnails rounded">
@@ -54,9 +54,9 @@
 
 	<div class="container">
 		{{if .IsAuthenticated}}
-			<h3>Latest</h3>
+			<h2>Latest</h2>
 		{{else}}
-			<h3>Slideshows</h3>
+			<h2>Slideshows</h2>
 		{{end}}
 		<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 row-cols-xxl-4 mb-4">
 			{{range .Slideshows}}

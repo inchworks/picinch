@@ -5,9 +5,7 @@ Add files in `/srv/picinch/site/` to customise your installation. You must resta
 Files in `templates/` define Go templates to specify static content for your site. Files with the names `*.partial.tmpl` override application templates. Typically a single `site.partial.tmpl` file is sufficient. See [Template Example]({{ site.baseurl }}{% link template-examples.md %})
 .
 
-The following templates are intended to be redefined, and you will probably want to change at least `banner`, `homePage` and `website`:
-
-**banner** Banner text on each page.
+The following templates are intended to be redefined:
 
 **copyrightNotice** Copyright statement for the Copyright and Privacy page.
 
@@ -15,13 +13,11 @@ The following templates are intended to be redefined, and you will probably want
 
 **favicons** Favicon links and meta tags. There is no need to redefine this if you use the same names as the default set.
 
-**homePage** Site description shown on the home page.
-
 **homePageMeta** Metadata for the home page. See [Search Engine Settings]({{ site.baseurl }}{% link search-engine-settings.md %}).
 
 **signupPage** Welcome text on the signup page.
 
-**website** Website name, added to page titles and shown on log-in page.
+**website** Website name shown on log-in page.
 
 ### Graphics
 Files in `images/` replace the default brand and favicon images for PicInch.

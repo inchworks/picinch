@@ -161,8 +161,11 @@ func (s *GalleryState) setLastModified() {
 
 func (s *GalleryState) setupCache(g *models.Gallery) (warn []string, err error) {
 
-	// cache gallery record for dynamic parameters
+	// cache gallery record for dynamic parameters, with defaults
 	s.gallery = g
+	if s.gallery.Title == "" {
+		s.gallery.Title = s.gallery.Organiser
+	}
 
 	// assume everything has changed on server restart
 	s.setLastModified()

@@ -19,16 +19,16 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}{{ .Title }}{{end}}
+{{define "title"}}{{ .Meta.Title }}{{end}}
 
 {{define "pagemeta"}}
-	<meta name="description" content="Diary of events.">
-    <meta name="robots" content="noindex">
+	<meta name="description" content="{{ .Meta.Description }}">
+    {{if .Meta.NoIndex}}<meta name="robots" content="noindex">{{end}}
 {{end}}
 
 {{define "page"}}
 	<div class="container">
-		<h3>{{ .Title }}</h3>
+		<h1>{{ .Title }}</h1>
         <p>{{ .Caption }}</p>
 		<div>
             {{range .Events}}

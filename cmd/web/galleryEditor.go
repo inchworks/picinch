@@ -178,6 +178,7 @@ func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
 	var d = make(url.Values)
 	f = multiforms.New(d, tok)
 	f.Set("organiser", s.gallery.Organiser)
+	f.Set("title", s.gallery.Title)
 	f.Set("events", s.gallery.Events)
 	f.Set("nMaxSlides", strconv.Itoa(s.gallery.NMaxSlides))
 	f.Set("nShowcased", strconv.Itoa(s.gallery.NShowcased))
@@ -189,13 +190,14 @@ func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
 //
 // Returns HTTP status or 0.
 
-func (s *GalleryState) OnEditGallery(organiser string, events string, nMaxSlides int, nShowcased int) int {
+func (s *GalleryState) OnEditGallery(organiser string, title string, events string, nMaxSlides int, nShowcased int) int {
 
 	// serialisation
 	defer s.updatesGallery()()
 
 	// save changes via cache (conversions already checked)
-	s.gallery.Organiser = organiser
+	s.gallery.Organiser = sanitise(organiser)
+	s.gallery.Title = title
 	s.gallery.Events = events
 	s.gallery.NMaxSlides = nMaxSlides
 	s.gallery.NShowcased = nShowcased
@@ -453,7 +455,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 	// update cached page
 	if cached && updated {
-		s.publicPages.SetInformation(show, slides)
+		s.publicPages.SetSections(showId, slides)
 	}
 
 	return 0, userId

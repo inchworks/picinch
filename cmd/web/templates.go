@@ -37,7 +37,7 @@ import (
 // which template we have
 
 type TemplateData interface {
-	addDefaultData(app *Application, r *http.Request, name string)
+	addDefaultData(app *Application, r *http.Request, name string, addSite bool)
 }
 
 type DataCommon struct {
@@ -55,11 +55,12 @@ type DataCommon struct {
 	IsGallery       bool // gallery with contributors
 	IsMember        bool // user is member
 
-	Page  string
-	Menus []*cache.MenuItem
+	Menus     []*cache.MenuItem
+	Page      string // unused, kept for version compatibility
+	SiteTitle string // short name for page titles
 }
 
-func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page string) {
+func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page string, addSite bool) {
 
 	d.CSRFToken = nosurf.Token(r)
 	d.Flash = app.session.PopString(r.Context(), "flash")
@@ -70,9 +71,20 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page stri
 	d.IsFriend = app.isAuthenticated(r, models.UserFriend)
 	d.IsGallery = true // ## no non-gallery configuration yet
 	d.IsMember = app.isAuthenticated(r, models.UserMember)
-	d.Page = page
-	d.Menus = app.galleryState.publicPages.MainMenu
 
+	if addSite {
+		d.SiteTitle = "| " + app.galleryState.gallery.Title
+	}
+
+	d.Menus = app.galleryState.publicPages.MainMenu
+	d.Page = page
+}
+
+// metadata for diary and information pages
+type DataMeta struct {
+	Title       string
+	Description string
+	NoIndex     bool
 }
 
 // template data for display pages
@@ -83,6 +95,7 @@ type dataCompetition struct {
 }
 
 type DataDiary struct {
+	Meta    DataMeta
 	Title   string
 	Caption template.HTML
 	Events  []*DataEvent
@@ -96,6 +109,8 @@ type DataEvent struct {
 }
 
 type DataHome struct {
+	Meta        DataMeta
+	Title       string
 	DisplayName string
 	Top         []*cache.Section
 	HEvents     string
@@ -107,6 +122,7 @@ type DataHome struct {
 }
 
 type DataInfo struct {
+	Meta     DataMeta
 	Title    string
 	Caption  template.HTML
 	Sections []*cache.Section
@@ -269,6 +285,7 @@ type slidesFormData struct {
 	Form      *form.SlidesForm
 	Title     string
 	Accept    string
+	IsHome    bool
 	MaxUpload int // in MB
 	DataCommon
 }

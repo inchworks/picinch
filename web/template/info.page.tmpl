@@ -8,11 +8,17 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}{{ .Title }}{{end}}
+{{define "title"}}{{ .Meta.Title }}{{end}}
+
+{{define "pagemeta"}}
+	  <meta name="description" content="{{ .Meta.Description }}">
+    {{if .Meta.NoIndex}}<meta name="robots" content="noindex">{{end}}
+{{end}}
+
 
 {{define "page"}}
     <div class="container">
-		<h2>{{ .Title }}</h2>
+		<h1>{{ .Title }}</h1>
         <p>{{ .Caption }}</p>
         {{range .Sections}}
             <div>{{ .Div }}</div>

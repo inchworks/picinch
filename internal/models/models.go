@@ -59,9 +59,10 @@ const (
 	UserSystem  = 10
 
 	// field sizes
-	MaxName   = 60
-	MaxTitle  = 128
-	MaxDetail = 512
+	MaxName     = 60
+	MaxTitle    = 128
+	MaxDetail   = 512
+	MaxMarkdown = 4096
 )
 
 var (
@@ -77,10 +78,11 @@ type Gallery struct {
 	Version int
 
 	// parameters
-	Organiser  string
+	Organiser  string // website name
+	Title      string // for page titles, defaults to organiser
 	Events     string // heading for next events
-	NMaxSlides int `db:"n_max_slides"`
-	NShowcased int `db:"n_showcased"`
+	NMaxSlides int    `db:"n_max_slides"`
+	NShowcased int    `db:"n_showcased"`
 
 	// announcements
 	NoticePublic string // appears on home page
@@ -93,6 +95,7 @@ type Page struct {
 	Format      int
 	Menu        string
 	Description string // for <meta>
+	NoIndex     bool
 	Title       string // for <title>
 }
 
@@ -151,7 +154,8 @@ type PageSlideshow struct {
 	PageFormat  int
 	Menu        string
 	Description string
-	PageTitle   string
+	MetaTitle   string
+	NoIndex     bool
 	Slideshow
 }
 

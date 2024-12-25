@@ -28,11 +28,11 @@
 {{define "page"}}
 
 	<div class="container">
-		<h3>{{ .Title }}</h3>
+		<h1>{{ .Title }}</h1>
 
        <div>
             {{range .Usage}}
- 		        <h4>{{ .Date }}</h4>
+ 		        <h2>{{ .Date }}</h2>
                 <table class="table table-sm table-striped">
                     <tbody>
                         {{range .Stats}}

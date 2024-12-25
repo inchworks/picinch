@@ -32,15 +32,20 @@ import (
 	"inchworks.com/picinch/internal/models"
 
 	"github.com/inchworks/webparts/v2/etx"
+	"github.com/inchworks/webparts/v2/multiforms"
 )
 
 // ForEditDiary returns data to edit events.
-func (s *GalleryState) ForEditDiary(diaryId int64, tok string) (f *form.DiaryForm) {
+func (s *GalleryState) ForEditDiary(diaryId int64, tok string) (f *form.DiaryForm, diary *models.PageSlideshow) {
 
 	// serialisation
 	defer s.updatesNone()()
 
-	// #### check it is really a diary
+	// diary
+	diary = s.app.PageStore.GetByShowIf(diaryId)
+	if diary == nil || diary.PageFormat != models.PageDiary {
+		return nil, nil // not a diary
+	}
 
 	// get events
 	events := s.app.SlideStore.AllEvents(diaryId)
@@ -49,7 +54,7 @@ func (s *GalleryState) ForEditDiary(diaryId int64, tok string) (f *form.DiaryFor
 	var d = make(url.Values)
 	f = form.NewEvents(d, 10, tok)
 	f.Set("nDiary", strconv.FormatInt(diaryId, 36))
-
+	f.Set("caption", diary.Caption)
 
 	// add template and events to form
 	f.AddTemplate(len(events))
@@ -62,16 +67,29 @@ func (s *GalleryState) ForEditDiary(diaryId int64, tok string) (f *form.DiaryFor
 
 // OnEditDiary processes changes when diary events are modified.
 // It returns 0 or an HTTP status code.
-func (s *GalleryState) OnEditDiary(nDiary int64, rsSrc []*form.EventFormData) (int, etx.TxId) {
+func (s *GalleryState) OnEditDiary(diaryId int64, caption string, rsSrc []*form.EventFormData) int {
 
 	// serialisation
 	defer s.updatesGallery()()
 
-	// start extended transaction
-	tx := s.app.tm.Begin()
+	// ## handle uploaded images here
 
-	// compare modified slideshows against current ones, and update
-	rsDest := s.app.SlideStore.AllEvents(nDiary)
+	// update caption
+	updated := false
+	show := s.app.PageStore.GetByShowIf(diaryId)
+	if show == nil {
+		return s.rollback(http.StatusBadRequest, nil)
+	}
+	if caption != show.Caption {
+		show.Caption = caption
+		if err := s.app.SlideshowStore.Update(&show.Slideshow); err != nil {
+			return s.rollback(http.StatusBadRequest, err)
+		}
+		updated = true
+	}
+
+	// compare modified slides against current ones, and update
+	rsDest := s.app.SlideStore.AllEvents(diaryId)
 	nSrc := len(rsSrc)
 	nDest := len(rsDest)
 
@@ -89,7 +107,7 @@ func (s *GalleryState) OnEditDiary(nDiary int64, rsSrc []*form.EventFormData) (i
 		} else if iDest == nDest {
 			// no more destination events - add new one
 			qd := models.Slide{
-				Slideshow: nDiary,
+				Slideshow: diaryId,
 				Format:    s.app.eventFormat(rsSrc[iSrc]),
 				Created:   rsSrc[iSrc].Publish,
 				Revised:   rsSrc[iSrc].Start,
@@ -129,13 +147,86 @@ func (s *GalleryState) OnEditDiary(nDiary int64, rsSrc []*form.EventFormData) (i
 
 			} else {
 				// out of sequence index
-				return s.rollback(http.StatusBadRequest, nil), 0
+				return s.rollback(http.StatusBadRequest, nil)
 			}
 		}
 	}
 
-	return 0, tx
+	// update cached page
+	if updated {
+		s.publicPages.SetDiary(show, nil)
+	}
+
+	return 0
 }
+
+// ForEditMetadata returns data to edit information page metadata.
+func (s *GalleryState) ForEditMetadata(pageId int64, tok string) (f *multiforms.Form) {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// page
+	page := s.app.PageStore.GetIf(pageId)
+	if page == nil {
+		return nil // not a page
+	}
+
+	// form
+	var d = make(url.Values)
+	f = multiforms.New(d, tok)
+
+	f.Set("nPage", strconv.FormatInt(pageId, 36))
+	f.Set("title", page.Title)
+	f.Set("desc", page.Description)
+	f.Set("noIndex", checked(page.NoIndex))
+
+	return
+}
+
+// OnEditMetadata processes changes when the metadata for an information page is modified.
+// It returns 0 or an HTTP status code.
+func (s *GalleryState) OnEditMetadata(showId int64, title string, desc string, noIndex bool) int {
+
+	// serialisation
+	defer s.updatesGallery()()
+
+	// updates
+	updated := false
+	page := s.app.PageStore.GetByShowIf(showId)
+	if page == nil {
+		return s.rollback(http.StatusBadRequest, nil)
+	}
+	if title != page.MetaTitle {
+		page.MetaTitle = title
+		updated = true
+	}
+	if desc != page.Description {
+		page.Description = desc
+		updated = true
+	}
+	if noIndex != page.NoIndex {
+		page.NoIndex = noIndex
+		updated = true
+	}
+
+	if !updated {
+		return 0
+	}
+
+	// update just the page record, not the join
+	if err := s.app.PageStore.UpdateFrom(page); err != nil {
+		return s.rollback(http.StatusBadRequest, err)
+	}
+
+	// update cached page metadata
+	if updated {
+		s.publicPages.SetMetadata(page)
+	}
+
+	return 0
+}
+
 
 // ForEditPages returns the form data to edit all information pages.
 func (s *GalleryState) ForEditPages(fmt int, tok string) (f *form.PagesForm) {
@@ -153,7 +244,7 @@ func (s *GalleryState) ForEditPages(fmt int, tok string) (f *form.PagesForm) {
 	// add template and pages to form
 	f.AddTemplate()
 	for i, pg := range pages {
-		f.Add(i, pg.Menu, pg.Title)
+		f.Add(i, pg.Menu, pg.Title, pg.PageId)
 	}
 
 	return
@@ -196,7 +287,7 @@ func (s *GalleryState) OnEditPages(fmt int, rsSrc []*form.PageFormData) (int, et
 			r := models.PageSlideshow{
 				Menu: rsSrc[iSrc].Menu,
 				PageFormat: fmt,
-				PageTitle: rsSrc[iSrc].Title, // default
+				MetaTitle: rsSrc[iSrc].Title, // default
 				Slideshow: models.Slideshow{
 					Access:       models.SlideshowPublic,
 					Visible:      models.SlideshowPublic,
@@ -224,8 +315,8 @@ func (s *GalleryState) OnEditPages(fmt int, rsSrc []*form.PageFormData) (int, et
 				rDest := rsDest[iDest]
 
 				if rSrc.Menu != rDest.Menu || rSrc.Title != rDest.Title {
-					if rDest.PageTitle == rDest.Title {
-						rDest.PageTitle = rSrc.Title // still defaulted
+					if rDest.MetaTitle == rDest.Title {
+						rDest.MetaTitle = rSrc.Title // still defaulted
 					}
 					rDest.Menu = rSrc.Menu
 					rDest.Title = rSrc.Title

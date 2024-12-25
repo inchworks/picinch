@@ -285,7 +285,7 @@ func (app *Application) home(w http.ResponseWriter, r *http.Request, member bool
 		return
 	}
 
-	app.render(w, r, "home.page.tmpl", data)
+	app.render2(w, r, "home.page.tmpl", data, false)
 }
 
 // info returns a configurable slideshow or static page for the website.

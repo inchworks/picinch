@@ -29,12 +29,19 @@
 
 	<div class="container">
 
-		<h2>{{ .Title }}</h2>
+		<h1>{{ .Title }}</h1>
 
 		<form action='/edit-diary' method='POST' enctype="multipart/form-data" >
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
 				<input type='hidden' name='nDiary' value='{{.Get "nDiary"}}'>
+				<div class="row mb-2">
+					<label class="col-md-1 col-form-label">Text</label>
+					<div class="col-md-8">
+						<textarea name='caption' rows='8' class='form-control {{.ChildValid "caption"}}'>{{ .Caption }}</textarea>
+						<div class='invalid-feedback'>{{ .ChildError "caption"}}</div>
+					</div>
+				</div>
  				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>

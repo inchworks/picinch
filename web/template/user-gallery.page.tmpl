@@ -28,9 +28,9 @@
 {{define "page"}}
 
 	<div class="container pb-3">
-		<h3>{{ .DisplayName }}</h3>
+		<h1>{{ .DisplayName }}</h1>
 
-		<h4>Topics</h4>
+		<h2>Topics</h2>
         {{range .Topics}}
             <div class="row">
                 <div class="col-xl-6 col-lg-5 col-md-4 col-sm-6">
@@ -50,7 +50,7 @@
     </div>
     <div class="container">
 
-		<h4>Slideshows</h4>
+		<h2>Slideshows</h2>
         {{range .Slideshows}}
             <div class="row">
                 <div class="col-xl-6 col-lg-5 col-md-4 col-sm-6">

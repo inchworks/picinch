@@ -142,15 +142,16 @@ type Configuration struct {
 	TimeoutDownload   time.Duration   `yaml:"timeout-download" env-default:"2m"`                               // maximum time for file download. Units m.
 	TimeoutUpload     time.Duration   `yaml:"timeout-upload" env-default:"5m"`                                 // maximum time for file upload. Units m.
 	TimeoutWeb        time.Duration   `yaml:"timeout-web" env-default:"20s"`                                   // maximum time for web request, same for response (default). Units s or m.
-	UsageAnonymised   usage.Anonymise `yaml:"usage-anon" env-default:"1"`
-	VideoSnapshot time.Duration `yaml:"video-snapshot"  env-default:"3s"`                       // snapshot time within video. -ve for no snapshots.
+	UsageAnonymised   usage.Anonymise `yaml:"usage-anon" env-default:"1"`                                      // 0: anonymise daily, 1: immediate
+	VideoSnapshot     time.Duration   `yaml:"video-snapshot"  env-default:"3s"`                                // snapshot time within video. -ve for no snapshots.
 
 	// variants
-	HomeSwitch    string        `yaml:"home-switch" env:"home-switch" env-default:""`           // switch home page to specified template, e.g when site disabled
-	MiscName      string        `yaml:"misc-name" env:"misc-name" env-default:"misc"`           // path in URL for miscellaneous files, as in "example.com/misc/file"
-	Options       string        `yaml:"options" env:"options" env-default:""`                   // site features: main-comp, with-comp
-	VideoPackage  string        `yaml:"video-package" env:"video-package" env-default:"ffmpeg"` // video processing package
-	VideoTypes    []string      `yaml:"video-types" env:"video-types" env-default:""`           // video types (.mp4, .mov, etc.)
+	DateFormat   string   `yaml:"date-format" env:"date-format" env-default:"2 January"`  // date format, using Go reference time 01/02 03:04:05PM '06
+	HomeSwitch   string   `yaml:"home-switch" env:"home-switch" env-default:""`           // switch home page to specified template, e.g when site disabled
+	MiscName     string   `yaml:"misc-name" env:"misc-name" env-default:"misc"`           // path in URL for miscellaneous files, as in "example.com/misc/file"
+	Options      string   `yaml:"options" env:"options" env-default:""`                   // site features: main-comp, with-comp
+	VideoPackage string   `yaml:"video-package" env:"video-package" env-default:"ffmpeg"` // video processing package
+	VideoTypes   []string `yaml:"video-types" env:"video-types" env-default:""`           // video types (.mp4, .mov, etc.)
 
 	// email
 	EmailHost     string `yaml:"email-host" env:"email-host" env-default:""`
@@ -228,9 +229,9 @@ type Application struct {
 	chTopic chan OpUpdateTopic
 
 	// private components
-	emailer     emailer.Emailer
-	tagger      tags.Tagger
-	staticFS    fs.FS
+	emailer  emailer.Emailer
+	tagger   tags.Tagger
+	staticFS fs.FS
 
 	// HTML handlers for threats detected by application logic
 	wrongCode http.Handler
@@ -650,7 +651,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	}
 
 	app.userStore.InitSystem()
-	
+
 	return g
 }
 

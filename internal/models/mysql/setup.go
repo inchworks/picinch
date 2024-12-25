@@ -47,13 +47,14 @@ var cmds = [...]string{
 	`CREATE TABLE gallery (
 	id int(11) NOT NULL AUTO_INCREMENT,
 	organiser varchar(60) NOT NULL,
+	title varchar(60) NOT NULL,
 	events varchar(128) NOT NULL,
 	n_max_slides int(11) NOT NULL,
 	n_showcased int(11) NOT NULL,
 	PRIMARY KEY (id));`,
 
-	`INSERT INTO gallery (id, version, organiser, n_max_slides, n_showcased) VALUES
-	(1,	1, 'PicInch Gallery', 10, 2);`,
+	`INSERT INTO gallery (id, version, organiser, title, n_max_slides, n_showcased) VALUES
+	(1,	1, 'PicInch Gallery', '', 10, 2);`,
 
 	`CREATE TABLE page (
 		id int(11) NOT NULL AUTO_INCREMENT,
@@ -61,6 +62,7 @@ var cmds = [...]string{
 		format int(11) NOT NULL,
 		menu varchar(128) NOT NULL,
 		description varchar(128) NOT NULL,
+		noindex bool NOT NULL,
 		title varchar(128) NOT NULL,
 		PRIMARY KEY (id),
 		KEY IDX_SLIDESHOW (slideshow),
@@ -109,7 +111,7 @@ var cmds = [...]string{
 	created datetime NOT NULL,
 	revised datetime NOT NULL,
 	title varchar(128) NOT NULL,
-	caption varchar(512) NOT NULL,
+	caption varchar(4096) NOT NULL,
 	format varchar(16) NOT NULL,
 	image varchar(256) NOT NULL,
 	etag varchar(64) NOT NULL,
@@ -184,14 +186,18 @@ var cmds = [...]string{
 		(1,	1, 10, 2, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '', ''),
 		(2,	1, 0, 2, 2, 1, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Home Page', '', '', '', '');`,
 
-	`INSERT INTO page (id, slideshow, format, menu, description, title) VALUES
-		(2,	2, 2, ".", "", "");`,
+	`INSERT INTO page (id, slideshow, format, menu, description, noindex, title) VALUES
+		(2,	2, 2, false, ".", "", "");`,
 }
 
 var cmdsInfo = [...]string{
-	`ALTER TABLE gallery ADD COLUMN events varchar(128) NOT NULL;`,
+	`ALTER TABLE gallery
+		ADD COLUMN title varchar(60) NOT NULL,
+		ADD COLUMN events varchar(128) NOT NULL;`,
 
 	`ALTER TABLE slide MODIFY COLUMN caption varchar(4096) NOT NULL;`,
+
+	`ALTER TABLE slideshow MODIFY COLUMN caption varchar(4096) NOT NULL;`,
 
 	`CREATE TABLE page (
 		id int(11) NOT NULL AUTO_INCREMENT,

@@ -264,6 +264,12 @@ func (s *GalleryState) DisplayHome(member bool) *DataHome {
 
 	// template and its data
 	return &DataHome{
+		Meta: DataMeta{
+			Title:       pg.MetaTitle,
+			Description: pg.Description,
+			NoIndex:     pg.NoIndex,
+		},
+		Title:       s.gallery.Title,
 		DisplayName: s.gallery.Organiser,
 		Top:         top,
 		HEvents:     s.gallery.Events,

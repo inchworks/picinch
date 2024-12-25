@@ -40,6 +40,11 @@ func (s *GalleryState) DisplayDiary(name string) (data *DataDiary) {
 
 	// diary data
 	return &DataDiary{
+		Meta: DataMeta{
+			Title:       d.MetaTitle,
+			Description: d.Description,
+			NoIndex:     d.NoIndex,
+		},
 		Title:   d.Title,
 		Caption: d.Caption,
 		Events:  s.dataEvents(d.Id, 100),
@@ -59,6 +64,11 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 
 		template = "info.page.tmpl"
 		data = &DataInfo{
+			Meta: DataMeta{
+				Title:       pg.MetaTitle,
+				Description: pg.Description,
+				NoIndex:     pg.NoIndex,
+			},
 			Title:    pg.Title,
 			Caption:  pg.Caption,
 			Sections: pg.Sections,
@@ -123,12 +133,14 @@ func (s *GalleryState) dataEvents(id int64, max int) []*DataEvent {
 	var evs []*models.Slide
 
 	if id == 0 {
-		// start of today
-		y, m, d := time.Now().Date()
-		from = time.Date(y, m, d, 0, 0, 0, 0, time.Local)
+		if max > 0 {
+			// start of today
+			y, m, d := time.Now().Date()
+			from = time.Date(y, m, d, 0, 0, 0, 0, time.Local)
 
-		// get events following start time
-		evs = s.app.SlideStore.NextEvents(models.SlideshowPublic, from, max)
+			// get events following start time
+			evs = s.app.SlideStore.NextEvents(models.SlideshowPublic, from, max)
+		}
 
 	} else {
 		// all events for diary
@@ -139,7 +151,7 @@ func (s *GalleryState) dataEvents(id int64, max int) []*DataEvent {
 	var dataEvs []*DataEvent
 	for _, ev := range evs {
 		dataEvs = append(dataEvs, &DataEvent{
-			Start:   ev.Revised.Format("2 January"),
+			Start:   ev.Revised.Format(s.app.cfg.DateFormat),
 			Title:   models.Nl2br(ev.Title),
 			Details: models.Nl2br(ev.Caption),
 		})
