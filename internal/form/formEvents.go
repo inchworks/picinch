@@ -66,7 +66,7 @@ func (f *DiaryForm) AddTemplate(nSlides int) {
 	})
 }
 
-// GetSlides returns event slides as structs. They are sent as arrays of values for each field name.
+// GetEvents returns event slides as structs. They are sent as arrays of values for each field name.
 func (f *DiaryForm) GetEvents(vt ValidTypeFunc) (items []*EventFormData, err error) {
 
 	now := time.Now()

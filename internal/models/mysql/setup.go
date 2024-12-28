@@ -53,15 +53,15 @@ var cmds = [...]string{
 	n_showcased int(11) NOT NULL,
 	PRIMARY KEY (id));`,
 
-	`INSERT INTO gallery (id, version, organiser, title, n_max_slides, n_showcased) VALUES
-	(1,	1, 'PicInch Gallery', '', 10, 2);`,
+	`INSERT INTO gallery (id, version, organiser, title, events, n_max_slides, n_showcased) VALUES
+	(1,	1, 'PicInch Gallery', '| PicInch', 'Next Event', 10, 2);`,
 
 	`CREATE TABLE page (
 		id int(11) NOT NULL AUTO_INCREMENT,
 		slideshow int(11) NOT NULL,
 		format int(11) NOT NULL,
 		menu varchar(128) NOT NULL,
-		description varchar(128) NOT NULL,
+		description varchar(512) NOT NULL,
 		noindex bool NOT NULL,
 		title varchar(128) NOT NULL,
 		PRIMARY KEY (id),
@@ -184,16 +184,18 @@ var cmds = [...]string{
 
 	`INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag) VALUES
 		(1,	1, 10, 2, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '', ''),
-		(2,	1, 0, 2, 2, 1, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Home Page', '', '', '', '');`,
+		(2,	1, 0, 2, 2, 1, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', '', '', '', '', '');`,
 
 	`INSERT INTO page (id, slideshow, format, menu, description, noindex, title) VALUES
-		(2,	2, 2, false, ".", "", "");`,
+		(1,	2, 2, "", "This is a club photo gallery.", false, "");`,
 }
 
 var cmdsInfo = [...]string{
 	`ALTER TABLE gallery
 		ADD COLUMN title varchar(60) NOT NULL,
 		ADD COLUMN events varchar(128) NOT NULL;`,
+	
+	`UPDATE gallery SET title=CONCAT('| ', organiser), events='Next Event' WHERE id=1;`,
 
 	`ALTER TABLE slide MODIFY COLUMN caption varchar(4096) NOT NULL;`,
 
@@ -204,11 +206,13 @@ var cmdsInfo = [...]string{
 		slideshow int(11) NOT NULL,
 		format int(11) NOT NULL,
 		menu varchar(128) NOT NULL,
+		description varchar(512) NOT NULL,
+		noindex bool NOT NULL,
 		title varchar(128) NOT NULL,
-		description varchar(128) NOT NULL,
 		PRIMARY KEY (id),
 		KEY IDX_SLIDESHOW (slideshow),
 		CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,
+
 
 	`INSERT INTO user (parent, username, name, role, status, password, created) VALUES
 		(1, 'SystemInfo', 'System Info', 10, -1, '', '2024-12-01 15:52:42');`,
@@ -385,23 +389,22 @@ func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageSto
 	}
 
 	// add home page
-	s := sysShow(stSlideshow.GalleryId, u.Id, "Home Page", "")
+	s := sysShow(stSlideshow.GalleryId, u.Id, "", "")
 	if err := stSlideshow.Update(s); err != nil {
 		return err
 	}
-	if err := stPage.Update(sysPage(s.Id, models.PageHome, ".", "Home Page")); err != nil {
+	if err := stPage.Update(sysPage(s.Id, models.PageHome, "This is a club photo gallery.")); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func sysPage(showId int64, format int, menu string, title string) *models.Page {
+func sysPage(showId int64, format int, desc string) *models.Page {
 	return &models.Page{
 		Slideshow: showId,
 		Format:    format,
-		Menu:      menu,
-		Title:     title,
+		Description: desc,
 	}
 }
 

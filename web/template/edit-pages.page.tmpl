@@ -19,7 +19,7 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}Edit Pages{{end}}
+{{define "title"}}Edit {{ .Heading }}{{end}}
 
 {{define "pagemeta"}}
     <meta name="robots" content="noindex">
@@ -28,36 +28,58 @@
 {{define "page"}}
 
 	<div class="container">
-		<h1>Information Pages</h1>
+		<h1>{{ .Heading }}</h1>
 
-		<form action='/edit-pages/0' method='POST'>
+		<form action='{{ .Action }}/0' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
 				{{ $visibleOpts := .VisibleOpts }}
 
+				{{if .Children}}
+					<div class="row mb-1">
+        				<label class="col-xl-6 col-lg-5 col-md-5 col-sm-4 col-form-label">Heading</label>
+						<label class="col-xl-4 col-lg-3 col-md-3 col-sm-4 col-form-label">Menu or "."Name</label>
+        			</div>
+				{{end}}
+
+				{{if $.HomeName}}
+					<div class="row mb-2">
+						<div class="col-xl-6 col-lg-5 col-md-5 col-sm-4">
+							<input type='text' class='form-control' placeholder='{{ $.HomeName }}' disabled>
+						</div>
+						<div class="col-xl-4 col-lg-3 col-md-4 col-sm-4">
+							<input type='text' class='form-control' placeholder='Gallery' disabled>
+						</div>
+						<div class="col-xl-1 col-lg-2 col-md-2 col-sm-2 offset-xl-1 offset-lg-2 offset-md-2 offset-sm-2">
+							<button type='submit' formaction='{{ $.Action }}/{{ $.HomePage }}' class="btn btn-primary">Metadata</button>
+						</div>
+					</div>
+				{{end}}
+			
 				<div id="formChildren">
 					{{range .Children}}
 						<div class='childForm' {{ .ChildStyle }}>
 							<input type='hidden' name='index' value='{{.ChildIndex }}'>								
+							<input type='hidden' name='page' value='{{.Page }}'>								
 							<div class="row mb-2">
-								<div class="col-xl-6 col-lg-4 col-md-4 col-sm-4">
-									<label class="visually-hidden">Title</label>
-									<input type='text' class='form-control {{.ChildValid "title"}}' placeholder='Title' name='title' value='{{ .Title }}'>
+								<div class="col-xl-6 col-lg-5 col-md-5 col-sm-4">
+									<label class="visually-hidden">Heading</label>
+									<input type='text' class='form-control {{.ChildValid "title"}}' placeholder='Heading' name='title' value='{{ .Title }}'>
 									<div class='invalid-feedback'>{{.ChildError "title"}}</div>
 								</div>
-								<div class="col-xl-4 col-lg-4 col-md-4 col-sm-4">
-									<div class='input-group'>
-										<span class="input-group-text">Menu</span>
-										<input type='text' class='form-control {{.ChildValid "title"}}' placeholder='Menu' name='menu' value='{{ .Menu }}'>
-										<div class='invalid-feedback'>{{.ChildError "menu"}}</div>
-									</div>
+								<div class="col-xl-4 col-lg-3 col-md-4 col-sm-4">
+									<label class="visually-hidden">Menu</label>
+									<input type='text' class='form-control {{.ChildValid "title"}}' placeholder='Menu' name='menu' value='{{ .Menu }}'>
+									<div class='invalid-feedback'>{{.ChildError "menu"}}</div>
 								</div>
 								<div class="col-xl-1 col-lg-2 col-md-2 col-sm-2">
 									<a href="#" class='btn btn-secondary btnConfirmDelChild'>Delete</a>
 								</div>
-								<div class="col-xl-1 col-lg-2 col-md-2 col-sm-2">
-									<button type='submit' formaction='/edit-pages/{{ .Page }}' class="btn btn-primary">Metadata</button>
-								</div>
+								{{if .Page}}
+									<div class="col-xl-1 col-lg-2 col-md-2 col-sm-2">
+										<button type='submit' formaction='{{ $.Action }}/{{ .Page }}' class="btn btn-primary">Metadata</button>
+									</div>
+								{{end}}
 							</div>
 						</div>
 					{{end}}

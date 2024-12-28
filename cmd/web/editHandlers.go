@@ -254,7 +254,7 @@ func (app *Application) postFormDiary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f.MaxLength("caption", models.MaxMarkdown)
+	f.MaxLength("diaryCaption", models.MaxMarkdown)
 
 	// redisplay form if data invalid
 	if !f.Valid() {
@@ -267,7 +267,7 @@ func (app *Application) postFormDiary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save changes
-	status := app.galleryState.OnEditDiary(nDiary, f.Get("caption"), events)
+	status := app.galleryState.OnEditDiary(nDiary, f.Get("diaryCaption"), events)
 	if status == 0 {
 		app.redirectWithFlash(w, r, "/members", "Event changes saved.")
 
@@ -286,53 +286,16 @@ func (app *Application) getFormDiaries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// display form
-	app.render(w, r, "edit-diaries.page.tmpl", &pagesFormData{
+	app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
 		Form: f,
+		Action: "/edit-diaries",
+		Heading: "Diaries",
 	})
 }
 
 func (app *Application) postFormDiaries(w http.ResponseWriter, r *http.Request) {
 
-	err := r.ParseForm()
-	if err != nil {
-		app.httpBadRequest(w, err)
-		return
-	}
-
-	// process form data
-	f := form.NewPages(r.PostForm, nosurf.Token(r))
-	pages, err := f.GetPages()
-	if err != nil {
-		app.httpBadRequest(w, err)
-		return
-	}
-
-	// redisplay form if data invalid
-	if !f.Valid() {
-		app.render(w, r, "edit-diaries.page.tmpl", &pagesFormData{
-			Form: f,
-		})
-		return
-	}
-
-	// save changes
-	status, tx := app.galleryState.OnEditPages(models.PageDiary, pages)
-	if status == 0 {
-
-		// rebuild page cache
-		warn := app.galleryState.cachePages()
-
-		// claim updated media, now that update is committed
-		app.tm.Do(tx)
-
-		app.redirectWithFlash(w, r, "/members", warnings(
-			"Page changes saved.",
-			"Conflicting page menu items:",
-			warn))
-
-	} else {
-		http.Error(w, http.StatusText(status), status)
-	}
+	app.postFormPages(w, r, models.PageDiary, "/edit-diaries", "Diaries")
 }
 
 // Main form to setup gallery
@@ -381,6 +344,30 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	} else {
 		http.Error(w, http.StatusText(status), status)
 	}
+}
+
+// Form to setup information pages.
+func (app *Application) getFormInfo(w http.ResponseWriter, r *http.Request) {
+
+	f := app.galleryState.ForEditPages(models.PageInfo, nosurf.Token(r))
+	if f == nil {
+		httpNotFound(w)
+		return
+	}
+
+	// display form
+	app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
+		Form: f,
+		Action: "/edit-info",
+		Heading: "Information Pages",
+		HomeName: app.galleryState.gallery.Organiser,
+		HomePage: strconv.FormatInt(app.galleryState.homeId(), 36),
+	})
+}
+
+func (app *Application) postFormInfo(w http.ResponseWriter, r *http.Request) {
+
+	app.postFormPages(w, r, models.PageInfo, "/edit-info", "Information Pages")
 }
 
 // postFormImage handles an uploaded media file
@@ -452,10 +439,15 @@ func (app *Application) getFormMetadata(w http.ResponseWriter, r *http.Request) 
 	ps := httprouter.ParamsFromContext(r.Context())
 	pageId, _ := strconv.ParseInt(ps.ByName("nId"), 10, 64)
 
-	f := app.galleryState.ForEditMetadata(pageId, nosurf.Token(r))
+	f, page := app.galleryState.ForEditMetadata(pageId, nosurf.Token(r))
+	if f == nil {
+		httpNotFound(w)
+		return
+	}
 
 	// display form
-	app.render(w, r, "edit-metadata.page.tmpl", &simpleFormData{
+	app.render(w, r, "edit-metadata.page.tmpl", &metaFormData{
+		Title: page.Title,
 		Form: f,
 	})
 }
@@ -477,21 +469,29 @@ func (app *Application) postFormMetadata(w http.ResponseWriter, r *http.Request)
 	}
 
 	f.MaxLength("title", models.MaxTitle)
-	f.MaxLength("desc", models.MaxTitle)
+	f.MaxLength("desc", models.MaxDetail)
 	noIndex := f.Get("noIndex") != "" // any non-empty string means true
 
 	// redisplay form if data invalid
 	if !f.Valid() {
-		app.render(w, r, "edit-gallery.page.tmpl", &simpleFormData{
+		t := app.galleryState.SlideshowTitle(pageId)
+
+		app.render(w, r, "edit-metadata.page.tmpl", &metaFormData{
+			Title: t,
 			Form: f,
 		})
 		return
 	}
 
 	// save changes
-	status := app.galleryState.OnEditMetadata(pageId, f.Get("title"), f.Get("description"), noIndex)
+	status, url := app.galleryState.OnEditMetadata(pageId, f.Get("title"), f.Get("desc"), noIndex)
+
+	// next
 	if status == 0 {
-		app.redirectWithFlash(w, r, "/setup", "Page metadata saved.")
+		app.redirectWithFlash(w, r, url, "Page metadata saved.")
+
+	} else if status < 0 {
+			http.Redirect(w, r, url, http.StatusSeeOther)
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -517,7 +517,7 @@ func (app *Application) getFormPage(w http.ResponseWriter, r *http.Request) {
 		Form:      f,
 		Title:     slideshow.Title,
 		Accept:    app.accept(),
-		IsHome:    app.isHome(pageId),
+		IsHome:    app.galleryState.isHome(pageId),
 		MaxUpload: app.cfg.MaxUpload,
 	})
 }
@@ -556,7 +556,7 @@ func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
 			Form:      f,
 			Title:     t,
 			Accept:    app.accept(),
-			IsHome:    app.isHome(nPage),
+			IsHome:    app.galleryState.isHome(nPage),
 			MaxUpload: app.cfg.MaxUpload,
 		})
 		return
@@ -575,22 +575,8 @@ func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Form to setup information pages
-func (app *Application) getFormPages(w http.ResponseWriter, r *http.Request) {
-
-	f := app.galleryState.ForEditPages(models.PageInfo, nosurf.Token(r))
-	if f == nil {
-		httpNotFound(w)
-		return
-	}
-
-	// display form
-	app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
-		Form: f,
-	})
-}
-
-func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request) {
+// Common handling of forms to update information and diary pages.
+func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request, format int, action string, heading string) {
 
 	// page for detail editing
 	ps := httprouter.ParamsFromContext(r.Context())
@@ -614,6 +600,8 @@ func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request) {
 	if !f.Valid() {
 		app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
 			Form: f,
+			Action: action,
+			Heading: heading,
 		})
 		return
 	}
@@ -627,7 +615,7 @@ func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// save changes
-	status, tx := app.galleryState.OnEditPages(models.PageInfo, pages)
+	status, tx := app.galleryState.OnEditPages(format, pages)
 	if status == 0 {
 
 		// rebuild page cache
@@ -642,11 +630,7 @@ func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request) {
 			warn))
 
 	} else if status < 0 {
-
-		// no changes - just end transaction
-		app.tm.Do(tx)
-
-		http.Redirect(w, r, url, http.StatusSeeOther)
+		http.Redirect(w, r, url, http.StatusSeeOther) // perhaps request to edit metadata
 
 	} else {
 		http.Error(w, http.StatusText(status), status)

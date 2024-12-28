@@ -8,12 +8,13 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}{{ .Title }}{{end}}
+{{define "title"}}{{ .Meta.Title }}{{end}}
 
 {{define "pagemeta"}}
-	<meta name="description" content="{{ .Meta.Description }}">
-    {{if .Meta.NoIndex}}<meta name="robots" content="noindex">{{end}}
-	{{block "homePageMeta" .}}{{end}}
+	{{block "homePageMeta" .}}
+		{{if .Meta.Description}}<meta name="description" content="{{ .Meta.Description }}">{{end}}
+    	{{if .Meta.NoIndex}}<meta name="robots" content="noindex">{{end}}
+	{{end}}
 {{end}}
 
 {{define "page"}}

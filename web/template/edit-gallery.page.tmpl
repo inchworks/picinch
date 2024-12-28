@@ -27,7 +27,7 @@
 
 {{define "page"}}
 	<div class="container">
-		<h1>Setup Gallery</h1>
+		<h1>Setup Website</h1>
 
 		<form action='/setup' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
@@ -40,8 +40,8 @@
 					{{end}}
 				</div>
 				<div class="col-md-6 mb-3">
-					<label>Short Title - for browser favourites, tabs, etc. (blank = Website Name)</label>
-					<input type='text' class='form-control {{.Errors.Valid "title"}}' name='title' value='{{.Get "title"}}'>
+					<label>Site Title - appended to page titles</label>
+					<input type='text' class='form-control {{.Errors.Valid "title"}}' name='title' placeholder='| website name' value='{{.Get "title"}}'>
 					{{with .Errors.Get "title"}}
 						<div class='invalid-feedback'>{{.}}</div>
 					{{end}}

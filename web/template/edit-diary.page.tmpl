@@ -36,10 +36,12 @@
  			{{with .Form}}
 				<input type='hidden' name='nDiary' value='{{.Get "nDiary"}}'>
 				<div class="row mb-2">
-					<label class="col-md-1 col-form-label">Text</label>
+					<label class="col-md-1 offset-md-1 col-form-label">Text</label>
 					<div class="col-md-8">
-						<textarea name='caption' rows='8' class='form-control {{.ChildValid "caption"}}'>{{ .Caption }}</textarea>
-						<div class='invalid-feedback'>{{ .ChildError "caption"}}</div>
+						<textarea name='diaryCaption' rows='4' class='form-control {{.Errors.Valid "diaryCaption"}}'>{{.Get "diaryCaption"}}</textarea>
+						{{with .Errors.Get "diaryCaption"}}
+							<div class='invalid-feedback'>{{.}}</div>
+						{{end}}
 					</div>
 				</div>
  				<div id="formChildren">

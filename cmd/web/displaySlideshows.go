@@ -262,14 +262,20 @@ func (s *GalleryState) DisplayHome(member bool) *DataHome {
 			a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic), a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
 	}
 
+	// default title
+	// ## cleaner if cached
+	title := pg.MetaTitle
+	if title == "" {
+		title = s.gallery.Organiser
+	}
+
 	// template and its data
 	return &DataHome{
 		Meta: DataMeta{
-			Title:       pg.MetaTitle,
+			Title:       title,
 			Description: pg.Description,
 			NoIndex:     pg.NoIndex,
 		},
-		Title:       s.gallery.Title,
 		DisplayName: s.gallery.Organiser,
 		Top:         top,
 		HEvents:     s.gallery.Events,

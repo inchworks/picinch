@@ -181,11 +181,6 @@ func (app *Application) isAuthenticated(r *http.Request, minRole int) bool {
 	return auth.role >= minRole
 }
 
-// isHome returns true if the slideshow ID is for home page information
-func (app *Application) isHome(id int64) bool {
-	return app.galleryState.publicPages.Paths[id] == "/"
-}
-
 // log records an error for debugging.
 func (app *Application) log(err error) {
 	trace := fmt.Sprintf("%s\n%s", err.Error(), debug.Stack())

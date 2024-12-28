@@ -114,10 +114,19 @@ func (s *GalleryState) dataPages(fmt int) []*DataPage {
 	var dPages []*DataPage
 	for _, pg := range pages {
 
+		// heading
+		// ## untidy
+		var title string
+		if fmt == models.PageHome {
+			title = s.gallery.Organiser
+		} else {
+			title = pg.Title
+		}
+
 		// add to template data
 		d := DataPage{
 			NPage: pg.Id, // slideshow ID to be edited, not page ID
-			Title: pg.Title,
+			Title: title,
 			Menu:  pg.Menu,
 		}
 

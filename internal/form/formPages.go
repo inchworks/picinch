@@ -36,7 +36,7 @@ type PageFormData struct {
 	multiforms.Child
 	Menu  string
 	Title string
-	Page  string // page ID, not trusted and only for a URL 
+	Page  string // page ID, base 36, not trusted and only for a URL 
 }
 
 // NewPages returns a form to edit pages.
@@ -55,7 +55,7 @@ func (f *PagesForm) Add(index int, menu string, title string, pageId int64) {
 		Child: multiforms.Child{Parent: f.Form, ChildIndex: index},
 		Menu:  menu,
 		Title: title,
-		Page:  strconv.FormatInt(pageId, 64),
+		Page:  strconv.FormatInt(pageId, 36),
 	})
 }
 
@@ -83,7 +83,7 @@ func (f *PagesForm) GetPages() (items []*PageFormData, err error) {
 			Child: multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			Menu:  f.ChildText("menu", i, ix, 1, models.MaxTitle),
 			Title: f.ChildText("title", i, ix, 1, models.MaxTitle),
-			Page: f.ChildText("page", i, ix, 1, 12),
+			Page: f.ChildText("page", i, ix, 0, 12),
 		})
 	}
 

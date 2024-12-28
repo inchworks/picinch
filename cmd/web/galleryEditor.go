@@ -196,7 +196,7 @@ func (s *GalleryState) OnEditGallery(organiser string, title string, events stri
 	defer s.updatesGallery()()
 
 	// save changes via cache (conversions already checked)
-	s.gallery.Organiser = sanitise(organiser)
+	s.gallery.Organiser = organiser
 	s.gallery.Title = title
 	s.gallery.Events = events
 	s.gallery.NMaxSlides = nMaxSlides

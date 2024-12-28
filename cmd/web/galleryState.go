@@ -114,6 +114,22 @@ func (s *GalleryState) cachePages() []string {
 	return warn
 }
 
+// homeId returns the slideshow ID for the home page.
+func (s *GalleryState) homeId() int64 {
+
+	s.updatesNone()()
+
+	return 	s.publicPages.Infos["/"].Id
+}
+
+// isHome returns true if the slideshow ID is for home page information.
+func (s *GalleryState) isHome(id int64) bool {
+
+	s.updatesNone()()
+
+	return s.publicPages.Paths[id] == "/"
+}
+
 // Construct response URL
 
 func respPath(route string, display string, nRound int, index int) string {
@@ -161,11 +177,8 @@ func (s *GalleryState) setLastModified() {
 
 func (s *GalleryState) setupCache(g *models.Gallery) (warn []string, err error) {
 
-	// cache gallery record for dynamic parameters, with defaults
+	// cache gallery record for dynamic parameters
 	s.gallery = g
-	if s.gallery.Title == "" {
-		s.gallery.Title = s.gallery.Organiser
-	}
 
 	// assume everything has changed on server restart
 	s.setLastModified()

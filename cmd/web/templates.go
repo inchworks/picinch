@@ -57,7 +57,7 @@ type DataCommon struct {
 
 	Menus     []*cache.MenuItem
 	Page      string // unused, kept for version compatibility
-	SiteTitle string // short name for page titles
+	SiteTitle string // appended to page titles
 }
 
 func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page string, addSite bool) {
@@ -72,8 +72,8 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page stri
 	d.IsGallery = true // ## no non-gallery configuration yet
 	d.IsMember = app.isAuthenticated(r, models.UserMember)
 
-	if addSite {
-		d.SiteTitle = "| " + app.galleryState.gallery.Title
+	if addSite && app.galleryState.gallery.Title != "" {
+		d.SiteTitle = " " + app.galleryState.gallery.Title
 	}
 
 	d.Menus = app.galleryState.publicPages.MainMenu
@@ -110,7 +110,6 @@ type DataEvent struct {
 
 type DataHome struct {
 	Meta        DataMeta
-	Title       string
 	DisplayName string
 	Top         []*cache.Section
 	HEvents     string
@@ -271,8 +270,18 @@ type diaryFormData struct {
 	DataCommon
 }
 
+type metaFormData struct {
+	Form  *multiforms.Form
+	Title string
+	DataCommon
+}
+
 type pagesFormData struct {
-	Form *form.PagesForm
+	Form     *form.PagesForm
+	Action   string
+	Heading  string
+	HomeName string
+	HomePage string // page ID, base 36, not trusted and only for a URL
 	DataCommon
 }
 

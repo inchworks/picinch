@@ -79,7 +79,7 @@ type Gallery struct {
 
 	// parameters
 	Organiser  string // website name
-	Title      string // for page titles, defaults to organiser
+	Title      string // site name appended to page titles
 	Events     string // heading for next events
 	NMaxSlides int    `db:"n_max_slides"`
 	NShowcased int    `db:"n_showcased"`

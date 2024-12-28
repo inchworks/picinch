@@ -174,6 +174,7 @@ func (pc *PageCache) Sanitize(unsafe string) string {
 
 // SetDiary updates a diary's content in the cache.
 func (pc *PageCache) SetDiary(page *models.PageSlideshow, _ []*models.Slide) {
+
 	d := &Diary{
 		Page: Page{
 			MetaTitle:   page.MetaTitle,
@@ -185,6 +186,11 @@ func (pc *PageCache) SetDiary(page *models.PageSlideshow, _ []*models.Slide) {
 		Caption: toHTML(page.Caption),
 	}
 	// ## don't cache events because they change often?
+
+	// default metadata title
+	if d.MetaTitle == "" {
+		d.MetaTitle = d.Title
+	}
 
 	path := pc.Paths[page.Id]
 	if path == "" {
@@ -209,6 +215,11 @@ func (pc *PageCache) SetInformation(page *models.PageSlideshow, sections []*mode
 
 	setSections(sections, p)
 
+	// default metadata title
+	if p.MetaTitle == "" {
+		p.MetaTitle = p.Title
+	}
+	
 	path := pc.Paths[page.Id]
 	if path == "" {
 		panic("Lost ID for page in cache.")

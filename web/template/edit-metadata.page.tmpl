@@ -27,9 +27,9 @@
 
 {{define "page"}}
 	<div class="container">
-		<h1>{{ .Title }} Metadata</h1>
+		<h1>{{ .Title }} - Metadata</h1>
 
-		<form action='/setup' method='POST'>
+		<form action='/edit-metadata' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
 				<input type='hidden' name='nPage' value='{{.Get "nPage"}}'>
