@@ -20,7 +20,9 @@ These instructions assume a Ubuntu Server host with Docker installed. Other Linu
 1. Customise the appearance of the website using the optional files described below. Restart PicInch for changes to take effect. (See Commands.)
 [&#8658; Customisation]({{ site.baseurl }}{% link install-5-customise.md %})
 
-1. Log in to PicInch as administrator and add potential users with status set to `known`. Send invitations to the users, inviting them to sign-in.
+1. Log in to PicInch as administrator and set the website name and a description for the home page. You can also add information pages, a diary, and set page metadata as needed. [&#8658; Site Administrator]({{ site.baseurl }}{% link administrator.md %})
+
+1. As administrator, add potential users with status set to `known`. Send invitations to the users, inviting them to sign-in.
 [&#8658; Site Administrator]({{ site.baseurl }}{% link administrator.md %})
 
 1. If desired, make one or more `active` (signed-up) users an `admin` or `curator`.

@@ -55,7 +55,7 @@ const (
 
 	// next events from visible pages
 	slidesWhereNextEvent = `
-		SELECT slide.* FROM slide
+		SELECT slide.*, slideshow.id AS slideshowid FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN page ON page.slideshow = slideshow.id
 			WHERE page.format = 1
@@ -232,9 +232,9 @@ func (st *SlideStore) ForSlideshowOrderedTx(showId int64, max int) []*models.Sli
 }
 
 // NextEvents returns the first few events from all diaries, at or after the specified time.
-func (st *SlideStore) NextEvents(visible int, from time.Time, max int) []*models.Slide {
+func (st *SlideStore) NextEvents(visible int, from time.Time, max int) []*models.SlideSlideshow {
 
-	var slides []*models.Slide
+	var slides []*models.SlideSlideshow
 
 	if err := st.DBX.Select(&slides, slidesWhereNextEvent, st.GalleryId, visible, from, max); err != nil {
 		st.logError(err)

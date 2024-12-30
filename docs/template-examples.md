@@ -12,7 +12,8 @@ This example file reproduces the content of the default website.
 	
 {{define "dataPrivacyNotice"}}
     <h2>Data Privacy</h2>
-    <p>This website is designed to comply with the EU ePrivacy Directive.</p>
+    <p>This website is designed to comply with the UK Privacy and Electronic Communications Regulations (PECR),
+    which implements the EU ePrivacy Directive.</p>
 	
     <h3>Information Recorded</h3>
 	<p>This website does not gather any personal information about visitors or users.</p>

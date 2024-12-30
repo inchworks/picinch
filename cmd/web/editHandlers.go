@@ -626,7 +626,7 @@ func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request, fo
 
 		app.redirectWithFlash(w, r, url, warnings(
 			"Page changes saved.",
-			"Conflicting page menu items:",
+			"Conflicting page menu items: ",
 			warn))
 
 	} else if status < 0 {
@@ -943,8 +943,11 @@ func warnings(ok string, warn string, warns []string) string {
 	if len(warns) == 0 {
 		return ok
 	}
-	for _, w := range warns {
-		warn += "\n\t" + w
+	for i, w := range warns {
+		if i > 0 {
+			warn += ", "
+		}
+		warn += w
 	}
 	return warn + "."
 }

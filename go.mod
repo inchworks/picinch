@@ -10,13 +10,18 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/inchworks/usage v1.3.1
-	github.com/inchworks/webparts/v2 v2.1.2
+	github.com/inchworks/webparts/v2 v2.2.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0
 	github.com/justinas/nosurf v1.1.1
 	github.com/mailgun/mailgun-go/v4 v4.21.0
 	github.com/microcosm-cc/bluemonday v1.0.27
+)
+
+require (
+	github.com/disintegration/imaging v1.6.2 // indirect
+	github.com/inchworks/webparts v1.4.2 // indirect
 )
 
 require (
@@ -47,4 +52,4 @@ require (
 )
 
 // replace github.com/inchworks/usage v1.3.1 => ../usage
-replace github.com/inchworks/webparts/v2 v2.1.2 => ../webparts
+// replace github.com/inchworks/webparts/v2 v2.2.0 => ../webparts

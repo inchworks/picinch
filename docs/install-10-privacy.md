@@ -6,7 +6,7 @@ You should review the text and decide if it is suitable for your use of the webs
 
 - You can replace the Privacy Notice by defining the template `dataPrivacyNotice`.
 
-A goal for PicInch is that it should comply with EU GDPR requirements without needing to request or record consents.
+A goal for PicInch is that it should comply with EU ePrivacy (and UK PECR) requirements without needing to request or record consents.
 You should review this information to confirm that it meets your understanding of the regulations, and your users' expectations.
 
 - For visitors to the website, anonymised IP addresses are stored for 24 hours to generate daily counts of the number of unique visitors.

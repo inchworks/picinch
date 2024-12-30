@@ -33,6 +33,8 @@ func (s *GalleryState) DisplayDiary(name string) (data *DataDiary) {
 
 	defer s.updatesNone()()
 
+	name, _ = url.PathUnescape(name)
+
 	d := s.publicPages.Diaries[name]
 	if d == nil {
 		return
@@ -47,7 +49,7 @@ func (s *GalleryState) DisplayDiary(name string) (data *DataDiary) {
 		},
 		Title:   d.Title,
 		Caption: d.Caption,
-		Events:  s.dataEvents(d.Id, 100),
+		Events:  s.dataEvents(d.Id),
 	}
 }
 
@@ -135,26 +137,13 @@ func (s *GalleryState) dataPages(fmt int) []*DataPage {
 	return dPages
 }
 
-// dataEvents returns diary events. If no diary ID is specified, next events from all diaries are returned.
-func (s *GalleryState) dataEvents(id int64, max int) []*DataEvent {
+// dataEvents returns events for a diary.
+func (s *GalleryState) dataEvents(id int64) []*DataEvent {
 
-	var from time.Time
 	var evs []*models.Slide
 
-	if id == 0 {
-		if max > 0 {
-			// start of today
-			y, m, d := time.Now().Date()
-			from = time.Date(y, m, d, 0, 0, 0, 0, time.Local)
-
-			// get events following start time
-			evs = s.app.SlideStore.NextEvents(models.SlideshowPublic, from, max)
-		}
-
-	} else {
-		// all events for diary
-		evs = s.app.SlideStore.AllEvents(id)
-	}
+	// all events for diary
+	evs = s.app.SlideStore.AllEvents(id)
 
 	// replace slide data with HTML formatted fields
 	var dataEvs []*DataEvent
@@ -163,6 +152,34 @@ func (s *GalleryState) dataEvents(id int64, max int) []*DataEvent {
 			Start:   ev.Revised.Format(s.app.cfg.DateFormat),
 			Title:   models.Nl2br(ev.Title),
 			Details: models.Nl2br(ev.Caption),
+		})
+	}
+
+	return dataEvs
+}
+
+// dataEventsNext returns the next events from all diaries.
+func (s *GalleryState) dataEventsNext(max int) []*DataEvent {
+
+	var from time.Time
+	var evs []*models.SlideSlideshow
+
+	if max > 0 {
+		// start of today
+		y, m, d := time.Now().Date()
+		from = time.Date(y, m, d, 0, 0, 0, 0, time.Local)
+
+		// get events following start time
+		evs = s.app.SlideStore.NextEvents(models.SlideshowPublic, from, max)
+	}
+
+	// replace slide data with HTML formatted fields
+	var dataEvs []*DataEvent
+	for _, ev := range evs {
+		dataEvs = append(dataEvs, &DataEvent{
+			Start:   ev.Revised.Format(s.app.cfg.DateFormat),
+			Title:   models.Nl2br(ev.Title),
+			Diary:   s.publicPages.Paths[ev.SlideshowId],
 		})
 	}
 

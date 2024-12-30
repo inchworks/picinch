@@ -184,7 +184,7 @@ var cmds = [...]string{
 
 	`INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag) VALUES
 		(1,	1, 10, 2, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '', ''),
-		(2,	1, 0, 2, 2, 1, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', '', '', '', '', '');`,
+		(2,	1, 0, 2, 2, 1, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Home Page', '', '', '', '');`,
 
 	`INSERT INTO page (id, slideshow, format, menu, description, noindex, title) VALUES
 		(1,	2, 2, "", "This is a club photo gallery.", false, "");`,
@@ -389,7 +389,7 @@ func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageSto
 	}
 
 	// add home page
-	s := sysShow(stSlideshow.GalleryId, u.Id, "", "")
+	s := sysShow(stSlideshow.GalleryId, u.Id, "Home Page", "")
 	if err := stSlideshow.Update(s); err != nil {
 		return err
 	}

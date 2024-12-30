@@ -2,8 +2,7 @@
 Add files in `/srv/picinch/site/` to customise your installation. You must restart the service for changes to take effect.
 
 ### Templates
-Files in `templates/` define Go templates to specify static content for your site. Files with the names `*.partial.tmpl` override application templates. Typically a single `site.partial.tmpl` file is sufficient. See [Template Example]({{ site.baseurl }}{% link template-examples.md %})
-.
+Files in `templates/` define Go templates to specify static content for your site. Files with the names `*.partial.tmpl` override application templates. Typically a single `site.partial.tmpl` file is sufficient. See [Template Example]({{ site.baseurl }}{% link template-examples.md %}).
 
 The following templates are intended to be redefined:
 
@@ -12,8 +11,6 @@ The following templates are intended to be redefined:
 **dataPrivacyNotice** Data privacy statement for the Copyright and Privacy page.
 
 **favicons** Favicon links and meta tags. There is no need to redefine this if you use the same names as the default set.
-
-**homePageMeta** Metadata for the home page. See [Search Engine Settings]({{ site.baseurl }}{% link search-engine-settings.md %}).
 
 **signupPage** Welcome text on the signup page.
 
@@ -43,9 +40,9 @@ You may also add add additional images you wish to include in customised templat
 `/srv/picinch/misc`.
 
 ### Additional Content
-Add additional information pages and menu items by logging on as a user with `admin` role. Specify the menu path for a page as `name` for a top-level menu item or `name.sub` for a dropdown menu item. A leading "`.`", i.e. `.name` or `.name.sub` specifies a page with no menu item. Pages are accessed by `https://<your-domain/info/name` or `info/name.sub`.
+Add additional information pages and menu items by logging on as a user with `admin` role. Specify the menu path for a page as `name` for a top-level menu item or `name.sub` for a dropdown menu item. A leading "`.`", i.e. `.name` specifies a page without a menu item. Pages are accessed by `https://<your-domain/info/name` or `/info/name.sub`.
 
-Similarly, diaries can be added by the administrator. Typically just one diary is needed. By default the next upcoming event in each diary is shown automatically on the home page. Diaries are accessed by `https://<your-domain/diary/name` or `diary/name.sub`.
+Similarly, diaries can be added by the administrator. Typically just one diary is needed. By default the next upcoming event in each diary is shown automatically on the home page. Diaries are accessed by `https://<your-domain/diary/name` or `/diary/name.sub`.
 
 Users with `curator` role can edit the content for information pages and diaries. Markdown is supported for the sections of an information page.
 

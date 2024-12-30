@@ -248,7 +248,7 @@ func (s *GalleryState) DisplayHome(member bool) *DataHome {
 	}
 
 	// diary events
-	dEvents := s.dataEvents(0, a.cfg.MaxNextEvents)
+	dEvents := s.dataEventsNext(a.cfg.MaxNextEvents)
 
 	// highlight slides
 	dHighlights := s.dataHighlights(a.cfg.MaxHighlightsTotal)

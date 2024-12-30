@@ -159,6 +159,11 @@ type PageSlideshow struct {
 	Slideshow
 }
 
+type SlideSlideshow struct {
+	Slide
+	SlideshowId int64
+}
+
 type SlideshowTagRef struct {
 	Slideshow
 	TagRefId int64

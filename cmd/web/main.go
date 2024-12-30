@@ -501,7 +501,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	if len(warn) > 0 {
 		infoLog.Print("Conflicting page menu items:")
 		for _, w := range warn {
-			infoLog.Print("\t" + w)
+			infoLog.Print("\t" + w + ".")
 		}
 	}
 
@@ -563,6 +563,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.users = users.Users{
 		App:   app,
 		Roles: []string{"unknown", "friend", "member", "curator", "admin"},
+		RoleDisabled: []bool{true, false, false, false, false},
 		Store: &UserNoDelete{UserStore: app.userStore}, // ignores DeleteId
 		TM:    app.tm,
 	}

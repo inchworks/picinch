@@ -35,8 +35,8 @@
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
 				<input type='hidden' name='nDiary' value='{{.Get "nDiary"}}'>
-				<div class="row mb-2">
-					<label class="col-md-1 offset-md-1 col-form-label">Text</label>
+				<div class="row mb-3">
+					<label class="col-md-1 offset-md-1 col-form-label">Intro</label>
 					<div class="col-md-8">
 						<textarea name='diaryCaption' rows='4' class='form-control {{.Errors.Valid "diaryCaption"}}'>{{.Get "diaryCaption"}}</textarea>
 						{{with .Errors.Get "diaryCaption"}}

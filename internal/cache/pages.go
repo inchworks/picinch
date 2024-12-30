@@ -135,6 +135,10 @@ func (pc *PageCache) AddPage(p *models.PageSlideshow, sections []*models.Slide) 
 		return nil // unknown
 	}
 
+	if path == "" {
+		return warn
+	}
+
 	// add to item maps
 	pc.Paths[p.Id] = path
 
@@ -267,9 +271,9 @@ func addMenu(names []string, prefix string, path string, to map[string]*item, wa
 		// add leaf
 		if exists {
 			if m.path != "" {
-				warn = append(warn, `Menu item "`+name+`" redefined.`)
+				warn = append(warn, `Menu item "`+name+`" redefined`)
 			} else {
-				warn = append(warn, `Menu dropdown "`+name+`" replaced.`)
+				warn = append(warn, `Menu dropdown "`+name+`" replaced`)
 			}
 		}
 		to[ncb] = &item{name: name, path: prefix + url.PathEscape(path)} // construct path
@@ -278,7 +282,7 @@ func addMenu(names []string, prefix string, path string, to map[string]*item, wa
 		// parent item
 		if exists {
 			if m.path != "" {
-				warn = append(warn, `Menu dropdown replaces "`+name+`".`)
+				warn = append(warn, `Menu dropdown replaces "`+name+`"`)
 			}
 		} else {
 			// add new parent
@@ -302,7 +306,7 @@ func (pc *PageCache) addPage(prefix string, spec string) (path string, warn []st
 	// elements of path
 	es := strings.Split(spec, ".")
 	if len(es) > 2 {
-		warn = append(warn, `Menu for "`+spec+`" too deep.`)
+		warn = append(warn, `Menu for "`+spec+`" too deep`)
 		return
 	}
 
@@ -319,7 +323,7 @@ func (pc *PageCache) addPage(prefix string, spec string) (path string, warn []st
 			if i == 0 && len(es) > 1 {
 				toMenu = false // ".name" is a page without a menu item
 			} else {
-				warn = append(warn, `Blank menu item for "`+spec+`".`)
+				warn = append(warn, `Blank menu item for "`+spec+`"`)
 				return
 			}
 		}

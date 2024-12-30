@@ -106,6 +106,7 @@ type DataEvent struct {
 	Start   string
 	Title   template.HTML
 	Details template.HTML
+	Diary   string
 }
 
 type DataHome struct {
