@@ -8,7 +8,7 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}{{ .Meta.Title }}{{end}}
+{{define "title"}}{{block "website" .}}{{ .Meta.Title }}{{end}}{{end}}
 
 {{define "pagemeta"}}
 	{{block "homePageMeta" .}}
@@ -20,7 +20,7 @@
 {{define "page"}}
     <div class="container">
         <header> 
-            {{block "banner" .}}<h1 class="banner mt-2">{{ .DisplayName }}</h1>{{end}}
+            <h1 class="banner mt-2">{{block "banner" .}}{{ .DisplayName }}{{end}}</h1>
         </header>
     </div>
 
