@@ -10,7 +10,7 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/inchworks/usage v1.3.1
-	github.com/inchworks/webparts/v2 v2.1.2
+	github.com/inchworks/webparts/v2 v2.2.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0
@@ -20,11 +20,17 @@ require (
 )
 
 require (
+	github.com/disintegration/imaging v1.6.2 // indirect
+	github.com/inchworks/webparts v1.4.2 // indirect
+)
+
+require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/alexedwards/scs/mysqlstore v0.0.0-20240316134038-7e11d57e8885
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.0 // indirect
+	github.com/gomarkdown/markdown v0.0.0-20241205020045-f7e15b2f3e62
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -46,4 +52,4 @@ require (
 )
 
 // replace github.com/inchworks/usage v1.3.1 => ../usage
-// replace github.com/inchworks/webparts/v2 v2.1.1 => ../webparts
+// replace github.com/inchworks/webparts/v2 v2.2.0 => ../webparts

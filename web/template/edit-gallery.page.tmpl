@@ -27,15 +27,29 @@
 
 {{define "page"}}
 	<div class="container">
-		<h3>Setup Gallery</h3>
+		<h1>Setup Website</h1>
 
 		<form action='/setup' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
 				<div class="col-md-6 mb-3">
-					<label>Organiser</label>
+					<label>Website Name</label>
 					<input type='text' class='form-control {{.Errors.Valid "organiser"}}' name='organiser' value='{{.Get "organiser"}}'>
 					{{with .Errors.Get "organiser"}}
+						<div class='invalid-feedback'>{{.}}</div>
+					{{end}}
+				</div>
+				<div class="col-md-6 mb-3">
+					<label>Site Title - appended to page titles</label>
+					<input type='text' class='form-control {{.Errors.Valid "title"}}' name='title' placeholder='| website name' value='{{.Get "title"}}'>
+					{{with .Errors.Get "title"}}
+						<div class='invalid-feedback'>{{.}}</div>
+					{{end}}
+				</div>
+				<div class="col-md-6 mb-3">
+					<label>Events heading</label>
+					<input type='text' class='form-control {{.Errors.Valid "events"}}' name='events' value='{{.Get "events"}}'>
+					{{with .Errors.Get "events"}}
 						<div class='invalid-feedback'>{{.}}</div>
 					{{end}}
 				</div>

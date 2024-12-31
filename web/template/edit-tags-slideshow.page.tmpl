@@ -28,7 +28,7 @@
 {{define "page"}}
 
 	<div class="container">
-		<h3>{{ .Title }}</h3>
+		<h1>{{ .Title }}</h1>
 
 		<form action='/tag-slideshow' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
@@ -38,7 +38,7 @@
 			    <input type='hidden' name='nUser' value='{{.Get "nUser"}}'>
 			{{end}}	
 			{{range .Users}}
-				<h4>{{.Name}}</h4>
+				<h2>{{.Name}}</h2>
 				{{range .Tags }}
 					{{.TagHTML}}
 					{{range .Tags}}

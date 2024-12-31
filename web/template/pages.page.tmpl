@@ -1,0 +1,77 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2024.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}Information{{end}}
+
+{{define "pagemeta"}}
+    <meta name="robots" content="noindex">
+{{end}}
+
+{{define "page"}}
+
+	<div class="container pb-3">
+		<h1>Information</h1>
+        <div class="row mb-1">
+        	<label class="col-xl-6 col-lg-5 col-md-6 col-sm-5 col-form-label">Heading</label>
+			<label class="col-xl-4 col-lg-5 col-md-4 col-sm-4 col-form-label">Menu or "."Name</label>
+        </div>
+        {{range .Diaries}}
+            <div class="row mb-1">
+                <div class="col-xl-6 col-lg-5 col-md-6 col-sm-5">
+                    <span class="input-group-text">{{ .Title }}</span>
+                </div>
+                <div class="col-xl-4 col-lg-5 col-md-4 col-sm-4">
+                        <span class="input-group-text">{{ .Menu }}</span>
+                </div>
+                <div class="col-xl-2 col-lg-2 col-md-2 col-sm-3">
+                    <a class='btn btn-primary' href='/edit-diary/{{ .NPage }}'>Edit Diary</a>
+                </div>
+            </div>
+        {{end}}
+        {{range .Home}}
+            <div class="row mb-1">
+                <div class="col-xl-6 col-lg-5 col-md-6 col-sm-5">
+                    <span class="input-group-text">{{ .Title }}</span>
+                </div>
+                <div class="col-xl-4 col-lg-5 col-md-4 col-sm-4">
+                        <span class="input-group-text">Gallery</span>
+                </div>
+                <div class="col-xl-2 col-lg-2 col-md-2 col-sm-3">
+                    <a class='btn btn-primary' href='/edit-page/{{ .NPage }}'>Edit Home</a>
+                </div>
+            </div>
+        {{end}}
+        {{range .Pages}}
+            <div class="row mb-1">
+                <div class="col-xl-6 col-lg-5 col-md-6 col-sm-5">
+                    <span class="input-group-text">{{ .Title }}</span>
+                </div>
+                <div class="col-xl-4 col-lg-5 col-md-4 col-sm-4">
+                        <span class="input-group-text">{{.Menu}}</span>
+                </div>
+                <div class="col-xl-2 col-lg-2 col-md-2 col-sm-3">
+                    <a class='btn btn-primary' href='/edit-page/{{ .NPage }}'>Edit Page</a>
+                </div>
+            </div>
+        {{end}}
+	</div>	
+
+{{end}}

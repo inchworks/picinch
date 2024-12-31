@@ -19,6 +19,7 @@ package mysql
 
 import (
 	"log"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 
@@ -44,11 +45,24 @@ const (
 
 	slideOrder  = ` ORDER BY show_order ASC, revised DESC LIMIT ?`
 	slideRecent = ` ORDER BY created DESC LIMIT ?`
+	slideStart  = ` ORDER BY revised ASC`
 
+	slidesWhereDiary      = slideSelect + ` WHERE slideshow = ?` + slideStart
 	slideWhereId          = slideSelect + ` WHERE id = ?`
 	slidesWhereShow       = slideSelect + ` WHERE slideshow = ?`
 	slidesWhereShowOlder  = slideSelect + ` WHERE slideshow = ?` + slideOrder
 	slidesWhereShowRecent = slideSelect + ` WHERE slideshow = ?` + slideRecent
+
+	// next events from visible pages
+	slidesWhereNextEvent = `
+		SELECT slide.*, slideshow.id AS slideshowid FROM slide
+			INNER JOIN slideshow ON slideshow.id = slide.slideshow
+			INNER JOIN page ON page.slideshow = slideshow.id
+			WHERE page.format = 1
+				AND slideshow.gallery = ? AND slideshow.visible >= ?
+				AND slide.revised >= ?
+			ORDER BY slide.revised ASC LIMIT ?
+		`
 
 	// oldest images for a topic, excluding suspended users
 	imagesWhereTopicOlder = `
@@ -60,7 +74,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible > -10 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible >= -1 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
 			)
 		SELECT id
 		FROM s1
@@ -77,7 +91,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible > -10 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible >= -1 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
 			)
 		SELECT id
 		FROM s1
@@ -95,7 +109,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible > -10 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible >= -1 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
 			)
 		SELECT format, title, caption, image, name
 		FROM s1
@@ -105,6 +119,7 @@ const (
 )
 
 type SlideStore struct {
+	GalleryId int64
 	store
 }
 
@@ -120,6 +135,18 @@ func NewSlideStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *SlideStore {
 			sqlUpdate: slideUpdate,
 		},
 	}
+}
+
+// AllEvents returns a list of events, ordered by date.
+func (st *SlideStore) AllEvents(showId int64) []*models.Slide {
+
+	var slides []*models.Slide
+
+	if err := st.DBX.Select(&slides, slidesWhereDiary, showId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slides
 }
 
 // ForSlideshow returns all slides for slideshow, unordered.
@@ -191,6 +218,31 @@ func (st *SlideStore) ForSlideshowOrdered(showId int64, recent bool, max int) []
 	return slides
 }
 
+// ForSlideshowOrderedTx returns slides in order for slideshow, including updates in the current transaction.
+func (st *SlideStore) ForSlideshowOrderedTx(showId int64, max int) []*models.Slide {
+
+	var slides []*models.Slide
+
+	if err := (*st.ptx).Select(&slides, slidesWhereShowOlder, showId, max); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return slides
+}
+
+// NextEvents returns the first few events from all diaries, at or after the specified time.
+func (st *SlideStore) NextEvents(visible int, from time.Time, max int) []*models.SlideSlideshow {
+
+	var slides []*models.SlideSlideshow
+
+	if err := st.DBX.Select(&slides, slidesWhereNextEvent, st.GalleryId, visible, from, max); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slides
+}
+
 // RecentForTopic returns the most recent slides, in order with a per-user limit, and excluding suspended users.
 
 func (st *SlideStore) RecentForTopic(topicId int64, perUser int, max int) []*models.TopicSlide {
@@ -205,9 +257,8 @@ func (st *SlideStore) RecentForTopic(topicId int64, perUser int, max int) []*mod
 	return slides
 }
 
-// Insert or update slide. Round ID must be set in struct.
+// Update inserts or updates a slide. The slideshow ID must be set.
+func (st *SlideStore) Update(s *models.Slide) error {
 
-func (st *SlideStore) Update(q *models.Slide) error {
-
-	return st.updateData(&q.Id, q)
+	return st.updateData(&s.Id, s)
 }

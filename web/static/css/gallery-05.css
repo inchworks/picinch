@@ -7,17 +7,22 @@ body {
 /* navigation */
 nav.navbar { background-color: #ccc; }
 ul.dropdown-menu { background-color: #ccc; }
+li.nav-item a { text-transform: capitalize; }
+a.dropdown-item { text-transform: capitalize; }
 
 header { background-color: #DDD; text-align:left; }
 img.banner { height: 40px;}
-span.banner {font-family: Palatino, serif; font-size:40px;}
+h1.banner {font-family: Palatino, serif; font-size:40px;}
 
 section.intro {background-color: #DDD;}
 section.slideshows { background-color: #ccc; }
 
-footer { background-color: #ccc; }
-
-.header h1 {border: 0px; margin: 0px; padding: 10px; }
+/* scale down headers */
+h1 { font-size: 2rem; }
+h2 { font-size: 1.75rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1rem; }
 
 /* modify bootstrap cards */
 .card-title { margin-top: 12px; margin-bottom: 0px; }

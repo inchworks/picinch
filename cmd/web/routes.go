@@ -113,6 +113,7 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/", publicCacheHs.ThenFunc(app.homePublic))
 	router.Handler("GET", "/contributor/:nUser", publicCacheHs.ThenFunc(app.contributorPublic))
 	router.Handler("GET", "/contributors", publicCacheHs.ThenFunc(app.contributorsPublic))
+	router.Handler("GET", "/diary/:page", publicCacheHs.ThenFunc(app.diary))
 	router.Handler("GET", "/info/:page", publicCacheHs.ThenFunc(app.info))
 	router.Handler("GET", "/msg", publicNoStoreHs.ThenFunc(app.homePublic))
 
@@ -139,6 +140,16 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/edit-tags", adminNoStoreHs.ThenFunc(app.getFormTags))
 	router.Handler("POST", "/edit-tags", adminHs.ThenFunc(app.postFormTags))
 
+	router.Handler("GET", "/edit-diary/:nId", curatorNoStoreHs.ThenFunc(app.getFormDiary))
+	router.Handler("POST", "/edit-diary", curatorHs.ThenFunc(app.postFormDiary))
+	router.Handler("GET", "/edit-diaries", adminNoStoreHs.ThenFunc(app.getFormDiaries))
+	router.Handler("POST", "/edit-diaries/:nPage", adminHs.ThenFunc(app.postFormDiaries))
+	router.Handler("GET", "/edit-info", adminNoStoreHs.ThenFunc(app.getFormInfo))
+	router.Handler("POST", "/edit-info/:nPage", adminHs.ThenFunc(app.postFormInfo))
+	router.Handler("GET", "/edit-metadata/:nId", adminNoStoreHs.ThenFunc(app.getFormMetadata))
+	router.Handler("POST", "/edit-metadata", curatorHs.ThenFunc(app.postFormMetadata))
+	router.Handler("GET", "/edit-page/:nId", curatorNoStoreHs.ThenFunc(app.getFormPage))
+	router.Handler("POST", "/edit-page", curatorHs.ThenFunc(app.postFormPage))
 	router.Handler("GET", "/edit-topics", curatorNoStoreHs.ThenFunc(app.getFormTopics))
 	router.Handler("POST", "/edit-topics", curatorHs.ThenFunc(app.postFormTopics))
 
@@ -165,6 +176,7 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/my-slideshows", memberNoCacheHs.ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/my-slideshows-msg", memberNoStoreHs.ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/next", authNoStoreHs.ThenFunc(app.next))
+	router.Handler("GET", "/pages", curatorNoCacheHs.ThenFunc(app.pages))
 	router.Handler("GET", "/slideshows-user/:nUser", curatorNoCacheHs.ThenFunc(app.slideshowsUser))
 	router.Handler("GET", "/topic-contributors/:nId", slideshowHs.ThenFunc(app.topicContributors))
 	router.Handler("GET", "/topics", curatorNoCacheHs.ThenFunc(app.topics))

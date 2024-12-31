@@ -178,6 +178,8 @@ func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
 	var d = make(url.Values)
 	f = multiforms.New(d, tok)
 	f.Set("organiser", s.gallery.Organiser)
+	f.Set("title", s.gallery.Title)
+	f.Set("events", s.gallery.Events)
 	f.Set("nMaxSlides", strconv.Itoa(s.gallery.NMaxSlides))
 	f.Set("nShowcased", strconv.Itoa(s.gallery.NShowcased))
 
@@ -188,13 +190,15 @@ func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
 //
 // Returns HTTP status or 0.
 
-func (s *GalleryState) OnEditGallery(organiser string, nMaxSlides int, nShowcased int) int {
+func (s *GalleryState) OnEditGallery(organiser string, title string, events string, nMaxSlides int, nShowcased int) int {
 
 	// serialisation
 	defer s.updatesGallery()()
 
 	// save changes via cache (conversions already checked)
 	s.gallery.Organiser = organiser
+	s.gallery.Title = title
+	s.gallery.Events = events
 	s.gallery.NMaxSlides = nMaxSlides
 	s.gallery.NShowcased = nShowcased
 	if err := s.app.GalleryStore.Update(s.gallery); err != nil {
@@ -248,7 +252,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (status int, f
 
 // OnEditSlideshow processes the modification of a slideshow. It returns 0 and the user ID on success, or an HTTP status code.
 // topicId and userId are needed only for a new slideshow for a topic. Otherwise we prefer to trust the database.
-func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId, userId int64, qsSrc []*form.SlideFormData) (int, int64) {
+func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId, userId int64, qsSrc []*form.SlideFormData, cached bool) (int, int64) {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -330,7 +334,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 				Created:   now,
 				Revised:   now,
 				Title:     s.sanitize(qsSrc[iSrc].Title, ""),
-				Caption:   s.sanitize(qsSrc[iSrc].Caption, ""),
+				Caption:   s.sanitizeUnless(cached, qsSrc[iSrc].Caption, ""),
 				Image:     uploader.FileFromName(tx, qsSrc[iSrc].Version, mediaName),
 			}
 			if mediaName != "" {
@@ -372,7 +376,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 					qDest.ShowOrder = qsSrc[iSrc].ShowOrder
 					qDest.Revised = now
 					qDest.Title = s.sanitize(qsSrc[iSrc].Title, qDest.Title)
-					qDest.Caption = s.sanitize(qsSrc[iSrc].Caption, qDest.Caption)
+					qDest.Caption = s.sanitizeUnless(cached, qsSrc[iSrc].Caption, qDest.Caption)
 
 					if qsSrc[iSrc].Version != 0 {
 						// replace media file
@@ -392,16 +396,13 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 
 	// re-sequence slides, removing missing or duplicate orders
 	// If two slides have the same order, the later update comes first
+	var slides []*models.Slide
 	if updated {
 
-		// ## think I have to commit changes for them to appear in a new query
-		// ## but this makes the unsequenced changes visible briefly, or would if I weren't serialising at server level
-		s.save()
-
 		nImages := 0
-		sls := s.app.SlideStore.ForSlideshowOrdered(showId, false, 100)
+		slides = s.app.SlideStore.ForSlideshowOrderedTx(showId, 100)
 
-		for ix, sl := range sls {
+		for ix, sl := range slides {
 			nOrder := ix + 1
 			if sl.ShowOrder != nOrder {
 
@@ -450,6 +451,11 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			Revised: revised,
 		}); err != nil {
 		return s.rollback(http.StatusInternalServerError, err), 0
+	}
+
+	// update cached page
+	if cached && updated {
+		s.publicPages.SetSections(showId, slides)
 	}
 
 	return 0, userId
@@ -532,7 +538,7 @@ func (s *GalleryState) OnEditSlideshows(userId int64, rsSrc []*form.SlideshowFor
 				User:         sql.NullInt64{Int64: userId, Valid: true},
 				Created:      created,
 				Revised:      now,
-				Title:        s.sanitize(rsSrc[iSrc].Title, ""),
+				Title:        s.sanitize(rsSrc[iSrc].Title, ""), // ## not essential
 			}
 			s.app.SlideshowStore.Update(&r)
 			iSrc++
@@ -971,7 +977,7 @@ func (s *GalleryState) UserDisplayName(userId int64) string {
 	return u.Name
 }
 
-// removeSlideshow hides a slideshow or topic, initiates cleanup, and optionally requests deferred deletion.
+// removeSlideshow hides a page, slideshow or topic, initiates cleanup, and optionally requests deferred deletion.
 func (s *GalleryState) removeSlideshow(tx etx.TxId, slideshow *models.Slideshow, delete bool) error {
 
 	// set deletion in progress
@@ -1115,6 +1121,20 @@ func (app *Application) editTags(f *multiforms.Form, userId int64, slideshowId i
 	return true
 }
 
+// eventFormat returns an auto-format for an event slide.
+func (app *Application) eventFormat(e *form.EventFormData) int {
+
+	var f int
+	if len(e.Title) > 0 {
+		f = models.SlideTitle
+	}
+	if len(e.Caption) > 0 {
+		f = f + models.SlideCaption
+	}
+
+	return f
+}
+
 // releaseSlideshows releases the contributing slideshows for a topic back to the users.
 func (app *Application) releaseSlideshows(t *models.Slideshow) {
 
@@ -1129,14 +1149,21 @@ func (app *Application) releaseSlideshows(t *models.Slideshow) {
 	}
 }
 
-// Sanitize HTML for reuse
-
+// sanitize returns HTML safe for display, assuming the current value is safe.
 func (s *GalleryState) sanitize(new string, current string) string {
 	if new == current {
 		return current
 	}
 
-	return s.app.sanitizer.Sanitize(new)
+	return s.publicPages.Sanitize(new)
+}
+
+// sanitizeUnless sanitizes HTML, unless it is markdown, in which case the cached version will be sanitised.
+func (s *GalleryState) sanitizeUnless(markdown bool, new string, current string) string {
+	if markdown {
+		return new
+	}
+	return s.sanitize(new, current)
 }
 
 // setVisible changes the visibility of a slideshow.

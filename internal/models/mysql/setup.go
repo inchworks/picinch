@@ -20,6 +20,7 @@ package mysql
 // Setup application database
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -45,13 +46,27 @@ var cmds = [...]string{
 
 	`CREATE TABLE gallery (
 	id int(11) NOT NULL AUTO_INCREMENT,
-	organiser varchar(60) COLLATE utf8_unicode_ci NOT NULL,
+	organiser varchar(60) NOT NULL,
+	title varchar(60) NOT NULL,
+	events varchar(128) NOT NULL,
 	n_max_slides int(11) NOT NULL,
 	n_showcased int(11) NOT NULL,
 	PRIMARY KEY (id));`,
 
-	`INSERT INTO gallery (id, version, organiser, n_max_slides, n_showcased) VALUES
-	(1,	1, 'PicInch Gallery', 10, 2);`,
+	`INSERT INTO gallery (id, version, organiser, title, events, n_max_slides, n_showcased) VALUES
+	(1,	1, 'PicInch Gallery', '| PicInch', 'Next Event', 10, 2);`,
+
+	`CREATE TABLE page (
+		id int(11) NOT NULL AUTO_INCREMENT,
+		slideshow int(11) NOT NULL,
+		format int(11) NOT NULL,
+		menu varchar(128) NOT NULL,
+		description varchar(512) NOT NULL,
+		noindex bool NOT NULL,
+		title varchar(128) NOT NULL,
+		PRIMARY KEY (id),
+		KEY IDX_SLIDESHOW (slideshow),
+		CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,
 
 	`CREATE TABLE redoV2 (
 		id BIGINT NOT NULL,
@@ -67,9 +82,9 @@ var cmds = [...]string{
 		token CHAR(43) PRIMARY KEY,
 		data BLOB NOT NULL,
 		expiry TIMESTAMP(6) NOT NULL);`,
-	
+
 	`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
-	
+
 	`CREATE TABLE slide (
 	id int(11) NOT NULL AUTO_INCREMENT,
 	slideshow int(11) NOT NULL,
@@ -78,7 +93,7 @@ var cmds = [...]string{
 	created datetime NOT NULL,
 	revised datetime NOT NULL,
 	title varchar(512) NOT NULL,
-	caption varchar(512) NOT NULL,
+	caption varchar(4096) NOT NULL,
 	image varchar(256) NOT NULL,
 	PRIMARY KEY (id),
 	KEY IDX_SLIDESHOW (slideshow),
@@ -96,7 +111,7 @@ var cmds = [...]string{
 	created datetime NOT NULL,
 	revised datetime NOT NULL,
 	title varchar(128) NOT NULL,
-	caption varchar(512) NOT NULL,
+	caption varchar(4096) NOT NULL,
 	format varchar(16) NOT NULL,
 	image varchar(256) NOT NULL,
 	etag varchar(64) NOT NULL,
@@ -106,10 +121,7 @@ var cmds = [...]string{
 	KEY IDX_SHARED (shared),
 	KEY IDX_TOPIC (topic),
 	CONSTRAINT FK_SLIDESHOW_GALLERY FOREIGN KEY (gallery) REFERENCES gallery (id),
-	CONSTRAINT FK_SLIDESHOW_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE)`,
-
-	`INSERT INTO slideshow (id, gallery, gallery_order, visible, user, shared, topic, created, revised, title, caption, format, image) VALUES
-	(1,	1, 10, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '');`,
+	CONSTRAINT FK_SLIDESHOW_USER FOREIGN KEY (user) REFERENCES user (id) ON DELETE CASCADE);`,
 
 	`CREATE TABLE statistic (
 		id int(11) NOT NULL AUTO_INCREMENT,
@@ -166,6 +178,44 @@ var cmds = [...]string{
 		UNIQUE KEY IDX_USERNAME (username),
 		KEY IDX_USER_PARENT (parent),
 		CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id));`,
+
+	`INSERT INTO user (id, parent, username, name, role, status, password, created) VALUES
+		(1,	1, 'SystemInfo', 'System Info', 10, -1, '', '2024-12-01 15:52:42');`,
+
+	`INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag) VALUES
+		(1,	1, 10, 2, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '', ''),
+		(2,	1, 0, 2, 2, 1, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Home Page', '', '', '', '');`,
+
+	`INSERT INTO page (id, slideshow, format, menu, description, noindex, title) VALUES
+		(1,	2, 2, "", "This is a club photo gallery.", false, "");`,
+}
+
+var cmdsInfo = [...]string{
+	`ALTER TABLE gallery
+		ADD COLUMN title varchar(60) NOT NULL,
+		ADD COLUMN events varchar(128) NOT NULL;`,
+	
+	`UPDATE gallery SET title=CONCAT('| ', organiser), events='Next Event' WHERE id=1;`,
+
+	`ALTER TABLE slide MODIFY COLUMN caption varchar(4096) NOT NULL;`,
+
+	`ALTER TABLE slideshow MODIFY COLUMN caption varchar(4096) NOT NULL;`,
+
+	`CREATE TABLE page (
+		id int(11) NOT NULL AUTO_INCREMENT,
+		slideshow int(11) NOT NULL,
+		format int(11) NOT NULL,
+		menu varchar(128) NOT NULL,
+		description varchar(512) NOT NULL,
+		noindex bool NOT NULL,
+		title varchar(128) NOT NULL,
+		PRIMARY KEY (id),
+		KEY IDX_SLIDESHOW (slideshow),
+		CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,
+
+
+	`INSERT INTO user (parent, username, name, role, status, password, created) VALUES
+		(1, 'SystemInfo', 'System Info', 10, -1, '', '2024-12-01 15:52:42');`,
 }
 
 var cmdsRedo = [...]string{
@@ -190,7 +240,7 @@ var cmdsSessions = [...]string{
 		token CHAR(43) PRIMARY KEY,
 		data BLOB NOT NULL,
 		expiry TIMESTAMP(6) NOT NULL);`,
-	
+
 	`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
 }
 
@@ -298,7 +348,7 @@ func MigrateRedo2(stRedo *RedoStore, stSlideshow *SlideshowStore) error {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -318,6 +368,60 @@ func MigrateSessions(stSession *SessionStore) error {
 	return nil
 }
 
+// MigrateInfo adds the user and slideshows for club information. Needed for version 1.3.0.
+func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageStore) error {
+
+	// dummy user to own gallery information
+	if _, err := stUser.getSystem("SystemInfo"); err == nil {
+		return nil // nothing to do
+	}
+
+	// add pages table and system user
+	if err := setupTables(stUser.DBX, *stUser.ptx, cmdsInfo[:]); err != nil {
+		return err
+	}
+
+	// system user for pages
+	var err error
+	var u *users.User
+	if u, err = stUser.getSystemTx("SystemInfo"); err != nil {
+		return err
+	}
+
+	// add home page
+	s := sysShow(stSlideshow.GalleryId, u.Id, "Home Page", "")
+	if err := stSlideshow.Update(s); err != nil {
+		return err
+	}
+	if err := stPage.Update(sysPage(s.Id, models.PageHome, "This is a club photo gallery.")); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func sysPage(showId int64, format int, desc string) *models.Page {
+	return &models.Page{
+		Slideshow: showId,
+		Format:    format,
+		Description: desc,
+	}
+}
+
+func sysShow(galleryId int64, userId int64, title string, format string) *models.Slideshow {
+	now := time.Now()
+	return &models.Slideshow{
+		Gallery: galleryId,
+		Access:  models.SlideshowPublic,
+		Visible: models.SlideshowPublic,
+		User:    sql.NullInt64{Int64: userId, Valid: true},
+		Created: now,
+		Revised: now,
+		Title:   title,
+		Format:  format,
+	}
+}
+
 // MigrateMB4 converts text fields to accept 4-byte Unicode characters, instead of 3-byte.
 // It also adds a database version for future migrations. Needed for version 1.3.0.
 func MigrateMB4(stGallery *GalleryStore) error {
@@ -328,7 +432,7 @@ func MigrateMB4(stGallery *GalleryStore) error {
 		"SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci';",
 		"SET character_set_server = 'utf8mb4';",
 		"SET collation_server = 'utf8mb4_unicode_ci';",
-	
+
 		`ALTER TABLE gallery CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
 		`ALTER TABLE slide CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,
 		`ALTER TABLE slideshow CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`,

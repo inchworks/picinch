@@ -71,6 +71,8 @@ Photos uploaded are resized to fit these dimensions.
 
 **parent-highlights** `16` highlights available for parent website
 
+**events-page** `1` mumber of upcoming events per diary shown on home page (0 for none)
+
 **slideshows-page** `16` slideshows shown on home page
 
 ## Per-user limits
@@ -107,13 +109,21 @@ Photos uploaded are resized to fit these dimensions.
 
 **usage-anon** `1` anonymisation of user IDs: 0 = daily, 1 = immediate.
 
+**video-snapshot** `3s` time within video for snapshot thumbnail. Units s(econds), -ve for no snapshots.
+
+## Time zone
+The local time zone **TZ** must be specified as an environment variable in `docker-compose.yml`, not in this file.
+
 ## Website variants
 Options to change the operation of the website.
-**home-switch** switches the home page to a specified template, for example, `disabled` to show `disabled.page.tmpl` when the website is offline.
+
+**date-format** `2 January` displayed date format, using the Go reference time `01/02 03:04:05PM '06`.
+
+**home-switch** ` ` switches the home page to a specified template, for example, `disabled` to show `disabled.page.tmpl` when the website is offline.
 
 **misc-name** `misc` path in URL for miscellaneous files, as in `example.com/misc/file`
 
-**video-snapshot** `3s` time within video for snapshot thumbnail. Units s(econds), -ve for no snapshots.
+**options** ` ` set to `solo` to configure PicInch as an image-oriented website for a single owner, and set to `main-comp` for a standalone host for a public photo competition
 
 **video-types** ` ` acceptable video file types, such as `.mp4, .mov`.
 

@@ -8,26 +8,33 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}Latest{{end}}
+{{define "title"}}{{ .Meta.Title }}{{end}}
 
 {{define "pagemeta"}}
 	{{block "homePageMeta" .}}
-		<meta name="description" content="This is a club photo gallery.">
+		{{if .Meta.Description}}<meta name="description" content="{{ .Meta.Description }}">{{end}}
+    	{{if .Meta.NoIndex}}<meta name="robots" content="noindex">{{end}}
 	{{end}}
 {{end}}
 
 {{define "page"}}
     <div class="container">
         <header> 
-            <span class="banner">{{block "banner" .}}PICINCH GALLERY{{end}}</span>
+            {{block "banner" .}}<h1 class="banner mt-2">{{ .DisplayName }}</h1>{{end}}
         </header>
     </div>
 
 	<div class="container">
 		{{block "homePage" .}}
-			<p>This website allows the members of a photography club to share their photos with the public and with each other.</p>
+			{{range .Top}}
+				<div>{{ .Div }}</div>
+			{{end}}
 		{{end}}
-		<h3>Highlights</h3>
+		{{if .Events}}
+			{{block "events-next" .}}
+			{{end}}
+		{{end}}
+		<h2>Highlights</h2>
 	</div>
 
 	<div class="container lightbox2 photo-thumbnails rounded">
@@ -48,9 +55,9 @@
 
 	<div class="container">
 		{{if .IsAuthenticated}}
-			<h3>Latest</h3>
+			<h2>Latest</h2>
 		{{else}}
-			<h3>Slideshows</h3>
+			<h2>Slideshows</h2>
 		{{end}}
 		<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 row-cols-xxl-4 mb-4">
 			{{range .Slideshows}}
@@ -77,17 +84,25 @@
 
 	{{if not .IsAuthenticated}}
 		<div class="container">
-			<p><strong>More slideshows</strong> are available to to club members. Please sign up or log in.</p>
+			<p><strong>More slideshows</strong> are available to to members. Please sign up or log in.</p>
 		</div>
 	{{end}}
 
-	<div class="container">
-		<footer class="text-muted">
+	{{if .Bottom}}
+		<div class="container">
+			{{range .Bottom}}
+				<div>{{ .Div }}</div>
+			{{end}}
+		</div>
+	{{end}}
+
+	<footer>
+		<div class="container">
 			<p class="float-end">
 				<a href="/info/notices">Copyright and Data Privacy Notices</a>
 			</p>
-		</footer>
-	</div>
+		</div>
+	</footer>
 {{end}}
 
 {{ define "pagescripts" }}

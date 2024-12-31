@@ -31,15 +31,20 @@ import (
 // Database field names are the same as structure names, with lower case first letter.
 
 const (
+	// page formats
+	PageDiary = 1
+	PageHome  = 2
+	PageInfo  = 3
+
 	// slide formats
 	SlideTitle   = 1
 	SlideImage   = 2
 	SlideCaption = 4
 	SlideVideo   = 8
 
-	// slideshow visibility
+	// slideshow type and visibility
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
-	SlideshowTopic   = -1
+	SlideshowTopic   = -1  // slideshow for a topic
 	SlideshowPrivate = 0
 	SlideshowClub    = 1
 	SlideshowPublic  = 2
@@ -51,11 +56,13 @@ const (
 	UserMember  = 2
 	UserCurator = 3
 	UserAdmin   = 4
+	UserSystem  = 10
 
 	// field sizes
-	MaxName   = 60
-	MaxTitle  = 128
-	MaxDetail = 512
+	MaxName     = 60
+	MaxTitle    = 128
+	MaxDetail   = 512
+	MaxMarkdown = 4096
 )
 
 var (
@@ -71,13 +78,25 @@ type Gallery struct {
 	Version int
 
 	// parameters
-	Organiser  string
-	NMaxSlides int `db:"n_max_slides"`
-	NShowcased int `db:"n_showcased"`
+	Organiser  string // website name
+	Title      string // site name appended to page titles
+	Events     string // heading for next events
+	NMaxSlides int    `db:"n_max_slides"`
+	NShowcased int    `db:"n_showcased"`
 
 	// announcements
 	NoticePublic string // appears on home page
 	NoticeUsers  string // appears on contributor's page
+}
+
+type Page struct {
+	Id          int64
+	Slideshow   int64
+	Format      int
+	Menu        string
+	Description string // for <meta>
+	NoIndex     bool
+	Title       string // for <title>
 }
 
 type Slide struct {
@@ -104,7 +123,7 @@ type Slideshow struct {
 	Created      time.Time
 	Revised      time.Time
 	Title        string
-	Caption      string
+	Caption      string // sanitized HTML
 	Format       string
 	Image        string
 	ETag         string `db:"etag"` // latent support: entity tag for caching
@@ -129,6 +148,21 @@ type TagRef struct {
 }
 
 // Join results
+
+type PageSlideshow struct {
+	PageId      int64
+	PageFormat  int
+	Menu        string
+	Description string
+	MetaTitle   string
+	NoIndex     bool
+	Slideshow
+}
+
+type SlideSlideshow struct {
+	Slide
+	SlideshowId int64
+}
 
 type SlideshowTagRef struct {
 	Slideshow

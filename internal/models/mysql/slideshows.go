@@ -38,30 +38,27 @@ const (
 		SET gallery_order=:gallery_order, access=:access, visible=:visible, shared=:shared, topic=:topic, created=:created, revised=:revised, title=:title, caption=:caption, format=:format, image=:image, etag=:etag
 		WHERE id = :id
 	`
-
-	slideshowSet = `
-		INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag)
-		VALUES (:id, :gallery, :gallery_order, :access, :visible, :user, :shared, :topic, :created, :revised, :title, :caption, :format, :image, :etag)`
 )
 
 const (
 	// note that ID is included for stable ordering of selections for editing
-	slideshowSelect       = `SELECT * FROM slideshow`
+	slideshowSelect         = `SELECT * FROM slideshow`
+	slideshowOrderGallery   = ` ORDER BY gallery_order ASC` // ## doesn't matter?
 	slideshowOrderPublished = ` ORDER BY gallery_order DESC, created DESC, id`
-	slideshowOrderRevised = ` ORDER BY gallery_order DESC, revised DESC, id`
-	slideshowOrderTitle   = ` ORDER BY title, id`
+	slideshowOrderRevised   = ` ORDER BY gallery_order DESC, revised DESC, id`
+	slideshowOrderTitle     = ` ORDER BY title, id`
 
-	slideshowCountForUser  = `SELECT COUNT(*) FROM slideshow WHERE user = ? AND  visible > -10`
+	slideshowCountForUser = `SELECT COUNT(*) FROM slideshow WHERE user = ? AND visible >= -1`
 
-	slideshowWhereId       = slideshowSelect + ` WHERE id = ?`
-	slideshowWhereTopic    = slideshowSelect + ` WHERE topic = ? AND user = ? AND  visible > -10`
+	slideshowWhereId     = slideshowSelect + ` WHERE id = ?`
+	slideshowWhereTopic  = slideshowSelect + ` WHERE topic = ? AND user = ? AND  visible >= -1`
 
-	slideshowsWhereTopic     = slideshowSelect + ` WHERE topic = ? AND  visible > -10`
-	slideshowsWhereTopicUser = slideshowSelect + ` WHERE topic = ? AND user = ? AND  visible > -10`
-	slideshowsWhereUser      = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
-	slideshowsNotTopics      = slideshowSelect + ` WHERE gallery = ? AND user IS NOT NULL AND visible > -10` + slideshowOrderTitle
+	slideshowsWhereTopic      = slideshowSelect + ` WHERE topic = ? AND visible >= -1`
+	slideshowsWhereTopicOrder = slideshowSelect + ` WHERE topic = ? AND visible >= -1` + slideshowOrderGallery
+	slideshowsWhereTopicUser  = slideshowSelect + ` WHERE topic = ? AND user = ? AND visible >= -1`
+	slideshowsWhereUser       = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
 
-	slideshowWhereShared = slideshowSelect + ` WHERE shared = ? AND visible > -10`
+	slideshowWhereShared = slideshowSelect + ` WHERE shared = ? AND visible >= -1`
 
 	// next slideshow ID in sequence for a topic, excluding suspended users
 	slideshowWhereTopicAfter = `
@@ -83,7 +80,15 @@ const (
 	slideshowWhereTopicVisible = `
 		SELECT slideshow.* FROM slideshow
 		JOIN slideshow AS topic ON topic.id = slideshow.topic
-		WHERE slideshow.topic = ? AND visible > -10 AND slideshow.user = ? AND topic.visible >= ?
+		WHERE slideshow.topic = ? AND visible >= -1 AND slideshow.user = ? AND topic.visible >= ?
+	`
+
+	// all slideshows excluding system ones and topics
+	slideshowsNotTopics = `
+		SELECT slideshow.* FROM slideshow
+		INNER JOIN user ON user.id = slideshow.user
+		WHERE gallery = ? AND visible > 0 AND user.status > 0
+		ORDER BY title, id
 	`
 
 	// tagged slideshows
@@ -91,7 +96,7 @@ const (
 		SELECT slideshow.* FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
-		WHERE tag.parent = ? AND tag.name = ? AND slideshow.visible > -10
+		WHERE tag.parent = ? AND tag.name = ? AND slideshow.visible >= -1
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -101,7 +106,7 @@ const (
 		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
 		WHERE tag.gallery = ? AND tag.parent = ? AND tag.name = ?
-		AND slideshow.revised < ? AND slideshow.visible > -10
+		AND slideshow.revised < ? AND slideshow.visible >= -1
 	`
 
 	slideshowsWhereTagSystem = `
@@ -109,7 +114,7 @@ const (
 		FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
 		WHERE tagref.tag = ? AND tagref.user IS NULL
-		AND slideshow.visible > -10
+		AND slideshow.visible >= -1
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -119,7 +124,7 @@ const (
 		JOIN tagref ON tagref.item = slideshow.id
 		JOIN tag ON tag.id = tagref.tag
 		WHERE tag.parent = ? AND tag.name = ?
-		AND slideshow.topic = ? AND slideshow.visible > -10
+		AND slideshow.topic = ? AND slideshow.visible >= -1
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -128,7 +133,7 @@ const (
 		SELECT slideshow.*, tagref.id AS tagrefid
 		FROM slideshow
 		JOIN tagref ON tagref.item = slideshow.id
-		WHERE tagref.tag = ? AND tagref.user = ? AND slideshow.visible > -10
+		WHERE tagref.tag = ? AND tagref.user = ? AND slideshow.visible >= -1
 		ORDER BY tagref.added ASC
 		LIMIT ?
 	`
@@ -143,9 +148,9 @@ const (
 		ORDER BY slideshow.revised DESC
 	`
 
-	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ? AND slideshow.visible > -10` + slideshowOrderTitle
-	topicsWhereFormat   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ? AND slideshow.visible > -10` + slideshowOrderTitle
-	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND slideshow.visible > -10` + slideshowOrderPublished
+	topicsWhereEditable = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND id <> ? AND slideshow.visible >= -1` + slideshowOrderTitle
+	topicsWhereFormat   = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND format LIKE ? AND slideshow.visible >= -1` + slideshowOrderTitle
+	topicsWhereGallery  = slideshowSelect + ` WHERE gallery = ? AND user IS NULL AND slideshow.visible >= -1` + slideshowOrderPublished
 
 	// most recent visible topics and slideshows, with a per-user limit, excluding suspended users
 	slideshowsRecentPublished = `
@@ -216,7 +221,7 @@ func (st *SlideshowStore) AllForUsers() []*models.Slideshow {
 	return slideshows
 }
 
-// All topics returns a list of all topics for which contributions can be made.
+// AllTopics returns a list of all topics for which contributions can be made.
 func (st *SlideshowStore) AllTopics() []*models.Slideshow {
 
 	var topics []*models.Slideshow
@@ -346,7 +351,7 @@ func (st *SlideshowStore) ForTopicPublished(topicId int64, latest bool) []*model
 
 	var order string
 	if latest {
-		order = "  slideshow.revised DESC"
+		order = " slideshow.revised DESC"
 	} else {
 		order = " slideshow.created ASC"
 	}
@@ -512,20 +517,13 @@ func (st *SlideshowStore) Update(r *models.Slideshow) error {
 	return st.updateData(&r.Id, r)
 }
 
-// Set slideshow with specified ID (temporary function used to migrate topics)
+// forTopicByOrder returns the slideshows for system topic in gallery order.
+func (st *SlideshowStore) forTopicByOrder(topicId int64) ([]*models.Slideshow, error) {
 
-func (st *SlideshowStore) Set(r *models.Slideshow) error {
-	r.Gallery = st.GalleryId
+	var ss []*models.Slideshow
 
-	tx := *st.ptx
-	if tx == nil {
-		panic("Transaction not begun")
+	if err := st.DBX.Select(&ss, slideshowsWhereTopicOrder, topicId); err != nil {
+		return nil, st.logError(err)
 	}
-
-	if _, err := tx.NamedExec(slideshowSet, r); err != nil {
-		st.logError(err)
-		return st.convertError(err)
-	}
-
-	return nil
+	return ss, nil
 }

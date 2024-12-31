@@ -28,8 +28,8 @@
 
 {{define "page"}}
 	<div class="container">
-		<h3>Members with slideshows</h3>
-		<div class="col-4">
+		<h1>Members with slideshows</h1>
+		<div class="col-md-4 col-sm-5">
 			{{range .Users}}
 				<div class="list-group">
 					<a class="list-group-item list-group-item-action" href="/contributor/{{ .Id }}">{{ .Name }}</a></li>

@@ -1,0 +1,15 @@
+{{define "events-next"}}
+    <div class="mb-4">
+        <h2>{{ .HEvents }}</h2>
+        {{range .Events}}
+            <div class="row">
+                <div class="col-md-2 col-sm-3">
+                    <span >{{ .Start }}</span>
+                </div>
+                <div class="col-md-8 col-sm-7">
+                    <a href="/diary/{{ .Diary }}">{{ .Title }}</a>
+                </div>
+            </div>
+        {{end}}
+    </div>
+{{end}}

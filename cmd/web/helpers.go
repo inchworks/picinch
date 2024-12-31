@@ -239,12 +239,20 @@ func (app *Application) refToContributor(w http.ResponseWriter,r *http.Request, 
 
 // render fetches a template from the cache and writes the result as an HTTP response.
 func (app *Application) render(w http.ResponseWriter, r *http.Request, name string, td TemplateData) {
+	app.render2(w, r, name, td, true)
+}
+
+// render fetches a template from the cache and writes the result as an HTTP response.
+// Optionally the site title is added to the page title.
+func (app *Application) render2(w http.ResponseWriter, r *http.Request, name string, td TemplateData, addSite bool) {
 
 	if td == nil {
+		// on thin ice here, because nil for a concrete struct is not nil :-(
 		td = &DataCommon{}
 	}
 
-	td.addDefaultData(app, r, strings.SplitN(name, ".", 2)[0])
+	td.addDefaultData(app, r, strings.SplitN(name, ".", 2)[0], addSite)
+
 
 	// Retrieve the appropriate template set from the cache based on the page name
 	// (like `home.page.tmpl`).

@@ -1,0 +1,146 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2024.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{template "gallery" .}}
+
+{{define "title"}}Edit Page{{end}}
+
+{{define "pagemeta"}}
+    <meta name="robots" content="noindex">
+{{end}}
+
+{{define "page"}}
+
+	<div class="container">
+
+		<h1>{{ .Title }}</h1>
+
+		<form action='/edit-page' method='POST' enctype="multipart/form-data" >
+            <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
+ 			{{with .Form}}
+	        	<input type='hidden' name='nShow' value='{{.Get "nShow"}}'>
+	        	<input type='hidden' name='nTopic' value='{{.Get "nTopic"}}'>
+    	        <input type='hidden' name='nUser' value='{{.Get "nUser"}}'>
+    	        <input type='hidden' name='timestamp' value='{{.Get "timestamp"}}'>
+
+ 				<div id="formChildren">
+					{{range .Children}}
+						<div class='childForm' {{ .ChildStyle }}>
+							<input type='hidden' name='index' value='{{ .ChildIndex }}'>								
+							<input type='hidden' name='title' value='{{ .Title }}'>
+							<div class="row mb-2">
+								<div class="col-md-1">
+									<input type='number' class='form-control showOrder {{.ChildValid "showOrder"}}' name='showOrder' style='width:60px; margin-right:540px' value='{{ .ShowOrder }}'>
+									<div class='invalid-feedback'>{{ .ChildError "showOrder"}}</div>
+								</div>
+								<label class="col-md-1 col-form-label">Text</label>
+								<div class="col-md-8">
+									<textarea name='caption' rows='8' class='form-control {{.ChildValid "caption"}}'>{{ .Caption }}</textarea>
+									<div class='invalid-feedback'>{{ .ChildError "caption"}}</div>
+								</div>
+							</div>
+							<div class="row mb-2">
+								<label class="offset-md-1 col-md-1 col-form-label">Media</label>
+								<div class="col-md-8 media">
+									<input type='hidden' class="mediaName" name='mediaName' value='{{.MediaName}}'>
+									<input type='hidden' class="mediaVersion" name='mediaVersion' value='0'>
+									<div class="input-group">
+										<span class='input-group-text upload-name'>{{.MediaName}}</span>
+										<label class='form-control upload-text {{.ChildValid "mediaName"}}' for='U{{ .ChildIndex }}' role='button'>Choose an image or video...</label>
+										<input class='upload-input d-none' type='file' id='U{{ .ChildIndex }}' accept='{{$.Accept}}'>
+										<label class='input-group-text upload-label' for='U{{ .ChildIndex }}' role='button'>Browse</label>
+										<div class='invalid-feedback bad-file'>{{ .ChildError "mediaName"}}</div>
+									</div>
+								</div>
+								<div class="col-md-2">
+									<a href="#" class="btn btn-secondary btnDeleteChild">Delete</a>
+								</div>
+							</div>
+							<div class="row mb-2 upload" style='display:none'>
+								<div class="offset-md-2 col-md-5 progress">
+									<div class="progress-bar" style="width:50%; height:100%"></div>
+								</div>
+								<div class='col-md-3 alert upload-status'></div>
+							</div>
+						</div>
+					{{end}}
+				</div>
+
+				<div class="row mt-3 mb-2">
+					<div class="offset-md-10 col-md-2">
+						<a href="#" class="btn btn-secondary btnAddChild">New Section</a>
+					</div>
+				</div>
+				<div class="row mb-2">
+					<div class="offset-md-2	col-md-2">
+						<button type='submit' class="btn btn-primary" id='submit'>Update</button>
+					</div>
+				</div>
+			{{end}}
+		</form>
+
+		{{if .IsHome}}<p>A second or final section will be shown at the foot of the home page.</p>{{end}}
+
+		<p>Note: Images are uploaded immediately, but you must click the Update button to save your changes. That includes adding sections,
+		uploading images and text, and deleting sections.</p>
+	</div>
+
+{{end}}
+
+{{ define "pagescripts" }}
+	<script type="text/javascript" src='/static/js/multiforms-03.js'></script>
+	<script type="text/javascript" src='/static/js/upload-04.js'></script>
+	<script>
+		// page-specific processing
+
+		function pageReady() {
+
+			// Set name of the photo, and upload on select
+
+			$(".upload-input").on("change", function() {
+				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
+			});
+
+			// Disable button on submit, in attempt to stop duplicate submissions
+			$("form").submit(function() {
+  				$(this).find("button[type='submit']").prop("disabled", true);
+			});
+
+		}
+
+		function childAdded($prototype, $newForm) {
+
+			// increment showOrder in prototype
+			$f = $prototype.find(".showOrder");
+			$f.val(Number($f.val())+1);
+
+			// link labels to upload input
+			var id = "U" + $newForm.attr("id");
+			$newForm.find(".upload-text").attr("for", id);
+			$newForm.find(".upload-input").attr("id", id);
+			$newForm.find(".upload-label").attr("for", id);
+
+			// add change handler (not copied with prototype, it seems)
+			$newForm.find(".upload-input").on("change", function() {
+				uploadFile($(this), {{.CSRFToken}}, {{.MaxUpload}}, {{.Form.Get "timestamp"}}, $("#submit"));
+			});
+		}
+
+    </script>
+{{end}}

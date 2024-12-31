@@ -15,14 +15,15 @@
         <meta charset='utf-8'>
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-        <title>{{if ne .Page "home"}}{{template "title" .}} | {{end}}{{block "website" .}}PicInch Gallery{{end}}</title>
+        <title>{{template "title" .}}{{ .SiteTitle }}</title>
+
         {{block "pagemeta" .}}
         {{end}}
 
         {{block "galleryStylesheets" .}}
             {{template "bootstrapStylesheet" .}}
             {{template "lightboxStylesheet" .}}
-            <link rel='stylesheet' href='/static/css/gallery-04.css'>
+            <link rel='stylesheet' href='/static/css/gallery-05.css'>
             {{block "siteStyle" .}}
             {{end}}
         {{end}}
@@ -47,6 +48,9 @@
 	{{template "gallery" .}}
 {{end}}
 
+{{/* For webparts pages*/}}
+{{define "website"}}{{.SiteTitle}}{{end}}  
+
 {{define "galleryContent"}}
 	<!-- // Copyright © Rob Burke, Inchworks, 2020. -->
 	
@@ -63,16 +67,18 @@
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav">
-                        {{if .IsAdmin}}
-                            {{template "menu-admin" .}}
+                        {{if .IsGallery}}
+                            {{template "menu-gallery" .}}
+                        {{end}}
+                        {{template "menu-info" .}}
+                        {{if .IsMember}}
+                            {{template "menu-member" .}}
                         {{end}}
                         {{if .IsCurator}}
                             {{template "menu-curator" .}}
                         {{end}}
-                        {{if .IsMember}}
-                            {{template "menu-member" .}}
-                        {{else if .IsFriend}}
-                            {{template "menu-friend" .}}
+                        {{if .IsAdmin}}
+                            {{template "menu-admin" .}}
                         {{end}}
                         {{if .IsAuthenticated}}
                             {{if .IsCompetition}}
@@ -82,7 +88,7 @@
                         {{else}}
                             {{template "menu-public" .}}
                         {{end}}
-                    </ul>
+                  </ul>
                 </div>
             </div>
          </nav>

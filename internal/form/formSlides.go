@@ -143,7 +143,7 @@ func (f *SlidesForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, err er
 			Title:     f.ChildText("title", i, ix, 0, models.MaxDetail), // allow long titles for slides
 			MediaName: f.ChildFile("mediaName", i, ix, vt),
 			Version:   f.ChildPositive("mediaVersion", i, ix),
-			Caption:   f.ChildText("caption", i, ix, 0, models.MaxDetail),
+			Caption:   f.ChildText("caption", i, ix, 0, models.MaxMarkdown),
 		})
 	}
 

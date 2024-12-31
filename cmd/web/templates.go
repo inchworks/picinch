@@ -28,6 +28,7 @@ import (
 	"github.com/inchworks/webparts/v2/users"
 	"github.com/justinas/nosurf"
 
+	"inchworks.com/picinch/internal/cache"
 	"inchworks.com/picinch/internal/form"
 	"inchworks.com/picinch/internal/models"
 )
@@ -36,7 +37,7 @@ import (
 // which template we have
 
 type TemplateData interface {
-	addDefaultData(app *Application, r *http.Request, name string)
+	addDefaultData(app *Application, r *http.Request, name string, addSite bool)
 }
 
 type DataCommon struct {
@@ -51,12 +52,15 @@ type DataCommon struct {
 	IsCompetition   bool // competitions enabled
 	IsCurator       bool // user is curator
 	IsFriend        bool // user is friend
+	IsGallery       bool // gallery with contributors
 	IsMember        bool // user is member
 
-	Page string
+	Menus     []*cache.MenuItem
+	Page      string // unused, kept for version compatibility
+	SiteTitle string // appended to page titles
 }
 
-func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page string) {
+func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page string, addSite bool) {
 
 	d.CSRFToken = nosurf.Token(r)
 	d.Flash = app.session.PopString(r.Context(), "flash")
@@ -65,8 +69,22 @@ func (d *DataCommon) addDefaultData(app *Application, r *http.Request, page stri
 	d.IsCompetition = (app.cfg.Options == "main-comp")
 	d.IsCurator = app.isAuthenticated(r, models.UserCurator)
 	d.IsFriend = app.isAuthenticated(r, models.UserFriend)
+	d.IsGallery = true // ## no non-gallery configuration yet
 	d.IsMember = app.isAuthenticated(r, models.UserMember)
+
+	if addSite && app.galleryState.gallery.Title != "" {
+		d.SiteTitle = " " + app.galleryState.gallery.Title
+	}
+
+	d.Menus = app.galleryState.publicPages.MainMenu
 	d.Page = page
+}
+
+// metadata for diary and information pages
+type DataMeta struct {
+	Title       string
+	Description string
+	NoIndex     bool
 }
 
 // template data for display pages
@@ -76,10 +94,38 @@ type dataCompetition struct {
 	DataCommon
 }
 
+type DataDiary struct {
+	Meta    DataMeta
+	Title   string
+	Caption template.HTML
+	Events  []*DataEvent
+	DataCommon
+}
+
+type DataEvent struct {
+	Start   string
+	Title   template.HTML
+	Details template.HTML
+	Diary   string
+}
+
 type DataHome struct {
+	Meta        DataMeta
 	DisplayName string
+	Top         []*cache.Section
+	HEvents     string
+	Events      []*DataEvent
 	Highlights  []*DataSlide
 	Slideshows  []*DataPublished
+	Bottom      []*cache.Section
+	DataCommon
+}
+
+type DataInfo struct {
+	Meta     DataMeta
+	Title    string
+	Caption  template.HTML
+	Sections []*cache.Section
 	DataCommon
 }
 
@@ -99,6 +145,19 @@ type DataMySlideshow struct {
 	Shared  string
 }
 
+type DataPage struct {
+	NPage int64
+	Title string
+	Menu  string
+}
+
+type DataPages struct {
+	Diaries []*DataPage
+	Home    []*DataPage
+	Pages   []*DataPage
+	DataCommon
+}
+
 type DataPublished struct {
 	Id          int64
 	Ref         string
@@ -114,7 +173,7 @@ type DataPublished struct {
 
 type DataSlideshow struct {
 	Title       string
-	Caption     string
+	Caption     template.HTML
 	DisplayName string
 	Reference   string
 	AfterHRef   string
@@ -206,6 +265,27 @@ type compFormData struct {
 	DataCommon
 }
 
+type diaryFormData struct {
+	Form  *form.DiaryForm
+	Title string
+	DataCommon
+}
+
+type metaFormData struct {
+	Form  *multiforms.Form
+	Title string
+	DataCommon
+}
+
+type pagesFormData struct {
+	Form     *form.PagesForm
+	Action   string
+	Heading  string
+	HomeName string
+	HomePage string // page ID, base 36, not trusted and only for a URL
+	DataCommon
+}
+
 type simpleFormData struct {
 	Form *multiforms.Form
 	DataCommon
@@ -215,6 +295,7 @@ type slidesFormData struct {
 	Form      *form.SlidesForm
 	Title     string
 	Accept    string
+	IsHome    bool
 	MaxUpload int // in MB
 	DataCommon
 }
@@ -259,12 +340,14 @@ type usersFormData struct {
 // Define functions callable from a template
 
 var templateFuncs = template.FuncMap{
-	"checked":    checked,
-	"isWorking":  isWorking,
-	"humanDate":  humanDate,
-	"thumbnail":  thumbnail,
-	"userStatus": userStatus,
-	"viewable":   viewable,
+	"checked":      checked,
+	"htmlDate":     htmlDate,
+	"htmlDateTime": htmlDateTime,
+	"humanDate":    humanDate,
+	"isWorking":    isWorking,
+	"thumbnail":    thumbnail,
+	"userStatus":   userStatus,
+	"viewable":     viewable,
 }
 
 // checked returns "checked" if the parameter is true, for use with a form checkbox.
@@ -277,13 +360,31 @@ func checked(isChecked bool) string {
 	}
 }
 
+// htmlDate returns the date in HTML input type format.
+func htmlDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	return t.Local().Format("2006-01-02")
+}
+
+// htmlDateTime returns the date-time in HTML input type format.
+func htmlDateTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	return t.Local().Format("2006-01-02T15:04")
+}
+
 // humanDate returns the date in a user-friendly format.
 func humanDate(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
 
-	return t.UTC().Format("02 Jan 2006 at 15:04")
+	return t.Local().Format("02 Jan 2006 at 15:04")
 }
 
 // isWorking returns true if a media file is not ready to be viewed.

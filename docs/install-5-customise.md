@@ -2,12 +2,9 @@
 Add files in `/srv/picinch/site/` to customise your installation. You must restart the service for changes to take effect.
 
 ### Templates
-Files in `templates/` define Go templates to specify static content for your site. Files with the names `*.partial.tmpl` override application templates. Typically a single `site.partial.tmpl` file is sufficient. See [Template Example]({{ site.baseurl }}{% link template-examples.md %})
-.
+Files in `templates/` define Go templates to specify static content for your site. Files with the names `*.partial.tmpl` override application templates. Typically a single `site.partial.tmpl` file is sufficient. See [Template Example]({{ site.baseurl }}{% link template-examples.md %}).
 
-The following templates are intended to be redefined, and you will probably want to change at least `banner`, `homePage` and `website`:
-
-**banner** Banner text on each page.
+The following templates are intended to be redefined:
 
 **copyrightNotice** Copyright statement for the Copyright and Privacy page.
 
@@ -15,13 +12,9 @@ The following templates are intended to be redefined, and you will probably want
 
 **favicons** Favicon links and meta tags. There is no need to redefine this if you use the same names as the default set.
 
-**homePage** Site description shown on the home page.
-
-**homePageMeta** Metadata for the home page. See [Search Engine Settings]({{ site.baseurl }}{% link search-engine-settings.md %}).
-
 **signupPage** Welcome text on the signup page.
 
-**website** Website name, added to page titles and shown on log-in page.
+**website** Website name shown on log-in page.
 
 ### Graphics
 Files in `images/` replace the default brand and favicon images for PicInch.
@@ -47,10 +40,16 @@ You may also add add additional images you wish to include in customised templat
 `/srv/picinch/misc`.
 
 ### Additional Content
-You may also add static pages with `templates/info-*.page.tmpl` files, and specify common page layouts with `*.layout.tmpl` files.
-Use `info-notices.page.tmpl` and `gallery.layout.tmpl` as examples. Static pages are accessed by path `info/*` with the same name as the page template.
+Add additional information pages and menu items by logging on as a user with `admin` role. Specify the menu path for a page as `name` for a top-level menu item or `name.sub` for a dropdown menu item. A leading "`.`", i.e. `.name` specifies a page without a menu item. Pages are accessed by `https://<your-domain/info/name` or `/info/name.sub`.
 
-Use `static/css` and `static/js` to hold any additional stylesheets and scripts needed by your pages.
+Similarly, diaries can be added by the administrator. Typically just one diary is needed. By default the next upcoming event in each diary is shown automatically on the home page. Diaries are accessed by `https://<your-domain/diary/name` or `/diary/name.sub`.
+
+Users with `curator` role can edit the content for information pages and diaries. Markdown is supported for the sections of an information page.
+
+You may also add static pages with `templates/info-*.page.tmpl` files, and specify common page layouts with `*.layout.tmpl` files. A static page with template `templates/menu/name.page.tmpl` or `templates/menu/name.sub.page.tmpl` is added with a corresponding top-level or dropdown menu item. 
+Use `info-notices.page.tmpl` and `gallery.layout.tmpl` as examples. Static pages are accessed by the same web addresses as editable information pages. Adding an information page overrides a static page with the same address.
+
+Use `static/css` and `static/js` to hold any additional stylesheets and scripts needed by your static pages.
 These are not included automatically; you will need to reference them as needed in your template files.
 
 Note that additional templates and files should have different names to those used in the PicInch code, unless you intend to override the corresponding parts of PicInch.

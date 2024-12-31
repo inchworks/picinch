@@ -4,9 +4,12 @@ This web server application provides a simple way for a group of members, such a
 ## Features
 Contributors create simple slideshows. Each slide has a selection of title, photo and caption. Slides adjust in layout to match the content. There is a basic facility to edit and reorder slides.
 
+Slideshows can include long video clips, up to a configurable file size, with background file compression by the server.
+Apple MOV files are converted to MP4 automatically.
+
 Slideshows may be organised into topics, as defined by a curator. Topics may be defined in advance, or applied to existing slideshows. A topic can be viewed as a single slideshow, or as a page listing the individual contributions.
 
-Sign-up is restricted to a pre-set list of members, suitable for a club.
+Sign-up is restricted to a pre-set list of members, suitable for a club. Two user roles are defined. A `curator` can manage topics and create slideshows on behalf of users. An `admin` can add, suspend and remove users, and is also a curator.
 
 Slideshows can be specified as publicly visible, or visible to website users, or hidden.
 
@@ -16,16 +19,15 @@ The home page shows the most recent highlights and slideshows for each user. The
 
 A set of recent highlight images are available for display on a parent website. See [Images for a Parent Website]({{ site.baseurl }}{% link images-for-parent.md %}) for details.
 
-Two user roles are defined. A `curator` can manage topics and create slideshows on behalf of users. An `admin` can add, suspend and remove users, and is also a curator.
-
 Other features include: Static pages can be added using Go templates.
 Basic usage statistics are recorded daily and aggregated by month.
-A `misc` directory is provided to serve miscellaneous content such as videos.
+A `misc` directory is provided to serve miscellaneous content such as club reports.
 A topic can be shared with a URL containing an access code.
 
-**New** Slideshows can include long video clips, up to a configurable file size,
-with background file compression by the server.
-Apple MOV files are converted to MP4 automatically.
+**New for v1.3**
+Information pages, a diary of events, and menu items can all be added and edited, making PicInch a full-featured image-oriented website. Upcoming events are automatically listed on the home page.
+
+Upgrading from a previous version: see [Upgrading]({{ site.baseurl }}{% link upgrading.md %}).
 
 ## Appearance
 Display layout is responsive to device size (PC, tablet or phone).
@@ -38,7 +40,9 @@ Full size images are resized for display automatically. JPGs, PNGs and TIFs are 
 |:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:|
 |<a href="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-public.png"><img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-public.png" title="Public page" width="100%"></a>|<a href="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-club.png"><img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-club.png" title="Club home page" width="100%"></a>|<a href="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-my-gallery.png"><img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-my-gallery.png" title="User's gallery" width="100%"></a>|<a href="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-edit-slideshow.png"><img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-edit-slideshow.png" title="Edit slideshow" width="100%"></a>|
 
-## Competitions
+## Website Variants
+PicInch can be set up in solo mode as an image-oriented website for a single owner.
+
 PicInch can be configured as a standalone host for a public photo competition.
 It provides multiple classes, a competition entry form and email address verification.
 Judging and entry management is supported by tagging entries and a simple workflow management system.

@@ -99,6 +99,22 @@ func (app *Application) contributorsPublic(w http.ResponseWriter, r *http.Reques
 	app.render(w, r, template, data)
 }
 
+// diary returns a list of events.
+func (app *Application) diary(w http.ResponseWriter, r *http.Request) {
+
+	ps := httprouter.ParamsFromContext(r.Context())
+	name := ps.ByName("page")
+
+	// template and data
+	data := app.galleryState.DisplayDiary(name)
+	if data == nil {
+		httpNotFound(w)
+		return
+	}
+
+	app.render(w, r, "diary.page.tmpl", data)
+}
+
 // embedded returns a highlighted image, to be embedded in a parent website.
 func (app *Application) embedded(w http.ResponseWriter, r *http.Request) {
 
@@ -269,24 +285,23 @@ func (app *Application) home(w http.ResponseWriter, r *http.Request, member bool
 		return
 	}
 
-	app.render(w, r, "home.page.tmpl", data)
+	app.render2(w, r, "home.page.tmpl", data, false)
 }
 
-// info returns a configurable static page for the website
+// info returns a configurable slideshow or static page for the website.
 func (app *Application) info(w http.ResponseWriter, r *http.Request) {
 
 	ps := httprouter.ParamsFromContext(r.Context())
+	name := ps.ByName("page")
 
-	page := "info-" + ps.ByName("page") + ".page.tmpl"
-
-	// check if page exists
-	_, ok := app.templateCache[page]
-	if !ok {
+	// template and data
+	page, data := app.galleryState.DisplayInfo(name)
+	if page == "" {
 		httpNotFound(w)
 		return
 	}
 
-	app.render(w, r, page, nil)
+	app.render(w, r, page, data)
 }
 
 // Logout user
@@ -377,6 +392,18 @@ func (app *Application) ownTopic(w http.ResponseWriter, r *http.Request) {
 
 	// display page
 	app.render(w, r, tp, data)
+}
+
+// pages handles a request by the curator to list information pages.
+func (app *Application) pages(w http.ResponseWriter, r *http.Request) {
+
+	data := app.galleryState.DisplayPages()
+	if data == nil {
+		httpNotFound(w)
+		return
+	}
+
+	app.render(w, r, "pages.page.tmpl", data)
 }
 
 // reviewHighlights handles a request by the curator to view highlight slides for a topic.

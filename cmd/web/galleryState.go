@@ -23,9 +23,11 @@ import (
 	"net/http"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"inchworks.com/picinch/internal/cache"
 	"inchworks.com/picinch/internal/models"
 )
 
@@ -37,14 +39,15 @@ type GalleryState struct {
 	rollbackTx bool
 
 	// cached state
-	gallery       *models.Gallery
-	highlights    []string  // highlighted images
+	gallery     *models.Gallery
+	highlights  []string // highlighted images
+	publicPages *cache.PageCache
 
 	// for browser caching
-	muCache       sync.RWMutex
-	lastModified  time.Time         // (truncated to one second precision for HTTP Last-Modified header)
-	lastModifiedS string            // formatted for HTTP headers
-	publicSlideshow map[int64]bool  // true for public cache, false for private
+	muCache         sync.RWMutex
+	lastModified    time.Time      // (truncated to one second precision for HTTP Last-Modified header)
+	lastModifiedS   string         // formatted for HTTP headers
+	publicSlideshow map[int64]bool // true for public cache, false for private
 }
 
 // Initialisation
@@ -75,6 +78,58 @@ func (s *GalleryState) cacheHighlights() error {
 	return nil
 }
 
+// cachePages builds the cache of information pages.
+// It returns a list of menu confict warnings.
+func (s *GalleryState) cachePages() []string {
+
+	s.updatesNone()()
+
+	var warn []string
+
+	// reset cache
+	cache := cache.NewPages()
+	s.publicPages = cache
+
+	// add any menu template files (always public)
+	for file := range s.app.templateCache {
+		if strings.HasPrefix(file, "menu-") {
+			cache.AddFile(file, "menu-", ".page.tmpl")
+		}
+	}
+
+	// add public diaries and information pages
+	for _, pg := range s.app.PageStore.AllVisible(models.SlideshowPublic) {
+		ss := s.app.SlideStore.ForSlideshowOrdered(pg.Id, false, 100)  // ## configure max
+		w := cache.AddPage(pg, ss)
+		if len(w) > 0 {
+			warn = append(warn, w...)
+		}
+	}
+
+	// ## add private information slideshows to separate cache, if supported
+
+	// build
+	cache.BuildMenus()
+
+	return warn
+}
+
+// homeId returns the slideshow ID for the home page.
+func (s *GalleryState) homeId() int64 {
+
+	s.updatesNone()()
+
+	return 	s.publicPages.Infos["/"].Id
+}
+
+// isHome returns true if the slideshow ID is for home page information.
+func (s *GalleryState) isHome(id int64) bool {
+
+	s.updatesNone()()
+
+	return s.publicPages.Paths[id] == "/"
+}
+
 // Construct response URL
 
 func respPath(route string, display string, nRound int, index int) string {
@@ -102,14 +157,6 @@ func (s *GalleryState) rollback(httpStatus int, err error) int {
 	return httpStatus
 }
 
-// Commit changes and start new transaction
-
-func (s *GalleryState) save() {
-
-	s.app.tx.Commit()
-	s.app.tx = s.app.db.MustBegin()
-}
-
 // setLastModified saves the last gallery update time for browser caching.
 func (s *GalleryState) setLastModified() {
 
@@ -128,7 +175,7 @@ func (s *GalleryState) setLastModified() {
 
 // Setup cached context
 
-func (s *GalleryState) setupCache(g *models.Gallery) error {
+func (s *GalleryState) setupCache(g *models.Gallery) (warn []string, err error) {
 
 	// cache gallery record for dynamic parameters
 	s.gallery = g
@@ -136,8 +183,13 @@ func (s *GalleryState) setupCache(g *models.Gallery) error {
 	// assume everything has changed on server restart
 	s.setLastModified()
 
+	// information pages
+	warn = s.cachePages()
+
 	// cached highlight images
-	return s.cacheHighlights()
+	err = s.cacheHighlights()
+
+	return
 }
 
 // Take mutex and start transaction for update to gallery and, possibly, displays

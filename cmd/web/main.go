@@ -28,9 +28,9 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/mysqlstore"
+	"github.com/alexedwards/scs/v2"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/inchworks/usage"
 	"github.com/inchworks/webparts/v2/etx"
@@ -42,7 +42,6 @@ import (
 	"github.com/inchworks/webparts/v2/users"
 	"github.com/jmoiron/sqlx"
 	"github.com/justinas/nosurf"
-	"github.com/microcosm-cc/bluemonday"
 
 	"inchworks.com/picinch/internal/emailer"
 	"inchworks.com/picinch/internal/models"
@@ -54,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.2.4"
+	version = "1.3.0"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -121,6 +120,7 @@ type Configuration struct {
 	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
 	MaxHighlightsTotal  int `yaml:"highlights-page" env-default:"12"`    // highlights for home page, and user's page
 	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`   // slides in highights slideshow
+	MaxNextEvents       int `yaml:"events-page" env-default:"1"`         // next events per diary on home page
 	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`    // total slideshows on home page
 
 	// per user limits
@@ -142,15 +142,16 @@ type Configuration struct {
 	TimeoutDownload   time.Duration   `yaml:"timeout-download" env-default:"2m"`                               // maximum time for file download. Units m.
 	TimeoutUpload     time.Duration   `yaml:"timeout-upload" env-default:"5m"`                                 // maximum time for file upload. Units m.
 	TimeoutWeb        time.Duration   `yaml:"timeout-web" env-default:"20s"`                                   // maximum time for web request, same for response (default). Units s or m.
-	UsageAnonymised   usage.Anonymise `yaml:"usage-anon" env-default:"1"`
+	UsageAnonymised   usage.Anonymise `yaml:"usage-anon" env-default:"1"`                                      // 0: anonymise daily, 1: immediate
+	VideoSnapshot     time.Duration   `yaml:"video-snapshot"  env-default:"3s"`                                // snapshot time within video. -ve for no snapshots.
 
 	// variants
-	HomeSwitch    string        `yaml:"home-switch" env:"home-switch" env-default:""`           // switch home page to specified template, e.g when site disabled
-	MiscName      string        `yaml:"misc-name" env:"misc-name" env-default:"misc"`           // path in URL for miscellaneous files, as in "example.com/misc/file"
-	Options       string        `yaml:"options" env:"options" env-default:""`                   // site features: main-comp, with-comp
-	VideoSnapshot time.Duration `yaml:"video-snapshot"  env-default:"3s"`                       // snapshot time within video. -ve for no snapshots.
-	VideoPackage  string        `yaml:"video-package" env:"video-package" env-default:"ffmpeg"` // video processing package
-	VideoTypes    []string      `yaml:"video-types" env:"video-types" env-default:""`           // video types (.mp4, .mov, etc.)
+	DateFormat   string   `yaml:"date-format" env:"date-format" env-default:"2 January"`  // date format, using Go reference time 01/02 03:04:05PM '06
+	HomeSwitch   string   `yaml:"home-switch" env:"home-switch" env-default:""`           // switch home page to specified template, e.g when site disabled
+	MiscName     string   `yaml:"misc-name" env:"misc-name" env-default:"misc"`           // path in URL for miscellaneous files, as in "example.com/misc/file"
+	Options      string   `yaml:"options" env:"options" env-default:""`                   // site features: main-comp, with-comp
+	VideoPackage string   `yaml:"video-package" env:"video-package" env-default:"ffmpeg"` // video processing package
+	VideoTypes   []string `yaml:"video-types" env:"video-types" env-default:""`           // video types (.mp4, .mov, etc.)
 
 	// email
 	EmailHost     string `yaml:"email-host" env:"email-host" env-default:""`
@@ -207,10 +208,11 @@ type Application struct {
 	tx      *sqlx.Tx
 	statsTx *sqlx.Tx
 
-	SlideStore     *mysql.SlideStore
 	GalleryStore   *mysql.GalleryStore
+	PageStore      *mysql.PageStore
 	redoStore      *mysql.RedoStore
 	redoV1Store    *mysql.RedoV1Store
+	SlideStore     *mysql.SlideStore
 	SlideshowStore *mysql.SlideshowStore
 	statisticStore *mysql.StatisticStore
 	userStore      *mysql.UserStore
@@ -225,9 +227,6 @@ type Application struct {
 
 	// worker
 	chTopic chan OpUpdateTopic
-
-	// HTML sanitizer for titles and captions
-	sanitizer *bluemonday.Policy
 
 	// private components
 	emailer  emailer.Emailer
@@ -253,6 +252,7 @@ func main() {
 	threatLog := log.New(os.Stdout, "THREAT\t", log.Ldate|log.Ltime)
 	infoLog.Printf("PicInch Gallery %s", version)
 	infoLog.Print(notice)
+	infoLog.Printf("Time zone is %s.", time.Now().Location().String())
 
 	// redirect to test folders
 	test := os.Getenv("test")
@@ -460,7 +460,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		threatLog:     threatLog,
 		templateCache: templateCache,
 		db:            db,
-		sanitizer:     bluemonday.UGCPolicy(),
 	}
 
 	// embedded static files from packages
@@ -495,8 +494,15 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.session = initSession(len(cfg.Domains) > 0, db)
 
 	// cached state
-	if err := app.galleryState.setupCache(gallery); err != nil {
+	warn, err := app.galleryState.setupCache(gallery)
+	if err != nil {
 		errorLog.Fatal(err)
+	}
+	if len(warn) > 0 {
+		infoLog.Print("Conflicting page menu items:")
+		for _, w := range warn {
+			infoLog.Print("\t" + w + ".")
+		}
 	}
 
 	// setup emailing
@@ -557,6 +563,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	app.users = users.Users{
 		App:   app,
 		Roles: []string{"unknown", "friend", "member", "curator", "admin"},
+		RoleDisabled: []bool{true, false, false, false, false},
 		Store: &UserNoDelete{UserStore: app.userStore}, // ignores DeleteId
 		TM:    app.tm,
 	}
@@ -575,18 +582,18 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 // initSession returns the session manager.
 func initSession(live bool, db *sqlx.DB) *scs.SessionManager {
 
-		sm := scs.New()
+	sm := scs.New()
 
-		sm.Cookie.Name = "session_v2" // changed from previous implementation
-		sm.Lifetime = 24 * time.Hour
-		sm.Store = mysqlstore.New(db.DB)
+	sm.Cookie.Name = "session_v2" // changed from previous implementation
+	sm.Lifetime = 24 * time.Hour
+	sm.Store = mysqlstore.New(db.DB)
 
-		// secure cookie over HTTPS except in test
-		if live {
-			sm.Cookie.Secure = true
-		}
-		
-		return sm
+	// secure cookie over HTTPS except in test
+	if live {
+		sm.Cookie.Secure = true
+	}
+
+	return sm
 }
 
 // Initialise data stores
@@ -597,6 +604,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 
 	// setup stores, with reference to a common transaction
 	// ## transaction should be per-gallery if we support multiple galleries
+	app.PageStore = mysql.NewPageStore(app.db, &app.tx, app.errorLog)
 	app.SlideStore = mysql.NewSlideStore(app.db, &app.tx, app.errorLog)
 	app.GalleryStore = mysql.NewGalleryStore(app.db, &app.tx, app.errorLog)
 	app.redoStore = mysql.NewRedoStore(app.db, &app.tx, app.errorLog)
@@ -615,15 +623,18 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 		app.errorLog.Fatal(err)
 	}
 
-	// save gallery ID for stores that need it
+	// save gallery ID for stores that need it, and link stores that update joins
+	app.PageStore.GalleryId = g.Id
+	app.SlideStore.GalleryId = g.Id
 	app.SlideshowStore.GalleryId = g.Id
 	app.tagger.TagStore.GalleryId = g.Id
 	app.userStore.GalleryId = g.Id
+	app.PageStore.SlideshowStore = app.SlideshowStore
 
 	// highlights topic ID
 	app.SlideshowStore.HighlightsId = 1
 
-	// database changes from previous version(s)
+	// database changes from previous version(s) after v1.0
 	if err = mysql.MigrateRedo2(app.redoStore, app.SlideshowStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
@@ -633,9 +644,14 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	if err = mysql.MigrateSessions(mysql.NewSessionStore(app.db, &app.tx, app.errorLog)); err != nil {
 		app.errorLog.Fatal(err)
 	}
+	if err = mysql.MigrateInfo(app.userStore, app.SlideshowStore, app.PageStore); err != nil {
+		app.errorLog.Fatal(err)
+	}
 	if err = mysql.MigrateMB4(app.GalleryStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
+
+	app.userStore.InitSystem()
 
 	return g
 }
