@@ -20,11 +20,6 @@ require (
 )
 
 require (
-	github.com/disintegration/imaging v1.6.2 // indirect
-	github.com/inchworks/webparts v1.4.2 // indirect
-)
-
-require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/alexedwards/scs/mysqlstore v0.0.0-20240316134038-7e11d57e8885
