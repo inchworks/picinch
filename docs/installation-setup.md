@@ -13,7 +13,6 @@ These instructions assume a Ubuntu Server host with Docker installed. Other Linu
 [&#8658; Commands]({{ site.baseurl }}{% link install-3-commands.md %})
 
 1. Connect to your server by domain name using a web browser and see that you can log in.
-[&#8658; Site Administrator]({{ site.baseurl }}{% link administrator.md %})
 
 ## After installation
 
