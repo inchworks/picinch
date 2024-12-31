@@ -15,7 +15,7 @@ For site changes to `configuration.yml` and templates, without an updated image,
 
 `1.2` Lists contributors with public slideshows on the public home page.
 
-`1.3` Adds a diary. Supports addition of information pages by the admin, and modification by the curator. See [Upgrading]({{ site.baseurl }}{% link upgrading.md %}) for changes from previous versions needed to use the new features.
+`1.3` Adds a diary. Supports addition of information pages by the admin, and modification by the curator. Changes to customisation on previous versions are needed to use the new features. [&#8658; Upgrading]({{ site.baseurl }}{% link upgrading.md %})
 
 ## MariaDB Database
 The original example `docker-compose.yml` specified `db:image` as `mariadb:10.4`.

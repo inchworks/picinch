@@ -1,5 +1,5 @@
 
-# Step 3: Commands
+# Commands
 
 ## Docker
 `docker compose up -d` When issued the first time, sets up the database, creates the directories to hold content and certificates (in`/srv/picinch/`), and starts PicInch. On later invocations, checks for updates to PicInch, and restarts it if needed.

@@ -17,7 +17,7 @@ These instructions assume a Ubuntu Server host with Docker installed. Other Linu
 
 ## After installation
 
-1. Customise the appearance of the website using the optional files described below. Restart PicInch for changes to take effect. (See Commands.)
+1. Customise the appearance of the website by adding optional files. Restart PicInch for changes to take effect. (See Commands.)
 [&#8658; Customisation]({{ site.baseurl }}{% link install-5-customise.md %})
 
 1. Log in to PicInch as administrator and set the website name and a description for the home page. You can also add information pages, a diary, and set page metadata as needed. [&#8658; Site Administrator]({{ site.baseurl }}{% link administrator.md %})

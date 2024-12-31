@@ -1,4 +1,4 @@
-## Step 9: Security
+## Security
 Using the example docker-compose.yml, PicInch and the database run on the same server, and the MySQL port 3306 is not opened from the server. Even so, choose strong passwords for the MySQL root and server accounts.
 
 Docker opens ports 80 and 443 on the host system’s firewall automatically, and it should not be necessary to make any further changes to the firewall. You may need to open these ports on any external firewall provided by your virtual host supplier.

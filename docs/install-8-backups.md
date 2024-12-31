@@ -1,4 +1,4 @@
-## Step 8: Backups
+## Backups
 PicInch uses the following files and directories, under `/srv/picinch`:
 - `certs` Let’s Encrypt certificates. Backup not required.
 - `geodb` Geo database. Backup not required.

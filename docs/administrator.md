@@ -1,11 +1,11 @@
 # Administrator
 ## Essentials on Setup
 
-1. Set the website name: `admin > website`.
+1. Set the website name: `Admin > Website`.
 
-1. Set a description for the website: `admin > pages : Home Page -> Metadata`.
+1. Set a description for the website: `Admin > Pages : Home Page -> Metadata`.
 
-1. Add members who need to create slideshows: `admin > users`.
+1. Add members who need to create slideshows: `Admin > Users`.
 
 ## Users
 Add users with `Admin > Users`. Specify a name for each user, which will be visible on the website and can be changed by the user on sign-up. Also specify a unique identity that the user will know on sign-up, such as their email address.

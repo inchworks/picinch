@@ -1,4 +1,4 @@
-# Step 1: docker-compose.yml
+# docker-compose.yml
 Copy this example, and save it in `/srv/picinch` on your server.
 
 ```yml

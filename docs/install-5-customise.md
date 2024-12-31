@@ -1,4 +1,4 @@
-## Step 5: Customise your website
+## Customise your website
 Add files in `/srv/picinch/site/` to customise your installation. You must restart the service for changes to take effect.
 
 ### Templates
@@ -39,14 +39,10 @@ The following may be left unchanged (although realfavicongenerator.net will make
 You may also add add additional images you wish to include in customised templates to `/images`. They will be served as `static/images/*`. These files are intended to be unchanging; dynamic content should go in
 `/srv/picinch/misc`.
 
-### Additional Content
-Add additional information pages and menu items by logging on as a user with `admin` role. Specify the menu path for a page as `name` for a top-level menu item or `name.sub` for a dropdown menu item. A leading "`.`", i.e. `.name` specifies a page without a menu item. Pages are accessed by `https://<your-domain/info/name` or `/info/name.sub`.
+### Static Pages
+Additional pages are added more easily by logging on as administrator [&#8658; Site Administrator]({{ site.baseurl }}{% link administrator.md %}). However static pages can be used to get full control over page layouts.
 
-Similarly, diaries can be added by the administrator. Typically just one diary is needed. By default the next upcoming event in each diary is shown automatically on the home page. Diaries are accessed by `https://<your-domain/diary/name` or `/diary/name.sub`.
-
-Users with `curator` role can edit the content for information pages and diaries. Markdown is supported for the sections of an information page.
-
-You may also add static pages with `templates/info-*.page.tmpl` files, and specify common page layouts with `*.layout.tmpl` files. A static page with template `templates/menu/name.page.tmpl` or `templates/menu/name.sub.page.tmpl` is added with a corresponding top-level or dropdown menu item. 
+Add static pages with `templates/info-*.page.tmpl` files, and specify common page layouts with `*.layout.tmpl` files. A static page with template `templates/menu/name.page.tmpl` or `templates/menu/name.sub.page.tmpl` is added with a corresponding top-level or dropdown menu item. 
 Use `info-notices.page.tmpl` and `gallery.layout.tmpl` as examples. Static pages are accessed by the same web addresses as editable information pages. Adding an information page overrides a static page with the same address.
 
 Use `static/css` and `static/js` to hold any additional stylesheets and scripts needed by your static pages.

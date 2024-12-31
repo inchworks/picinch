@@ -1,2 +1,2 @@
-## Step 2: System service
+## System service
 This step is not needed any longer, and perhas never was :-(.

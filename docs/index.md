@@ -25,9 +25,7 @@ A `misc` directory is provided to serve miscellaneous content such as club repor
 A topic can be shared with a URL containing an access code.
 
 **New for v1.3**
-Information pages, a diary of events, and menu items can all be added and edited, making PicInch a full-featured image-oriented website. Upcoming events are automatically listed on the home page.
-
-Upgrading from a previous version: see [Upgrading]({{ site.baseurl }}{% link upgrading.md %}).
+Information pages, a diary of events, and menu items can all be added and edited, making PicInch a full-featured image-oriented website. Upcoming events are automatically listed on the home page. [&#8658; Upgrading]({{ site.baseurl }}{% link upgrading.md %})
 
 ## Appearance
 Display layout is responsive to device size (PC, tablet or phone).

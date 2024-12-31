@@ -1,4 +1,4 @@
-## Step 10: Data Privacy
+## Data Privacy
 _The default copyright and privacy statements were not written by anyone with legal or data privacy expertise.
 You should review the text and decide if it is suitable for your use of the website._
 
