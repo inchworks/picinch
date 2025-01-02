@@ -1,0 +1,75 @@
+body {
+  text-rendering: optimizeLegibility;
+  font-family: "HelveticaNeue-Light","Helvetica Neue Light","Helvetica Neue",Helvetica,Arial,"Lucida Grande",sans-serif;
+  background-color: #ddd;
+}
+
+/* navigation */
+nav.navbar { background-color: #ccc; }
+ul.dropdown-menu { background-color: #ccc; }
+
+header { background-color: #DDD; text-align:left; }
+img.banner { height: 40px;}
+span.banner {font-family: Palatino, serif; font-size:40px;}
+
+section.intro {background-color: #DDD;}
+section.slideshows { background-color: #ccc; }
+
+footer { background-color: #ccc; }
+
+.header h1 {border: 0px; margin: 0px; padding: 10px; }
+
+/* modify bootstrap cards */
+.card-title { margin-top: 12px; margin-bottom: 0px; }
+.card-text { margin-top: 8px; }
+.card-img-top {
+  width: 100%;
+  height: 207px;
+  object-fit: scale-down;
+}
+.card-link { text-decoration: none; }
+a.text-light:hover { color: #cbd3da!important; }
+.bg-dark { background-color: #343a40!important; }
+
+.upload-status {
+  margin-bottom: 1px;
+  height: 20px;
+  line-height:20px;
+  padding:0px 15px;
+}
+
+.progress {
+  height: 20px;
+}
+
+/* photo thumbnails */
+
+.photo-thumbnails {
+  color: #313437;
+  background-color: rgb(204,204,204);
+  margin-bottom: 24px;
+}
+  
+.photo-thumbnails .item {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  flex-wrap: wrap;
+  }
+
+.row > [class*='col-'] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* IE10+ rubbish */
+/* Do this because IE doesn't even recognise object-fit: scale-down as valid */
+@media all and (-ms-high-contrast: none), (-ms-high-contrast: active) {
+.ie-image { object-fit: contain; }
+}

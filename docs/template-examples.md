@@ -32,8 +32,6 @@ This example file reproduces the content of the default website.
 {{define "signupPage" .}}
     <p>For invited users of PicInch Gallery only. See your invitation email for your username, and choose your own password.</p>
 {{end}}
-
-{{define "website"}}PicInch Gallery{{end}}
 {% endraw %}
 ```
 

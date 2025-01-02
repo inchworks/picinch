@@ -219,8 +219,8 @@ func (pc *PageCache) SetInformation(page *models.PageSlideshow, sections []*mode
 
 	setSections(sections, p)
 
-	// default metadata title
-	if p.MetaTitle == "" {
+	// default metadata title (home page has a different default)
+	if p.MetaTitle == "" && page.PageFormat == models.PageInfo {
 		p.MetaTitle = p.Title
 	}
 	

@@ -39,7 +39,7 @@ Full size images are resized for display automatically. JPGs, PNGs and TIFs are 
 |<a href="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-public.png"><img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-public.png" title="Public page" width="100%"></a>|<a href="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-club.png"><img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-club.png" title="Club home page" width="100%"></a>|<a href="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-my-gallery.png"><img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-my-gallery.png" title="User's gallery" width="100%"></a>|<a href="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-edit-slideshow.png"><img src="https://raw.githubusercontent.com/inchworks/picinch/master/docs/images/ss-edit-slideshow.png" title="Edit slideshow" width="100%"></a>|
 
 ## Website Variants
-PicInch can be set up in solo mode as an image-oriented website for a single owner.
+Coming soon: set up PicInch in solo mode as an image-oriented website for a single owner.
 
 PicInch can be configured as a standalone host for a public photo competition.
 It provides multiple classes, a competition entry form and email address verification.
