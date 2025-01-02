@@ -85,7 +85,7 @@ Edit the example to change the following items. (Take care to keep indentation u
 - `certificate-email` An email address that Let’s Encrypt will use to notify you of any problems with certificates.
 - `admin-name` The username you will use to log-in to PicInch as administrator. An email address is recommended.
 - `admin-password` The administrator password. The admin account is exposed to the internet, so it is important to choose a strong password. A random sequence of at least 12 characters, or at least four random words is recommended.
-- `TZ` Your local time zone. Currently it determines only when diary events on the home page are updated.
+- `TZ` Your local time zone. Diary event dates are stored in UTC and displayed in local time.
 
 If you intend to change other PicInch configuration settings, you may prefer to omit the environment settings here, and set them in a site/configuration.yml file instead.
 

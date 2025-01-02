@@ -53,9 +53,9 @@ const (
 	slidesWhereShowOlder  = slideSelect + ` WHERE slideshow = ?` + slideOrder
 	slidesWhereShowRecent = slideSelect + ` WHERE slideshow = ?` + slideRecent
 
-	// next events from visible pages
-	slidesWhereNextEvent = `
-		SELECT slide.*, slideshow.id AS slideshowid FROM slide
+	// next events from all visible pages (i.e. next N events across all diaries)
+	eventsWhereNextAll = `
+		SELECT slide.* FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN page ON page.slideshow = slideshow.id
 			WHERE page.format = 1
@@ -63,6 +63,25 @@ const (
 				AND slide.revised >= ?
 			ORDER BY slide.revised ASC LIMIT ?
 		`
+		
+	// next events from each visible page (i.e. next N events per diary)
+	eventsWhereNextEach = `
+		WITH events_ranked AS (
+			WITH events AS (
+				SELECT slide.* FROM slide
+					INNER JOIN slideshow ON slideshow.id = slide.slideshow
+					INNER JOIN page ON page.slideshow = slideshow.id
+					WHERE page.format = 1
+						AND slideshow.gallery = ? AND slideshow.visible >= ?
+						AND slide.revised >= ?
+			)
+			SELECT *, ROW_NUMBER() OVER (PARTITION BY slideshow ORDER BY revised ASC) as rank
+			FROM events
+		)
+		SELECT * FROM events_ranked
+		WHERE rank <= ?
+		ORDER BY revised, slideshow
+	`
 
 	// oldest images for a topic, excluding suspended users
 	imagesWhereTopicOlder = `
@@ -231,12 +250,12 @@ func (st *SlideStore) ForSlideshowOrderedTx(showId int64, max int) []*models.Sli
 	return slides
 }
 
-// NextEvents returns the first few events from all diaries, at or after the specified time.
-func (st *SlideStore) NextEvents(visible int, from time.Time, max int) []*models.SlideSlideshow {
+// NextEvents returns the first few events from each diary, at or after the specified time.
+func (st *SlideStore) NextEvents(visible int, from time.Time, max int) []*models.SlideRank {
 
-	var slides []*models.SlideSlideshow
+	var slides []*models.SlideRank
 
-	if err := st.DBX.Select(&slides, slidesWhereNextEvent, st.GalleryId, visible, from, max); err != nil {
+	if err := st.DBX.Select(&slides, eventsWhereNextEach, st.GalleryId, visible, from, max); err != nil {
 		st.logError(err)
 		return nil
 	}

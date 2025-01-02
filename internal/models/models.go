@@ -159,9 +159,9 @@ type PageSlideshow struct {
 	Slideshow
 }
 
-type SlideSlideshow struct {
+type SlideRank struct {
 	Slide
-	SlideshowId int64
+	Rank int
 }
 
 type SlideshowTagRef struct {

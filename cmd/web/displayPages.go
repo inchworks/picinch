@@ -149,7 +149,7 @@ func (s *GalleryState) dataEvents(id int64) []*DataEvent {
 	var dataEvs []*DataEvent
 	for _, ev := range evs {
 		dataEvs = append(dataEvs, &DataEvent{
-			Start:   ev.Revised.Format(s.app.cfg.DateFormat),
+			Start:   ev.Revised.Local().Format(s.app.cfg.DateFormat),
 			Title:   models.Nl2br(ev.Title),
 			Details: models.Nl2br(ev.Caption),
 		})
@@ -162,7 +162,7 @@ func (s *GalleryState) dataEvents(id int64) []*DataEvent {
 func (s *GalleryState) dataEventsNext(max int) []*DataEvent {
 
 	var from time.Time
-	var evs []*models.SlideSlideshow
+	var evs []*models.SlideRank
 
 	if max > 0 {
 		// start of today
@@ -177,9 +177,9 @@ func (s *GalleryState) dataEventsNext(max int) []*DataEvent {
 	var dataEvs []*DataEvent
 	for _, ev := range evs {
 		dataEvs = append(dataEvs, &DataEvent{
-			Start:   ev.Revised.Format(s.app.cfg.DateFormat),
+			Start:   ev.Revised.Local().Format(s.app.cfg.DateFormat),
 			Title:   models.Nl2br(ev.Title),
-			Diary:   s.publicPages.Paths[ev.SlideshowId],
+			Diary:   s.publicPages.Paths[ev.Slideshow],
 		})
 	}
 
