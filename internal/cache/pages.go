@@ -63,9 +63,9 @@ type Page struct {
 }
 
 type Section struct {
-	Title template.HTML
-	Div   template.HTML
-	Media string
+	Div    template.HTML
+	Format int
+	Media  string
 }
 
 type item struct {
@@ -223,7 +223,7 @@ func (pc *PageCache) SetInformation(page *models.PageSlideshow, sections []*mode
 	if p.MetaTitle == "" && page.PageFormat == models.PageInfo {
 		p.MetaTitle = p.Title
 	}
-	
+
 	path := pc.Paths[page.Id]
 	if path == "" {
 		panic("Lost ID for page in cache.")
@@ -238,7 +238,11 @@ func (pc *PageCache) SetSections(showId int64, sections []*models.Slide) {
 	if path == "" {
 		panic("Lost ID for page in cache.")
 	}
-	setSections(sections, pc.Infos[path])
+	// check if it is an info page, and not a diary
+	pg := pc.Infos[path]
+	if pg != nil {
+		setSections(sections, pc.Infos[path])
+	}
 }
 
 // SetMetadata updates a diary or information pages' metadata in the cache.
@@ -367,6 +371,11 @@ func buildMenu(from map[string]*item) (to []*MenuItem) {
 	return
 }
 
+// sectionFormat returns a section format, currently a subset of slide formats. 
+func sectionFormat(fmt int) int {
+	return fmt & (models.SlideImage + models.SlideVideo)
+}
+
 // setMetadata updates common metadata for diary and information pages
 func setMetadata(from *models.PageSlideshow, to *Page) {
 	// ## why not cache whole records? Just because of markdown processing?
@@ -375,15 +384,16 @@ func setMetadata(from *models.PageSlideshow, to *Page) {
 	to.NoIndex = from.NoIndex
 }
 
+// setSections sets the text+media sections for an information page.
 func setSections(sections []*models.Slide, to *Info) {
 
 	toS := make([]*Section, 0, len(sections))
 
 	for _, s := range sections {
 		cs := &Section{
-			Title: template.HTML(s.Title), // #### don't need a title
-			Div:   toHTML(s.Caption),
-			Media: s.Image,
+			Div:    toHTML(s.Caption),
+			Format: sectionFormat(s.Format),
+			Media:  s.Image,
 		}
 		toS = append(toS, cs)
 	}

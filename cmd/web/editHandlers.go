@@ -555,7 +555,7 @@ func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
 		app.render(w, r, "edit-page.page.tmpl", &slidesFormData{
 			Form:      f,
 			Title:     t,
-			Accept:    app.accept(),
+			Accept:    "image/*", // ## no videos for now
 			IsHome:    app.galleryState.isHome(nPage),
 			MaxUpload: app.cfg.MaxUpload,
 		})

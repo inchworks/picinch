@@ -177,7 +177,7 @@ func (s *GalleryState) onAbandon(tx etx.TxId) {
 }
 
 // onBindShow sets uploaded media for a new or updated slideshow.
-func (s *GalleryState) onBindShow(showId int64, topicId int64, revised bool, tx etx.TxId) {
+func (s *GalleryState) onBindShow(showId int64, topicId int64, revised bool, tx etx.TxId) (updated bool) {
 
 	defer s.updatesGallery()()
 
@@ -185,7 +185,7 @@ func (s *GalleryState) onBindShow(showId int64, topicId int64, revised bool, tx 
 	bind := s.app.uploader.StartBind(tx)
 
 	// set versioned images, and update slideshow
-	s.bindFiles(showId, revised, bind)
+	updated = s.bindFiles(showId, revised, bind)
 
 	// update highlighted images
 	if err := s.updateHighlights(showId); err != nil {
@@ -211,6 +211,7 @@ func (s *GalleryState) onBindShow(showId int64, topicId int64, revised bool, tx 
 	if err := s.app.tm.End(tx); err != nil {
 		s.app.log(err)
 	}
+	return
 }
 
 // onCompEntry processes a competition entry.
@@ -465,7 +466,13 @@ func (s *GalleryState) onUpdateShow(tx etx.TxId, showId int64, topicId int64, re
 	// remove unclaimed files and continue when all uploads have been processed
 	claim.End(func(err error) {
 		if err == nil {
-			s.onBindShow(showId, topicId, revised, tx)
+			updated := s.onBindShow(showId, topicId, revised, tx)
+
+			// refresh cached information page
+			if updated && s.publicPages.Infos[s.publicPages.Paths[showId]] != nil {
+				s.setSections(showId)
+			}
+
 		} else {
 			s.app.log(err)
 		}
@@ -557,7 +564,7 @@ func (s *GalleryState) updateHighlights(id int64) error {
 }
 
 // bindFiles updates slides to show uploaded media after processing. It also sets the slideshow revision time.
-func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind) {
+func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind) (updated bool) {
 
 	// check if this is an update or deletion
 	show := s.app.SlideshowStore.GetIf(showId)
@@ -568,7 +575,6 @@ func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind
 	}
 
 	thumbnail := ""
-	nImages := 0
 
 	// is this a contribution to highlights?
 	var recent bool
@@ -596,18 +602,19 @@ func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind
 				slide.Format = slide.Format &^ models.SlideImage
 				s.app.SlideStore.Update(slide)
 				s.app.log(err)
+				updated = true
 
 			} else if newImage != "" {
 				// updated media
 				slide.Image = newImage
 				s.app.SlideStore.Update(slide)
+				updated = true
 			}
 
 			// use first image in show as its thumbnail
 			if thumbnail == "" {
 				thumbnail = slide.Image
 			}
-			nImages++
 		}
 	}
 
@@ -629,6 +636,7 @@ func (s *GalleryState) bindFiles(showId int64, revised bool, bind *uploader.Bind
 	if err := s.app.SlideshowStore.Update(show); err != nil {
 		s.app.log(err)
 	}
+	return
 }
 
 // claimFiles claims media files for a slideshow.
@@ -679,6 +687,13 @@ func (app *Application) deleteTopic(t *models.Slideshow) {
 		s.Visible = models.SlideshowPrivate
 		store.Update(s)
 	}
+}
+
+// setSections updates an information page's sections in the cache.
+func (s *GalleryState) setSections (showId int64) {
+	defer s.updatesNone()()
+
+	s.publicPages.SetSections(showId, s.app.SlideStore.ForSlideshow(showId))
 }
 
 // updateTopic changes the topic thumbnail, and if required updates the revision date
