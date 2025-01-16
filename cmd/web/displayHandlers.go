@@ -309,14 +309,17 @@ func (app *Application) info(w http.ResponseWriter, r *http.Request) {
 func (app *Application) logout(w http.ResponseWriter, r *http.Request) {
 
 	// renew session token on privilege level change, to prevent session fixation attack
-	if err := app.session.RenewToken(r.Context()); err != nil {
-		app.log(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-	
+	err := app.session.RenewToken(r.Context())
+
 	// remove user ID from the session data
 	app.session.Remove(r.Context(), "authenticatedUserID")
 
+	if err != nil {
+		app.log(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
 	// flash message to confirm logged out
 	app.redirectWithFlash(w, r, "/", "You are logged out.")
 }

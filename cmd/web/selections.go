@@ -21,10 +21,61 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/inchworks/webparts/v2/multiforms"
 	"inchworks.com/picinch/internal/models"
 )
+
+// DisplayInspection returns the data for a section of slides for inspection.
+func (s *GalleryState) displayInspection(from time.Time, lastId int64) (data *DataSlideshow, flash string) {
+
+	defer s.updatesNone()()
+
+	max := 50
+	ss := s.app.SlideStore.Revised(from, lastId, max)
+
+	var ds []*DataSlide
+
+	for _, s := range ss {
+		ds = append(ds, &DataSlide{
+			Title:       s.TitleBr(),
+			Caption:     s.CaptionBr(),
+			DisplayName: s.Name + " : " + s.ShowTitle + " (" + visibility(s.Visible) + ")",
+			Image:       s.Image,
+			Format:      s.Format,
+		})
+	}
+
+	// last ID of this section
+	var after string
+	l := len(ss)
+	if l > 0 {
+		lastTime := ss[l-1].Revised
+		lastId = ss[l-1].Id
+		after = "/inspect/" + lastTime.Format("2006-01-02T15:04:05") + "/" + strconv.FormatInt(lastId, 36)
+	} else {
+		// no more to review
+		if lastId == 0 {
+			flash = "No slides to be inspected."
+		} else {
+			flash = "All slides inspected."
+		}
+		return nil, flash
+	}
+
+	// template and its data
+	return &DataSlideshow{
+		Title:       "Recent Slides",
+		AfterHRef:   after,
+		BeforeHRef:  "/",
+		DisplayName: "Slides After " + from.Format("15:04, 2 January 2006"), 
+		Slides:      ds,
+		DataCommon: DataCommon{
+			ParentHRef: "/",
+		},
+	}, ""
+}
 
 // displayTagged returns data for slideshows with user-specific tags.
 func (s *GalleryState) displayTagged(_ int64, rootId int64, tagId int64, forUserId int64, byUserId int64, role int, nMax int) (status int, dt *DataTagged) {
@@ -223,6 +274,23 @@ func (s *GalleryState) onEditSlideshowTags(slideshowId int64, rootId int64, forU
 	}
 }
 
+// forInspection returns a form to select slides for review.
+func (s *GalleryState) forInspection(tok string) (f *multiforms.Form) {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// default insection start date/time
+	t := time.Now().AddDate(0, 0, -s.app.cfg.InspectEvery)
+
+	// current data
+	var d = make(url.Values)
+	f = multiforms.New(d, tok)
+	f.Set("from", t.Format("2006-01-02")+"T00:00") // from the start of the day
+
+	return
+}
+
 // forSelectSlideshow returns a form to select a slideshow by its ID.
 func (s *GalleryState) forSelectSlideshow(tok string) (f *multiforms.Form) {
 
@@ -287,4 +355,15 @@ func (app *Application) dataTags(tags []*models.Tag, level int, rootId int64, us
 		}
 	}
 	return dTags
+}
+
+// visibility returns the name for a visibility code
+func visibility(v int) string {
+	switch v {
+	case models.SlideshowTopic: return "topic"
+	case models.SlideshowPrivate: return "private"
+	case models.SlideshowClub: return "club"
+	case models.SlideshowPublic: return "public"
+	default: return "unknown"
+	}
 }

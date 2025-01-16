@@ -110,7 +110,8 @@
     {{template "bootstrapScript" .}}
     {{template "lightboxScript" .}}
     <script>
-        $('a[href="' + this.location.pathname + '"]').closest('li').addClass('active');
+        $('a[href="' + this.location.pathname + '"]').addClass('active').attr("aria-current", "page");
+        $('a[href="' + this.location.pathname + '"]').closest('.dropdown').children('a.dropdown-toggle').addClass('active');
     </script>
 	{{block "pagescripts" .}}
 	{{end}}

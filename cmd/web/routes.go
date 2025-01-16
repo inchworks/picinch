@@ -204,6 +204,9 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/slideshow/:nId/:nSeq", publicNoCacheHs.ThenFunc(app.slideshowOld))
 
 	// selections
+	router.Handler("GET", "/inspect/:from/:nLast", curatorNoCacheHs.ThenFunc(app.inspect))
+	router.Handler("GET", "/inspection", curatorNoCacheHs.ThenFunc(app.getFormInspection))
+	router.Handler("POST", "/inspection", curatorHs.ThenFunc(app.postFormInspection))
 	router.Handler("GET", "/select-slideshow", authNoCacheHs.ThenFunc(app.getFormSelectSlideshow))
 	router.Handler("POST", "/select-slideshow", authHs.ThenFunc(app.postFormSelectSlideshow))
 	router.Handler("GET", "/slideshows-tagged/:nId/:nRoot/:nTag/:nUser/:nMax", authNoStoreHs.ThenFunc(app.slideshowsTagged))

@@ -164,6 +164,13 @@ type SlideRank struct {
 	Rank int
 }
 
+type SlideRevision struct {
+	Slide
+	ShowTitle string
+	Visible   int
+	Name      string
+}
+
 type SlideshowTagRef struct {
 	Slideshow
 	TagRefId int64

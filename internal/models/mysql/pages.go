@@ -54,7 +54,7 @@ const (
 	pageWhereId = pageSelect + ` WHERE page.id = ?`
 	pageWhereShowId = pageShowSelect + ` WHERE slideshow.id = ?`
 
-	pagesWhereFormat  = pageShowSelect + ` WHERE slideshow.gallery = ? AND page.format = ?` + pageOrderTitle
+	pagesWhereFormat  = pageShowSelect + ` WHERE slideshow.gallery = ? AND slideshow.visible >=  0 AND page.format = ?` + pageOrderTitle
 	pagesWhereVisible = pageShowSelect + ` WHERE slideshow.gallery = ? AND slideshow.visible = ?`
 )
 

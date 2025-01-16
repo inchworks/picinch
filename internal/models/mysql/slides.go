@@ -135,6 +135,16 @@ const (
 		WHERE rnk <= ?
 		ORDER BY created DESC, id DESC LIMIT ?
 	`
+
+	// recently revised slides, for inspection (excluding system info)
+	slidesRevised = `
+		SELECT slide.*, slideshow.title AS showtitle, slideshow.visible AS visible, u.name
+			FROM slide
+			INNER JOIN slideshow ON slideshow.id = slide.slideshow
+			INNER JOIN user AS u ON u.id = slideshow.user
+			WHERE gallery = ? AND slide.revised >= ? AND slide.id > ? AND u.role < 10
+			ORDER BY slide.id LIMIT ?
+`
 )
 
 type SlideStore struct {
@@ -273,6 +283,19 @@ func (st *SlideStore) RecentForTopic(topicId int64, perUser int, max int) []*mod
 		return nil
 	}
 
+	return slides
+}
+
+// Revised returns recently revised slides.
+// current and max allow the slides to be read in batches.
+func (st *SlideStore) Revised(from time.Time, last int64, max int) []*models.SlideRevision {
+
+	var slides []*models.SlideRevision
+
+	if err := st.DBX.Select(&slides, slidesRevised, st.GalleryId, from, last, max); err != nil {
+		st.logError(err)
+		return nil
+	}
 	return slides
 }
 

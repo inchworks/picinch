@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.3.3"
+	version = "1.3.4"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -134,6 +134,7 @@ type Configuration struct {
 	AllowedQueries    []string        `yaml:"allowed-queries" env-default:"fbclid"`                            // URL query names allowed
 	BanBadFiles       bool            `yaml:"limit-bad-files" env-default:"false"`                             // apply ban to requests for missing media files
 	DropDelay         time.Duration   `yaml:"drop-delay" env:"drop-delay" env-default:"8h"`                    // delay before access drops and deletes are finalised. Units h.
+	InspectEvery      int             `yaml:"inspect-every" env:"inspect-every" env-default:"7"`               // inspection interval (days)
 	GeoBlock          []string        `yaml:"geo-block" env:"geo-block" env-default:""`                        // blocked countries (ISO 3166-1 alpha-2 codes)
 	MaxCacheAge       time.Duration   `yaml:"max-cache-age" env:"max-cache-age" env-default:"1h"`              // browser cache control, maximum age. Units s, m or h.
 	MaxUnvalidatedAge time.Duration   `yaml:"max-unvalidated-age" env:"max-unvalidated-age" env-default:"48h"` // maximum time for a competition entry to be validated. Units h.
@@ -443,6 +444,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// initialise template cache
 	templateCache, err := stack.NewTemplates(pts, forApp, os.DirFS(filepath.Join(SitePath, "templates")), templateFuncs)
+	//templateCache, err := stack.NewTemplatesLayered(templateFuncs, pts, forApp, os.DirFS(filepath.Join(SitePath, "templates")))
 	if err != nil {
 		errorLog.Fatal(err)
 	}
@@ -561,11 +563,11 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// user management
 	app.users = users.Users{
-		App:   app,
-		Roles: []string{"unknown", "friend", "member", "curator", "admin"},
-		RoleDisabled: []bool{true, false, false, false, false},
-		Store: &UserNoDelete{UserStore: app.userStore}, // ignores DeleteId
-		TM:    app.tm,
+		App:          app,
+		Roles:        []string{"unknown", "friend", "member", "curator", "admin"},
+		RoleDisabled: []bool{true},
+		Store:        &UserNoDelete{UserStore: app.userStore}, // ignores DeleteId
+		TM:           app.tm,
 	}
 
 	// geo-blocking

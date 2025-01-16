@@ -24,6 +24,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/inchworks/webparts/v2/multiforms"
 	"github.com/julienschmidt/httprouter"
@@ -31,6 +32,47 @@ import (
 
 	"inchworks.com/picinch/internal/tags"
 )
+
+// getFormInspect serves a form to request slides for inspection.
+func (app *Application) getFormInspection(w http.ResponseWriter, r *http.Request) {
+
+	f := app.galleryState.forInspection(nosurf.Token(r))
+
+	// display form
+	app.render(w, r, "inspection.page.tmpl", &simpleFormData{
+		Form: f,
+	})
+}
+
+func (app *Application) postFormInspection(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// process form data
+	f := multiforms.New(r.PostForm, nosurf.Token(r))
+	f.Required("from")
+	from := f.Get("from")
+
+	_, err = time.Parse("2006-01-02T15:04", from)
+	if err != nil {
+		f.Errors.Add("from", "Invalid date/time")
+	}
+
+	// redisplay form if data invalid
+	if !f.Valid() {
+		app.render(w, r, "inspection.page.tmpl", &simpleFormData{
+			Form: f,
+		})
+		return
+	}
+
+	// display slides
+	http.Redirect(w, r, "/inspect/" + from + ":00/0", http.StatusSeeOther)
+}
 
 // getFormTagSlideshow serves a form to change slideshow tags.
 func (app *Application) getFormTagSlideshow(w http.ResponseWriter, r *http.Request) {
@@ -151,6 +193,32 @@ func (app *Application) postFormSelectSlideshow(w http.ResponseWriter, r *http.R
 
 	// display slideshow
 	http.Redirect(w, r, "/entry/"+strconv.FormatInt(nShow, 10), http.StatusSeeOther)
+}
+
+// inspect handles a request to inspect recently created or revised slides.
+func (app *Application) inspect(w http.ResponseWriter, r *http.Request) {
+
+	ps := httprouter.ParamsFromContext(r.Context())
+
+	// start time for next segment of inspection
+	from, err := time.Parse("2006-01-02T15:04:05", ps.ByName("from"))
+	if err != nil {
+		app.log(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// last slide ID of previous segment
+	lastId, _ := strconv.ParseInt(ps.ByName("nLast"), 36, 64)
+
+	data, flash := app.galleryState.displayInspection(from, lastId)
+	if data == nil {
+		app.redirectWithFlash(w, r, "/", flash)
+		return
+	}
+
+	// display page
+	app.render(w, r, "carousel-section.page.tmpl", data)
 }
 
 // slideshowsTagged handles a request to view tagged slideshows for a topic.

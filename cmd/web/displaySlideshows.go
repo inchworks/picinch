@@ -694,14 +694,13 @@ func (s *GalleryState) dataSection(topic *models.Slideshow, section *models.Slid
 		dataSlides = append(dataSlides, &DataSlide{
 			Title:       slide.TitleBr(),
 			Caption:     slide.CaptionBr(),
-			DisplayName: user.Name,
 			Image:       slide.Image,
 			Format:      slide.Format,
 		})
 	}
 
 	// next and previous user's slides
-	after, before := s.topicHRefs(topic, section.Revised, false, origin, code, from)
+	after, before := s.topicHRefs(topic, section.Created, false, origin, code, from)
 
 	// template and its data
 	return &DataSlideshow{
