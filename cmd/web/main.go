@@ -443,8 +443,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// initialise template cache
-	templateCache, err := stack.NewTemplates(pts, forApp, os.DirFS(filepath.Join(SitePath, "templates")), templateFuncs)
-	//templateCache, err := stack.NewTemplatesLayered(templateFuncs, pts, forApp, os.DirFS(filepath.Join(SitePath, "templates")))
+	templateCache, err := stack.NewTemplatesLayered(templateFuncs, pts, forApp, os.DirFS(filepath.Join(SitePath, "templates")))
 	if err != nil {
 		errorLog.Fatal(err)
 	}
