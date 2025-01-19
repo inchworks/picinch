@@ -197,12 +197,12 @@ func (app *Application) redirectWithFlash(w http.ResponseWriter, r *http.Request
 	case "/":
 		// check session data, not isAuthenticated because we can't modify the context on logout
 		if app.session.GetInt64(r.Context(), "authenticatedUserID") != 0 {
-			url = "/members-msg"
+			url = app.authHomeMsg
 		} else {
 			url = "/msg"
 		}
-	case "/members":
-		url = "/members-msg"
+	case app.authHome:
+		url = app.authHomeMsg
 	case "/my-slideshows":
 		url = "/my-slideshows-msg"
 
@@ -329,7 +329,7 @@ func (app *Application) setCache(w http.ResponseWriter, id int64, visible int) {
 // toHome returns the home page path.
 func (app *Application) toHome(r *http.Request) string {
 	if app.isAuthenticated(r, models.UserFriend) {
-		return "/members"
+		return app.authHome
 	} else {
 		return "/"
 	}

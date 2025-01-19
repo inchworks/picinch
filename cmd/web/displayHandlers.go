@@ -261,8 +261,8 @@ func (app *Application) homeMembers(w http.ResponseWriter, r *http.Request) {
 func (app *Application) homePublic(w http.ResponseWriter, r *http.Request) {
 
 	if app.isAuthenticated(r, models.UserFriend) {
-		// show members home page if logged in
-		http.Redirect(w, r, "/members", http.StatusSeeOther)
+		// show authenticated home page if logged in
+		http.Redirect(w, r, app.authHome, http.StatusSeeOther)
 		return
 	}
 

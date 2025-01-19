@@ -1,0 +1,48 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2025.
+
+  This file is part of PicInch.
+  
+  PicInch is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  PicInch is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with PicInch.  If not, see <https://www.gnu.org/licenses/>.
+*/}}
+
+{{define "menu-admin"}}
+    <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Admin</a>
+        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+	        <li><a class="dropdown-item" href="/pages">Information</a></li>
+            <li><div class="dropdown-divider"></div></li>
+            <li><a class="dropdown-item" href="/edit-diaries">Diaries</a></li>
+            <li><a class="dropdown-item" href="/edit-info">Pages</a></li>
+	        <li><a class="dropdown-item" href="/setup">Website</a></li>
+            <li><div class="dropdown-divider"></div></li>
+	        <li><a class="dropdown-item" href="/usage-days">Days</a></li>
+	        <li><a class="dropdown-item" href="/usage-months">Months</a></li>
+        </ul>
+    </li>
+{{end}}
+
+{{define "menu-curator"}}
+{{end}}
+
+{{define "menu-gallery"}}
+    <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+{{end}}
+
+{{define "menu-member"}}
+    <li class="nav-item"><a class="nav-link" href="/my-slideshows">Slideshows</a></li>
+{{end}}
+
+{{define "menu-public"}}
+{{end}}

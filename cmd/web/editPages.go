@@ -203,11 +203,11 @@ func (s *GalleryState) OnEditMetadata(showId int64, title string, desc string, n
 	case models.PageDiary:
 		path = "/edit-diaries"
 	case models.PageHome:
-		path = "/members"
+		path = s.app.authHome
 	case models.PageInfo:
 		path = "/edit-infos"
 	default:
-		path = "/members"
+		path = s.app.authHome
 	}
 
 	if title != page.MetaTitle {

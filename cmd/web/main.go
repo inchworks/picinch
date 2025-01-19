@@ -150,7 +150,7 @@ type Configuration struct {
 	DateFormat   string   `yaml:"date-format" env:"date-format" env-default:"2 January"`  // date format, using Go reference time 01/02 03:04:05PM '06
 	HomeSwitch   string   `yaml:"home-switch" env:"home-switch" env-default:""`           // switch home page to specified template, e.g when site disabled
 	MiscName     string   `yaml:"misc-name" env:"misc-name" env-default:"misc"`           // path in URL for miscellaneous files, as in "example.com/misc/file"
-	Options      string   `yaml:"options" env:"options" env-default:""`                   // site features: main-comp, with-comp
+	Options      string   `yaml:"options" env:"options" env-default:""`                   // site features: main-comp, solo
 	VideoPackage string   `yaml:"video-package" env:"video-package" env-default:"ffmpeg"` // video processing package
 	VideoTypes   []string `yaml:"video-types" env:"video-types" env-default:""`           // video types (.mp4, .mov, etc.)
 
@@ -196,7 +196,9 @@ type OpValidate struct {
 
 // Application struct supplies application-wide dependencies.
 type Application struct {
-	cfg *Configuration
+	cfg         *Configuration
+	authHome    string // home page when authenticated
+	authHomeMsg string // home page with flash message
 
 	errorLog      *log.Logger
 	infoLog       *log.Logger
@@ -363,7 +365,7 @@ func (app *Application) Flash(r *http.Request, msg string) {
 func (app *Application) GetRedirect(r *http.Request) string {
 	url := app.session.PopString(r.Context(), "afterLogin")
 	if url == "" {
-		url = "/members"
+		url = app.authHome
 	}
 	return url
 }
@@ -429,6 +431,23 @@ func (st *UserNoDelete) DeleteId(id int64) error {
 
 func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, threatLog *log.Logger, db *sqlx.DB) *Application {
 
+	// options
+	var optDir string // option templates
+	switch cfg.Options {
+	case "main-comp":
+		optDir = "template-club" // not a separate template set yet
+
+	case "solo":
+		optDir = "template-solo" // gallery website for a single user
+
+		//override sladeshow limits
+		cfg.MaxSlideshowsClub = cfg.MaxSlideshowsTotal
+		cfg.MaxSlideshowsPublic = cfg.MaxSlideshowsTotal
+
+	default:
+		optDir = "template-club" // the original
+	}
+
 	// package templates
 	var pts []fs.FS
 
@@ -442,8 +461,14 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		errorLog.Fatal(err)
 	}
 
+	// option templates
+	forOpt, err := fs.Sub(web.Files, optDir)
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+
 	// initialise template cache
-	templateCache, err := stack.NewTemplatesLayered(templateFuncs, pts, forApp, os.DirFS(filepath.Join(SitePath, "templates")))
+	templateCache, err := stack.NewTemplatesLayered(templateFuncs, pts, forApp, forOpt, os.DirFS(filepath.Join(SitePath, "templates")))
 	if err != nil {
 		errorLog.Fatal(err)
 	}
