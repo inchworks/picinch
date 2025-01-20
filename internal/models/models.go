@@ -42,6 +42,16 @@ const (
 	SlideCaption = 4
 	SlideVideo   = 8
 
+	SlideFormatShift = 8 // shift for manual formats (below)
+
+	SlideAbove = 0
+	SlideBelow = 1
+	SlideCard = 2
+	SlideGallery = 3
+	SlideLeft = 4
+	SlideRight = 5
+	SlideFormatMax = 5 // manual formats are [0..max] shifted
+
 	// slideshow type and visibility
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
 	SlideshowTopic   = -1  // slideshow for a topic
@@ -70,6 +80,8 @@ var (
 	ErrInvalidCredentials = errors.New("models: invalid credentials")
 	ErrDuplicateEmail     = errors.New("models: duplicate email")
 )
+
+var FormatOpts = []string{"above", "below", "card", "gallery", "left", "right"}
 
 var VisibleOpts = []string{"none", "club", "public"}
 
@@ -223,6 +235,11 @@ func Nl2br(str string) template.HTML {
 func (s *Slideshow) VisibleStr() string {
 
 	return VisibleOpts[s.Visible]
+}
+
+// ManualFormat returns the manual component of the slide format
+func (s* Slide) ManualFormat() int {
+	return s.Format >> SlideFormatShift
 }
 
 // ParseFormat returns the slideshow format and maximum number of slides.

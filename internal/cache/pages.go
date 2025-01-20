@@ -53,6 +53,7 @@ type Info struct {
 	Id       int64
 	Title    string
 	Caption  template.HTML
+	Gallery  bool
 	Sections []*Section
 }
 
@@ -63,9 +64,10 @@ type Page struct {
 }
 
 type Section struct {
-	Div    template.HTML
-	Format int
-	Media  string
+	Div     template.HTML
+	Format  int
+	Layout  int
+	Media   string
 }
 
 type item struct {
@@ -371,12 +373,24 @@ func buildMenu(from map[string]*item) (to []*MenuItem) {
 	return
 }
 
-// sectionFormat returns a section format, currently a subset of slide formats. 
+// sectionFormat returns a section's auto format.
 func sectionFormat(fmt int) int {
 	return fmt & (models.SlideImage + models.SlideVideo)
 }
 
-// setMetadata updates common metadata for diary and information pages
+// sectionLayout returns a section's manual format.
+func sectionLayout(fmt int) int {
+	l := fmt >> models.SlideFormatShift
+	if l == models.SlideCard || l == models.SlideGallery {
+		return l // media is optional for a card or a gallery
+	}
+	if fmt&(models.SlideImage+models.SlideVideo) == 0 {
+		return 0 // default layout with no media
+	}
+	return l
+}
+
+// setMetadata updates common metadata for diary and information pages.
 func setMetadata(from *models.PageSlideshow, to *Page) {
 	// ## why not cache whole records? Just because of markdown processing?
 	to.MetaTitle = from.MetaTitle
@@ -393,9 +407,15 @@ func setSections(sections []*models.Slide, to *Info) {
 		cs := &Section{
 			Div:    toHTML(s.Caption),
 			Format: sectionFormat(s.Format),
+			Layout: sectionLayout(s.Format),
 			Media:  s.Image,
 		}
 		toS = append(toS, cs)
+
+		// is media gallery included?
+		if cs.Layout == models.SlideGallery {
+			to.Gallery = true
+		}
 	}
 	to.Sections = toS
 }

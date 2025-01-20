@@ -65,7 +65,7 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 	if pg != nil {
 
 		template = "info.page.tmpl"
-		data = &DataInfo{
+		d := &DataInfo{
 			Meta: DataMeta{
 				Title:       pg.MetaTitle,
 				Description: pg.Description,
@@ -75,6 +75,19 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 			Caption:  pg.Caption,
 			Sections: pg.Sections,
 		}
+
+		if pg.Gallery {
+			a := s.app
+			// highlight slides
+			d.Highlights = s.dataHighlights(a.cfg.MaxHighlightsTotal)
+
+			// slideshows
+			// No option for members, unlike home page, because we don't have members versions of info pages.
+			d.Slideshows = s.dataShowsPublished(
+					a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic),
+					a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
+		}
+		data = d
 		return
 	}
 

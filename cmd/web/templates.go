@@ -122,10 +122,12 @@ type DataHome struct {
 }
 
 type DataInfo struct {
-	Meta     DataMeta
-	Title    string
-	Caption  template.HTML
-	Sections []*cache.Section
+	Meta       DataMeta
+	Title      string
+	Caption    template.HTML
+	Sections   []*cache.Section
+	Highlights []*DataSlide     // if page includes a gallery section
+	Slideshows []*DataPublished // if page includes a gallery section
 	DataCommon
 }
 

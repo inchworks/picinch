@@ -31,6 +31,7 @@ type PublicCompForm struct {
 
 type SlidesForm struct {
 	*multiforms.Form
+	FormatOpts []string
 	Children []*SlideFormData
 }
 
@@ -41,6 +42,7 @@ type SlideFormData struct {
 	Caption   string
 	MediaName string
 	Version   int
+	Format    int
 }
 
 type ValidTypeFunc func(string) bool
@@ -64,13 +66,14 @@ func NewPublicComp(data url.Values, nSlides int, token string) *PublicCompForm {
 func NewSlides(data url.Values, nSlides int, token string) *SlidesForm {
 	return &SlidesForm{
 		Form:     multiforms.New(data, token),
+		FormatOpts: models.FormatOpts,
 		Children: make([]*SlideFormData, 0, nSlides+1),
 	}
 }
 
 // Add slide to form
 
-func (f *SlidesForm) Add(index int, showOrder int, title string, mediaName string, caption string) {
+func (f *SlidesForm) Add(index int, showOrder int, title string, mediaName string, caption string, format int) {
 
 	f.Children = append(f.Children, &SlideFormData{
 		Child:     multiforms.Child{Parent: f.Form, ChildIndex: index},
@@ -78,6 +81,7 @@ func (f *SlidesForm) Add(index int, showOrder int, title string, mediaName strin
 		Title:     title,
 		MediaName: mediaName,
 		Caption:   caption,
+		Format:    format,
 	})
 }
 
@@ -136,6 +140,11 @@ func (f *SlidesForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, err er
 		if err != nil {
 			return nil, err
 		}
+		
+		format, err := f.ChildSelect("format", i, ix, len(models.FormatOpts))
+		if err != nil {
+			return nil, err
+		}
 
 		items = append(items, &SlideFormData{
 			Child:     multiforms.Child{Parent: f.Form, ChildIndex: ix},
@@ -144,6 +153,7 @@ func (f *SlidesForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, err er
 			MediaName: f.ChildFile("mediaName", i, ix, vt),
 			Version:   f.ChildPositive("mediaVersion", i, ix),
 			Caption:   f.ChildText("caption", i, ix, 0, models.MaxMarkdown),
+			Format:    format,
 		})
 	}
 

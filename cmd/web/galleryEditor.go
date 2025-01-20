@@ -208,8 +208,7 @@ func (s *GalleryState) OnEditGallery(organiser string, title string, events stri
 	return 0
 }
 
-// Get data to edit a slideshow
-
+// ForEditSlideshow returns the data to edit a page or slideshow.
 func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (status int, f *form.SlidesForm, show *models.Slideshow) {
 
 	// serialisation
@@ -244,7 +243,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (status int, f
 	// add slides to form
 	for i, sl := range slides {
 		image := uploader.NameFromFile(sl.Image)
-		f.Add(i, sl.ShowOrder, sl.Title, image, sl.Caption)
+		f.Add(i, sl.ShowOrder, sl.Title, image, sl.Caption, sl.ManualFormat())
 	}
 
 	return
@@ -252,7 +251,7 @@ func (s *GalleryState) ForEditSlideshow(showId int64, tok string) (status int, f
 
 // OnEditSlideshow processes the modification of a slideshow. It returns 0 and the user ID on success, or an HTTP status code.
 // topicId and userId are needed only for a new slideshow for a topic. Otherwise we prefer to trust the database.
-func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId, userId int64, qsSrc []*form.SlideFormData, cached bool) (int, int64) {
+func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId, userId int64, qsSrc []*form.SlideFormData, page bool) (int, int64) {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -329,12 +328,12 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			mediaName := uploader.CleanName(qsSrc[iSrc].MediaName)
 			qd := models.Slide{
 				Slideshow: showId,
-				Format:    s.app.slideFormat(qsSrc[iSrc]),
+				Format:    s.app.slideFormat(qsSrc[iSrc], page),
 				ShowOrder: qsSrc[iSrc].ShowOrder,
 				Created:   now,
 				Revised:   now,
 				Title:     s.sanitize(qsSrc[iSrc].Title, ""),
-				Caption:   s.sanitizeUnless(cached, qsSrc[iSrc].Caption, ""),
+				Caption:   s.sanitizeUnless(page, qsSrc[iSrc].Caption, ""),
 				Image:     uploader.FileFromName(tx, qsSrc[iSrc].Version, mediaName),
 			}
 			if mediaName != "" {
@@ -368,15 +367,16 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			} else if ix == iDest {
 				// check if details changed
 				if qsSrc[iSrc].ShowOrder != qDest.ShowOrder ||
+					qsSrc[iSrc].Format != qDest.ManualFormat() ||
 					qsSrc[iSrc].Title != qDest.Title ||
 					qsSrc[iSrc].Caption != qDest.Caption ||
 					qsSrc[iSrc].Version != 0 {
 
-					qDest.Format = s.app.slideFormat(qsSrc[iSrc])
+					qDest.Format = s.app.slideFormat(qsSrc[iSrc], page)
 					qDest.ShowOrder = qsSrc[iSrc].ShowOrder
 					qDest.Revised = now
 					qDest.Title = s.sanitize(qsSrc[iSrc].Title, qDest.Title)
-					qDest.Caption = s.sanitizeUnless(cached, qsSrc[iSrc].Caption, qDest.Caption)
+					qDest.Caption = s.sanitizeUnless(page, qsSrc[iSrc].Caption, qDest.Caption)
 
 					if qsSrc[iSrc].Version != 0 {
 						// replace media file
@@ -454,7 +454,7 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 	}
 
 	// update cached page
-	if cached && updated {
+	if page && updated {
 		s.publicPages.SetSections(showId, slides)
 	}
 
@@ -634,7 +634,7 @@ func (s *GalleryState) ForEditTopic(topicId int64, userId int64, tok string) (st
 	// add slides to form
 	for i, sl := range slides {
 		image := uploader.NameFromFile(sl.Image)
-		f.Add(i, sl.ShowOrder, sl.Title, image, sl.Caption)
+		f.Add(i, sl.ShowOrder, sl.Title, image, sl.Caption, 0)
 	}
 
 	return
@@ -1209,9 +1209,10 @@ func shareCode(isShared bool, hasCode int64) int64 {
 	}
 }
 
-// slideFormat returns an auto-format for a slide.
-func (app *Application) slideFormat(slide *form.SlideFormData) int {
+// slideFormat returns a format for a slide.
+func (app *Application) slideFormat(slide *form.SlideFormData, page bool) int {
 
+	// auto-format
 	var f int
 	if len(slide.Title) > 0 {
 		f = models.SlideTitle
@@ -1221,6 +1222,15 @@ func (app *Application) slideFormat(slide *form.SlideFormData) int {
 	}
 	if len(slide.Caption) > 0 {
 		f = f + models.SlideCaption
+	}
+
+	// // validate and add non-default manual format
+	if page {
+		fm := slide.Format
+		// validate and add non-default
+		if fm > 0 && fm <= models.SlideFormatMax {
+			f = f + fm << models.SlideFormatShift
+		}
 	}
 
 	return f

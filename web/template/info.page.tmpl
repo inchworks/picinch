@@ -19,17 +19,49 @@
     <div class="container">
 		<h1>{{ .Title }}</h1>
         <p>{{ .Caption }}</p>
+        {{ $page := . }}
         {{range .Sections}}
             <div class="container">
                 <div class="row">
-                    {{ .Div }}
-                    {{if eq .Format 2}}
-                        <img class="img-fluid px-4 mb-4" src="{{viewable .Media }}">
-                    {{else if eq .Format 8}}
-                        {{template "infoVideo" .Media}}
+                    {{if eq .Layout 0}}
+                        {{template "pageMedia" .}}
+                        {{ .Div }}
+                    {{else if eq .Layout 1}}
+                        {{ .Div }}
+                        {{template "pageMedia" .}}
+                    {{else if eq .Layout 2}}
+                    {{else if eq .Layout 3}}
+                        <h2>Highlights</h2>
+                        </div>
+                        </div>
+                        {{template "pageGallery" $page}}
+                        <div class="container">
+                        <div class="row">
+                    {{else if eq .Layout 4}}
+                        <div class="col-md-6">
+                            {{template "pageMedia" .}}
+                        </div>
+                        <div class="col-md-6">
+                            {{ .Div }}
+                        </div>
+                    {{else if eq .Layout 5}}
+                        <div class="col-md-6">
+                            {{ .Div }}
+                        </div>
+                        <div class="col-md-6">
+                            {{template "pageMedia" .}}
+                        </div>
                     {{end}}
-                </div>
+                 </div>
             </div>
         {{end}}
     </div>
+{{end}}
+
+{{define "pageMedia"}}
+    {{if eq .Format 2}}
+        <img class="img-fluid px-4 mb-4" src="{{viewable .Media }}">
+    {{else if eq .Format 8}}
+        {{template "infoVideo" .Media}}
+    {{end}}
 {{end}}
