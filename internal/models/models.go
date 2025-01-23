@@ -44,13 +44,15 @@ const (
 
 	SlideFormatShift = 8 // shift for manual formats (below)
 
-	SlideAbove = 0
-	SlideBelow = 1
-	SlideCard = 2
-	SlideGallery = 3
-	SlideLeft = 4
-	SlideRight = 5
-	SlideFormatMax = 5 // manual formats are [0..max] shifted
+	SlideAbove      = 0 // image above text
+	SlideBelow      = 1 // image below text
+	SlideCard       = 2 // one of a grid of cards
+	SlideLeft       = 3 // image left of text
+	SlideRight      = 4 // image right of text
+    SlideEvents     = 5 // next events
+	SlideHighlights = 6 // Lighbox
+	SlideSlideshows = 7 // recent slideshows
+	SlideFormatMax  = 7 // manual formats are [0..max] shifted
 
 	// slideshow type and visibility
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
@@ -81,7 +83,7 @@ var (
 	ErrDuplicateEmail     = errors.New("models: duplicate email")
 )
 
-var FormatOpts = []string{"above", "below", "card", "gallery", "left", "right"}
+var FormatOpts = []string{"above", "below", "card", "left", "right", "events", "highlights", "slideshows"}
 
 var VisibleOpts = []string{"none", "club", "public"}
 
@@ -92,7 +94,7 @@ type Gallery struct {
 	// parameters
 	Organiser  string // website name
 	Title      string // site name appended to page titles
-	Events     string // heading for next events
+	Events     string // redundant
 	NMaxSlides int    `db:"n_max_slides"`
 	NShowcased int    `db:"n_showcased"`
 
@@ -238,7 +240,7 @@ func (s *Slideshow) VisibleStr() string {
 }
 
 // ManualFormat returns the manual component of the slide format
-func (s* Slide) ManualFormat() int {
+func (s *Slide) ManualFormat() int {
 	return s.Format >> SlideFormatShift
 }
 

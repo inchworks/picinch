@@ -496,7 +496,7 @@ func (st *SlideshowStore) GetIfShared(shared int64) *models.Slideshow {
 	return &r
 }
 
-// Most recent shows, up to N per user, excluding RecentPublic and including topics, in descending publication date
+// Most recent shows, up to N per user, and including topics, in descending publication date
 
 func (st *SlideshowStore) RecentPublished(visible int, max int) []*models.Slideshow {
 

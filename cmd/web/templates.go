@@ -94,6 +94,13 @@ type dataCompetition struct {
 	DataCommon
 }
 
+type DataContributor struct {
+	DisplayName string
+	Highlights  []*DataSlide
+	Slideshows  []*DataPublished
+	DataCommon
+}
+
 type DataDiary struct {
 	Meta    DataMeta
 	Title   string
@@ -109,25 +116,10 @@ type DataEvent struct {
 	Diary   string
 }
 
-type DataHome struct {
-	Meta        DataMeta
-	DisplayName string
-	Top         []*cache.Section
-	HEvents     string
-	Events      []*DataEvent
-	Highlights  []*DataSlide
-	Slideshows  []*DataPublished
-	Bottom      []*cache.Section
-	DataCommon
-}
-
 type DataInfo struct {
 	Meta       DataMeta
 	Title      string
-	Caption    template.HTML
-	Sections   []*cache.Section
-	Highlights []*DataSlide     // if page includes a gallery section
-	Slideshows []*DataPublished // if page includes a gallery section
+	Sections   []*DataSection
 	DataCommon
 }
 
@@ -171,6 +163,15 @@ type DataPublished struct {
 	Image       string
 	NTagRef     int64
 	DataCommon
+}
+
+type DataSection struct {
+	cache.Section
+
+	// updated with live data
+	Events []*DataEvent         // if section includes next events
+	Highlights []*DataSlide     // if section includes highlights
+	Slideshows []*DataPublished // if section includes slideshows
 }
 
 type DataSlideshow struct {

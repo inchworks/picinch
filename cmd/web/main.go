@@ -435,7 +435,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	var optDir string // option templates
 	switch cfg.Options {
 	case "main-comp":
-		optDir = "template-club" // not a separate template set yet
+		optDir = "template-club" // ## not a separate template set yet
 
 	case "solo":
 		optDir = "template-solo" // gallery website for a single user
@@ -644,7 +644,7 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.redoV1Store = mysql.NewRedoV1Store(app.db, &app.tx, app.errorLog)
 
 	// setup new database and administrator, if needed, and get gallery record
-	g, err := mysql.Setup(app.GalleryStore, app.userStore, 1, cfg.AdminName, cfg.AdminPassword)
+	g, err := mysql.Setup(app.GalleryStore, app.userStore, 1, cfg.AdminName, cfg.AdminPassword, cfg.Options)
 	if err != nil {
 		app.errorLog.Fatal(err)
 	}

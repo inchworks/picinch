@@ -323,7 +323,6 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 	f.Required("organiser", "nMaxSlides")
 	f.MaxLength("title", models.MaxName)
 	f.MaxLength("organiser", models.MaxName)
-	f.MaxLength("events", models.MaxTitle)
 	nMaxSlides := f.Positive("nMaxSlides")
 	nShowcased := f.Positive("nShowcased")
 
@@ -337,7 +336,7 @@ func (app *Application) postFormGallery(w http.ResponseWriter, r *http.Request) 
 
 	// save changes
 	// // ## could save organiser from MaxLength
-	status := app.galleryState.OnEditGallery(f.Get("organiser"), f.Get("title"), f.Get("events"), nMaxSlides, nShowcased)
+	status := app.galleryState.OnEditGallery(f.Get("organiser"), f.Get("title"), nMaxSlides, nShowcased)
 	if status == 0 {
 		app.redirectWithFlash(w, r, app.authHome, "Gallery settings saved.")
 

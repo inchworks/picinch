@@ -132,8 +132,8 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.AssignShowFormData) (int, etx
 
 						// final removal from topic is deferred
 						if err := s.app.tm.AddTimed(tx, s, OpRelease, &OpReleaseShow{
-								ShowId:  rDest.Id,
-								TopicId: rDest.Topic,
+							ShowId:  rDest.Id,
+							TopicId: rDest.Topic,
 						}, s.app.cfg.DropDelay); err != nil {
 							return s.rollback(http.StatusInternalServerError, err), 0
 						}
@@ -179,18 +179,14 @@ func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
 	f = multiforms.New(d, tok)
 	f.Set("organiser", s.gallery.Organiser)
 	f.Set("title", s.gallery.Title)
-	f.Set("events", s.gallery.Events)
 	f.Set("nMaxSlides", strconv.Itoa(s.gallery.NMaxSlides))
 	f.Set("nShowcased", strconv.Itoa(s.gallery.NShowcased))
 
 	return
 }
 
-// Processing when gallery is modified.
-//
-// Returns HTTP status or 0.
-
-func (s *GalleryState) OnEditGallery(organiser string, title string, events string, nMaxSlides int, nShowcased int) int {
+// OnEditGallery processes the modification of a gallery. It returns an HTTP status or 0.
+func (s *GalleryState) OnEditGallery(organiser string, title string,  nMaxSlides int, nShowcased int) int {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -198,7 +194,6 @@ func (s *GalleryState) OnEditGallery(organiser string, title string, events stri
 	// save changes via cache (conversions already checked)
 	s.gallery.Organiser = organiser
 	s.gallery.Title = title
-	s.gallery.Events = events
 	s.gallery.NMaxSlides = nMaxSlides
 	s.gallery.NShowcased = nShowcased
 	if err := s.app.GalleryStore.Update(s.gallery); err != nil {
@@ -415,28 +410,13 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			}
 		}
 
-		// slideshow for topic
-		if topicId != 0 {
-
-			// request to change topic thumbnail
-			// ## could wait for new images to become available,
-			// ## but what if this is longer than the lifetime of old images?
-			if nImages > 0 {
-				if err := s.app.tm.AddNext(tx, s, OpShow,
-					&OpUpdateTopic{
-						TopicId: topicId,
-						Revised: revised,
-					}); err != nil {
-					return s.rollback(http.StatusInternalServerError, err), 0
-				}
-			} else {
-				// remove empty show for topic
-				// ### beware race with user re-opening show to add back an image
-				if err := s.removeSlideshow(tx, show, true); err != nil {
-					return s.rollback(http.StatusInternalServerError, err), 0
-				}
-				showId = 0
+		if topicId != 0 && nImages == 0 {
+			// remove empty show for topic
+			// ### beware race with user re-opening show to add back an image
+			if err := s.removeSlideshow(tx, show, true); err != nil {
+				return s.rollback(http.StatusInternalServerError, err), 0
 			}
+			showId = 0
 		}
 	}
 
@@ -451,6 +431,17 @@ func (s *GalleryState) OnEditSlideshow(showId int64, topicId int64, tx etx.TxId,
 			Revised: revised,
 		}); err != nil {
 		return s.rollback(http.StatusInternalServerError, err), 0
+	}
+
+	// request to change topic thumbnail (after processing new images)
+	if topicId != 0 {
+		if err := s.app.tm.AddNext(tx, s, OpShow,
+			&OpUpdateTopic{
+				TopicId: topicId,
+				Revised: revised,
+			}); err != nil {
+			return s.rollback(http.StatusInternalServerError, err), 0
+		}
 	}
 
 	// update cached page
@@ -1229,7 +1220,7 @@ func (app *Application) slideFormat(slide *form.SlideFormData, page bool) int {
 		fm := slide.Format
 		// validate and add non-default
 		if fm > 0 && fm <= models.SlideFormatMax {
-			f = f + fm << models.SlideFormatShift
+			f = f + fm<<models.SlideFormatShift
 		}
 	}
 

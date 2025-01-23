@@ -141,7 +141,7 @@ func (app *Application) embeddedImages(w http.ResponseWriter, r *http.Request) {
 
 	data := app.galleryState.DisplayEmbedded(nImages)
 
-	app.render(w, r, "highlights.page.tmpl", data)
+	app.render(w, r, "embedded.page.tmpl", data)
 }
 
 // entry handles a request to view a competition entry

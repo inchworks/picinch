@@ -50,11 +50,10 @@ type Diary struct {
 
 type Info struct {
 	Page
-	Id       int64
-	Title    string
-	Caption  template.HTML
-	Gallery  bool
-	Sections []*Section
+	Id         int64
+	Title      string
+	Caption    template.HTML
+	Sections   []*Section
 }
 
 type Page struct {
@@ -64,10 +63,10 @@ type Page struct {
 }
 
 type Section struct {
-	Div     template.HTML
-	Format  int
-	Layout  int
-	Media   string
+	Div    template.HTML
+	Format int
+	Layout int
+	Media  string
 }
 
 type item struct {
@@ -381,11 +380,14 @@ func sectionFormat(fmt int) int {
 // sectionLayout returns a section's manual format.
 func sectionLayout(fmt int) int {
 	l := fmt >> models.SlideFormatShift
-	if l == models.SlideCard || l == models.SlideGallery {
-		return l // media is optional for a card or a gallery
-	}
-	if fmt&(models.SlideImage+models.SlideVideo) == 0 {
-		return 0 // default layout with no media
+	switch l {
+	case models.SlideCard, models.SlideEvents, models.SlideSlideshows, models.SlideHighlights:
+		return l
+
+	default:
+		if fmt&(models.SlideImage+models.SlideVideo) == 0 {
+			return 0 // default layout with no media
+		}
 	}
 	return l
 }
@@ -411,11 +413,6 @@ func setSections(sections []*models.Slide, to *Info) {
 			Media:  s.Image,
 		}
 		toS = append(toS, cs)
-
-		// is media gallery included?
-		if cs.Layout == models.SlideGallery {
-			to.Gallery = true
-		}
 	}
 	to.Sections = toS
 }

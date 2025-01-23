@@ -169,11 +169,11 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("POST", "/edit-slides", authHs.ThenFunc(app.postFormSlides))
 	router.Handler("GET", "/edit-slideshows/:nUser", ownerNoStoreHs.ThenFunc(app.getFormSlideshows))
 	router.Handler("POST", "/edit-slideshows/:nUser", ownerHs.ThenFunc(app.postFormSlideshows))
+	router.Handler("GET", "/edit-topic/:nId/:nUser", ownerNoStoreHs.ThenFunc(app.getFormTopic))
 
 	// edit topics
 	router.Handler("GET", "/assign-slideshows", curatorNoStoreHs.ThenFunc(app.getFormAssignShows))
 	router.Handler("POST", "/assign-slideshows", curatorHs.ThenFunc(app.postFormAssignShows))
-	router.Handler("GET", "/edit-topic/:nId/:nUser", ownerNoStoreHs.ThenFunc(app.getFormTopic))
 
 	// upload media files
 	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))

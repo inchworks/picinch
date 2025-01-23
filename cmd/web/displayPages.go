@@ -53,6 +53,71 @@ func (s *GalleryState) DisplayDiary(name string) (data *DataDiary) {
 	}
 }
 
+// DisplayHome returns the home page with slideshows
+func (s *GalleryState) DisplayHome(member bool) *DataInfo {
+
+	defer s.updatesNone()()
+
+	a := s.app
+
+	// sections from system slideshow
+	pg := s.publicPages.Infos["/"]
+	if pg == nil {
+		// #### what went wrong - can it be deleted?
+	}
+
+	// default title
+	// ## cleaner if cached
+	title := pg.MetaTitle
+	if title == "" {
+		title = s.gallery.Organiser
+	}
+
+	d := &DataInfo{
+		Meta: DataMeta{
+			Title:       title,
+			Description: pg.Description,
+			NoIndex:     pg.NoIndex,
+		},
+		Title:    s.gallery.Organiser,
+		Sections: make([]*DataSection, len(pg.Sections)),
+	}
+
+	// add sections
+	for i, sec := range pg.Sections {
+		ds := &DataSection{
+			Section: *sec,
+		}
+		d.Sections[i] = ds
+
+		// add data for special sections
+		switch ds.Layout {
+		case models.SlideEvents:
+			// next events
+			ds.Events = s.dataEventsNext(a.cfg.MaxNextEvents)
+			ds.Layout = models.SlideBelow
+
+		case models.SlideHighlights:
+			// highlight slides
+			ds.Highlights = s.dataHighlights(a.cfg.MaxHighlightsTotal)
+			ds.Layout = models.SlideBelow
+
+		case models.SlideSlideshows:
+			if member {
+				ds.Slideshows = s.dataShowsPublished(
+					a.SlideshowStore.RecentPublished(models.SlideshowClub, a.cfg.MaxSlideshowsClub),
+						a.cfg.MaxSlideshowsClub, a.cfg.MaxSlideshowsTotal)
+				} else {
+				ds.Slideshows = s.dataShowsPublished(
+					a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic),
+						a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
+			}
+			ds.Layout = models.SlideBelow
+		}
+	}
+	return d
+}
+
 // DisplayInfo returns the data for an information page.
 func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateData) {
 
@@ -72,21 +137,38 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 				NoIndex:     pg.NoIndex,
 			},
 			Title:    pg.Title,
-			Caption:  pg.Caption,
-			Sections: pg.Sections,
+			Sections: make([]*DataSection, len(pg.Sections)),
 		}
 
-		if pg.Gallery {
-			a := s.app
-			// highlight slides
-			d.Highlights = s.dataHighlights(a.cfg.MaxHighlightsTotal)
+		// add sections
+		for i, sec := range pg.Sections {
+			ds := &DataSection{
+				Section: *sec,
+			}
+			d.Sections[i] = ds
 
-			// slideshows
-			// No option for members, unlike home page, because we don't have members versions of info pages.
-			d.Slideshows = s.dataShowsPublished(
+			// add data for special sections
+			a := s.app
+			switch ds.Layout {
+			case models.SlideEvents:
+				// next events
+				ds.Events = s.dataEventsNext(a.cfg.MaxNextEvents)
+				ds.Layout = models.SlideBelow
+
+			case models.SlideHighlights:
+				// highlight slides
+				ds.Highlights = s.dataHighlights(a.cfg.MaxHighlightsTotal)
+				ds.Layout = models.SlideBelow
+
+			case models.SlideSlideshows:
+				// No option for members, unlike home page, because we don't have members versions of info pages.
+				ds.Slideshows = s.dataShowsPublished(
 					a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic),
 					a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
+				ds.Layout = models.SlideBelow
+				}
 		}
+
 		data = d
 		return
 	}

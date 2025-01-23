@@ -51,6 +51,7 @@ var cmds = [...]string{
 	events varchar(128) NOT NULL,
 	n_max_slides int(11) NOT NULL,
 	n_showcased int(11) NOT NULL,
+    version smallint(6) DEFAULT NULL,
 	PRIMARY KEY (id));`,
 
 	`INSERT INTO gallery (id, version, organiser, title, events, n_max_slides, n_showcased) VALUES
@@ -187,7 +188,22 @@ var cmds = [...]string{
 		(2,	1, 0, 2, 2, 1, 0, 0, '2024-12-01 15:52:42', '2024-12-01 15:52:42', 'Home Page', '', '', '', '');`,
 
 	`INSERT INTO page (id, slideshow, format, menu, description, noindex, title) VALUES
-		(1,	2, 2, "", "This is a club photo gallery.", false, "");`,
+		(1,	2, 2, "", "This is a photo gallery.", false, "");`,
+}
+
+var cmdsClub = [...]string{
+	`INSERT INTO slide (id, slideshow, format, show_order, created, revised, title, caption, image) VALUES
+		(1, 2, 1, 1, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', 'This is our photo gallery.', ''),
+		(2, 2, 1284, 2, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Next Meeting', ''),
+		(3, 2, 1540, 3, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Highlights', ''),
+		(4, 2, 1796, 4, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Latest', '');`,
+}
+
+var cmdsSolo = [...]string{
+	`INSERT INTO slide (id, slideshow, format, show_order, created, revised, title, caption, image) VALUES
+		(1, 2, 1, 1, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', 'This is my photo gallery.', ''),
+		(2, 2, 1540, 2, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Highlights', ''),
+		(3, 2, 1796, 3, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Slideshows', '');`,
 }
 
 var cmdsInfo = [...]string{
@@ -246,7 +262,7 @@ var cmdsSessions = [...]string{
 
 // Setup initialises a new database, if it has no tables.
 // It adds a gallery record and the specified administrator if needed, and returns the gallery record.
-func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminName string, adminPW string) (*models.Gallery, error) {
+func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminName string, adminPW string, options string) (*models.Gallery, error) {
 
 	// look for gallery record
 	g, err := stGallery.Get(galleryId)
@@ -255,25 +271,31 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 			if driverErr.Number == 1146 {
 
 				// no gallery table - make the database
-				err = setupTables(stGallery.DBX, *stGallery.ptx, cmds[:])
+				if err = setupTables(stGallery.DBX, *stGallery.ptx, cmds[:]); err != nil {
+					return nil, stGallery.logError(err)
+				}
+
+				// default home page
+				switch options {
+				case "solo":
+					err = setupTables(stGallery.DBX, *stGallery.ptx, cmdsSolo[:])
+				case "main-comp":
+					// no default content
+				default:
+					err = setupTables(stGallery.DBX, *stGallery.ptx, cmdsClub[:])
+				}
+				if err != nil {
+					return nil, stGallery.logError(err)
+				}
+
+				// gallery
+				 if g, err = stGallery.Get(galleryId); err != nil {
+					return nil, stGallery.logError(err)
+				 }
 			}
-		} else if stGallery.convertError(err) != models.ErrNoRecord {
-			// ok if no gallery record yet
-			err = nil
 		}
 	}
 
-	if err != nil {
-		return nil, stGallery.logError(err)
-	}
-
-	if g == nil {
-		// create first gallery
-		g = &models.Gallery{Id: 1}
-		if err = stGallery.Update(g); err != nil {
-			return nil, err
-		}
-	}
 
 	// look for admin user
 	stUser.GalleryId = g.Id
