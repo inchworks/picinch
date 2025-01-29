@@ -67,6 +67,7 @@ type Section struct {
 	Format int
 	Layout int
 	Media  string
+	Cards  []*Section // row of cards
 }
 
 type item struct {
@@ -265,6 +266,29 @@ func (pc *PageCache) SetMetadata(page *models.PageSlideshow) {
 	}
 }
 
+// addCard adds a card to a row of cards, and updates the row in the page
+func addCard(card *Section, row *Section, sections []*Section) (*Section, []*Section) {
+
+	if row == nil {
+		// start new row
+		row = &Section{
+			Layout: card.Layout,
+			Cards: make([]*Section, 0, 2),
+		}
+	}
+
+	// add card to group
+	row.Cards = append(row.Cards, card)
+
+	// add new row
+	if len(row.Cards) == 1 {
+		sections = append(sections, row)
+	}
+
+	// current group and updated sections
+	return row, sections
+}
+
 // addMenu recusively adds page menu names to menu maps.
 func addMenu(names []string, prefix string, path string, to map[string]*item, warn []string) []string {
 
@@ -372,6 +396,16 @@ func buildMenu(from map[string]*item) (to []*MenuItem) {
 	return
 }
 
+// closeRow sets column width for the row.
+func closeRow(r *Section) {
+	switch len(r.Cards) {
+	case 1: r.Format = 12
+	case 2: r.Format = 6
+	case 3: r.Format = 4
+	default: r.Format = 3
+	}
+}
+
 // sectionFormat returns a section's auto format.
 func sectionFormat(fmt int) int {
 	return fmt & (models.SlideImage + models.SlideVideo)
@@ -403,6 +437,7 @@ func setMetadata(from *models.PageSlideshow, to *Page) {
 // setSections sets the text+media sections for an information page.
 func setSections(sections []*models.Slide, to *Info) {
 
+	var row *Section // current row of cards
 	toS := make([]*Section, 0, len(sections))
 
 	for _, s := range sections {
@@ -412,7 +447,20 @@ func setSections(sections []*models.Slide, to *Info) {
 			Layout: sectionLayout(s.Format),
 			Media:  s.Image,
 		}
-		toS = append(toS, cs)
+	
+		if cs.Layout == models.SlideCard {
+			row, toS = addCard(cs, row, toS)
+
+		} else {
+			// close row
+			if row != nil {
+				closeRow(row)
+				row = nil
+			}
+
+			// single section
+			toS = append(toS, cs)
+		}
 	}
 	to.Sections = toS
 }

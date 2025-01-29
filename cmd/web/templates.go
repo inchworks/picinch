@@ -343,6 +343,7 @@ type usersFormData struct {
 // Define functions callable from a template
 
 var templateFuncs = template.FuncMap{
+	"cardCols":     cardCols,
 	"checked":      checked,
 	"htmlDate":     htmlDate,
 	"htmlDateTime": htmlDateTime,
@@ -351,6 +352,29 @@ var templateFuncs = template.FuncMap{
 	"thumbnail":    thumbnail,
 	"userStatus":   userStatus,
 	"viewable":     viewable,
+}
+
+// cardCols returns the column classes for a row of cards.
+func cardCols(nCards int) string {
+
+	switch nCards {
+	case 0:
+		return "" // not expected
+	case 1:
+		return "row-cols-1"
+	case 2:
+		return "row-cols-1 row-cols-sm-1 row-cols-md-2"
+	case 3:
+	 	return "row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3"
+	case 4:
+		// pairs, never 3+1
+		return "row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-2 row-cols-xxl-4"
+	case 5:
+		// 3+2, never 4+1
+		return "row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3"
+	default:
+		return "row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 row-cols-xxl-4"
+	}
 }
 
 // checked returns "checked" if the parameter is true, for use with a form checkbox.

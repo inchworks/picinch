@@ -8,7 +8,7 @@
 
 {{define "pageGallery"}}
 	<div class="container">
-		<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 row-cols-xxl-4 mb-4">
+		<div class="row mb-4 {{cardCols (len .Slideshows)}}">
 			{{range .Slideshows}}
 				<div class="col mb-4">
 					<div class="card text-white bg-dark h-100">
