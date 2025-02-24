@@ -21,6 +21,8 @@ package mysql
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -55,7 +57,7 @@ var cmds = [...]string{
 	PRIMARY KEY (id));`,
 
 	`INSERT INTO gallery (id, version, organiser, title, events, n_max_slides, n_showcased) VALUES
-	(1,	1, 'PicInch Gallery', '| PicInch', 'Next Event', 10, 2);`,
+	(1,	2, 'PicInch Gallery', '| PicInch', '', 10, 2);`,
 
 	`CREATE TABLE page (
 		id int(11) NOT NULL AUTO_INCREMENT,
@@ -191,19 +193,18 @@ var cmds = [...]string{
 		(1,	2, 2, "", "This is a photo gallery.", false, "");`,
 }
 
-var cmdsClub = [...]string{
-	`INSERT INTO slide (id, slideshow, format, show_order, created, revised, title, caption, image) VALUES
-		(1, 2, 1, 1, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', 'This is our photo gallery.', ''),
-		(2, 2, 1284, 2, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Next Meeting', ''),
-		(3, 2, 1540, 3, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Highlights', ''),
-		(4, 2, 1796, 4, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Latest', '');`,
-}
+var cmdClub =
+	`INSERT INTO slide (slideshow, format, show_order, created, revised, title, caption, image) VALUES
+		(%d, 1, 1, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', 'This is our photo gallery.', ''),
+		(%d, 1284, 2, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Next Meeting', ''),
+		(%d, 1540, 3, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Highlights', ''),
+		(%d, 1796, 4, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Latest', '');`
 
 var cmdsSolo = [...]string{
-	`INSERT INTO slide (id, slideshow, format, show_order, created, revised, title, caption, image) VALUES
-		(1, 2, 1, 1, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', 'This is my photo gallery.', ''),
-		(2, 2, 1540, 2, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Highlights', ''),
-		(3, 2, 1796, 3, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Slideshows', '');`,
+	`INSERT INTO slide (slideshow, format, show_order, created, revised, title, caption, image) VALUES
+		(2, 1, 1, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', 'This is my photo gallery.', ''),
+		(2, 1540, 2, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Highlights', ''),
+		(2, 1796, 3, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Slideshows', '');`,
 }
 
 var cmdsInfo = [...]string{
@@ -265,7 +266,7 @@ var cmdsSessions = [...]string{
 func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminName string, adminPW string, options string) (*models.Gallery, error) {
 
 	// look for gallery record
-	g, err := stGallery.Get(galleryId)
+	g, err := stGallery.GetTx(galleryId)
 	if err != nil {
 		if driverErr, ok := err.(*mysql.MySQLError); ok {
 			if driverErr.Number == 1146 {
@@ -282,6 +283,7 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 				case "main-comp":
 					// no default content
 				default:
+					cmdsClub := []string{fmt.Sprintf(cmdClub, 2, 2, 2, 2)}
 					err = setupTables(stGallery.DBX, *stGallery.ptx, cmdsClub[:])
 				}
 				if err != nil {
@@ -289,7 +291,7 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 				}
 
 				// gallery
-				 if g, err = stGallery.Get(galleryId); err != nil {
+				 if g, err = stGallery.GetTx(galleryId); err != nil {
 					return nil, stGallery.logError(err)
 				 }
 			}
@@ -446,7 +448,7 @@ func sysShow(galleryId int64, userId int64, title string, format string) *models
 
 // MigrateMB4 converts text fields to accept 4-byte Unicode characters, instead of 3-byte.
 // It also adds a database version for future migrations. Needed for version 1.3.0.
-func MigrateMB4(stGallery *GalleryStore) error {
+func MigrateMB4(stGallery *GalleryStore, g *models.Gallery) error {
 
 	var cmd1 = `ALTER TABLE gallery ADD COLUMN version smallint(6);`
 
@@ -476,5 +478,32 @@ func MigrateMB4(stGallery *GalleryStore) error {
 	}
 
 	// set v1 and convert tables
+	g.Version = 1
 	return setupTables(stGallery.DBX, *stGallery.ptx, cmds2[:])
+}
+
+// MigrateOptions adds the configurable home page sections for information, meetings, highlights, and slideshows.
+// Needed for version 1.3.5.
+func MigrateOptions(stGallery *GalleryStore, stPage *PageStore, g *models.Gallery) error {
+
+	if g.Version != 1 {
+		return nil // not version 1
+	}
+
+	// home page slideshow
+	pgs := stPage.ForFormat(models.PageHome)
+	if len(pgs) != 1 {
+		return errors.New("Missing home page.")
+	}
+	homeId := pgs[0].Slideshow.Id
+
+	// add sections
+	cmdsClub := []string{fmt.Sprintf(cmdClub, homeId, homeId, homeId, homeId)}
+	if err := setupTables(stGallery.DBX, *stGallery.ptx, cmdsClub[:]); err != nil {
+		return err
+	}
+
+	// update version
+	g.Version = 2
+	return stGallery.Update(g)
 }

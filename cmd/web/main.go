@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.3.4"
+	version = "1.3.5"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -673,7 +673,10 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	if err = mysql.MigrateInfo(app.userStore, app.SlideshowStore, app.PageStore); err != nil {
 		app.errorLog.Fatal(err)
 	}
-	if err = mysql.MigrateMB4(app.GalleryStore); err != nil {
+	if err = mysql.MigrateMB4(app.GalleryStore, g); err != nil {
+		app.errorLog.Fatal(err)
+	}
+	if err = mysql.MigrateOptions(app.GalleryStore, app.PageStore, g); err != nil {
 		app.errorLog.Fatal(err)
 	}
 

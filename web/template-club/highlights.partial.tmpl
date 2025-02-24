@@ -11,13 +11,13 @@
 		<div class="row photos">
 		{{range .Highlights}}
 			{{ if eq .Format 2 }}
-				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
+				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
 			{{ else if eq .Format 3 }}
-				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
+				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
 			{{ else if eq .Format 6 }}
-				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
+				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
 			{{ else if eq .Format 7 }}
-				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
+				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
 			{{ end }}
 		{{end}}
 		</div>

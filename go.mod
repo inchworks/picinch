@@ -1,8 +1,8 @@
 module inchworks.com/picinch
 
-go 1.22
+go 1.24
 
-toolchain go1.23.1
+toolchain go1.24.0
 
 require (
 	github.com/alexedwards/scs/v2 v2.8.0
@@ -10,12 +10,12 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/inchworks/usage v1.3.1
-	github.com/inchworks/webparts/v2 v2.3.0
+	github.com/inchworks/webparts/v2 v2.4.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0
 	github.com/justinas/nosurf v1.1.1
-	github.com/mailgun/mailgun-go/v4 v4.21.0
+	github.com/mailgun/mailgun-go/v4 v4.22.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 )
 
@@ -25,7 +25,7 @@ require (
 	github.com/alexedwards/scs/mysqlstore v0.0.0-20240316134038-7e11d57e8885
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.0 // indirect
-	github.com/gomarkdown/markdown v0.0.0-20241205020045-f7e15b2f3e62
+	github.com/gomarkdown/markdown v0.0.0-20250202022148-4f606c78d442
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -46,5 +46,5 @@ require (
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
 )
 
-replace github.com/inchworks/usage v1.3.1 => ../usage
-replace github.com/inchworks/webparts/v2 v2.3.0 => ../webparts
+//replace github.com/inchworks/usage v1.3.1 => ../usage
+//replace github.com/inchworks/webparts/v2 v2.4.0 => ../webparts

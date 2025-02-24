@@ -55,13 +55,13 @@ func NewGalleryStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *GalleryStore {
 	}
 }
 
-// Get returns the gallery with specified ID.
+// Get returns the gallery with specified ID, to be updated.
 // Unlike most store functions, it does not log an error.
-func (st *GalleryStore) Get(id int64) (*models.Gallery, error) {
+func (st *GalleryStore) GetTx(id int64) (*models.Gallery, error) {
 
 	q := &models.Gallery{}
 
-	if err := st.DBX.Get(q, "SELECT * FROM gallery WHERE id = ?", id); err != nil {
+	if err := (*st.ptx).Get(q, "SELECT * FROM gallery WHERE id = ?", id); err != nil {
 		return nil, err
 	}
 	return q, nil

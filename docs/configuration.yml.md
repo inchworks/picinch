@@ -121,9 +121,9 @@ Options to change the operation of the website.
 
 **home-switch** ` ` switches the home page to a specified template, for example, `disabled` to show `disabled.page.tmpl` when the website is offline.
 
-**misc-name** `misc` path in URL for miscellaneous files, as in `example.com/misc/file`
+**misc-name** `misc` path in URL for miscellaneous files, as in `example.com/misc/file`.
 
-**options** ` ` set to `solo` to configure PicInch as an image-oriented website for a single owner, and set to `main-comp` for a standalone host for a public photo competition
+**options** ` ` set to `solo` to configure PicInch as an image-oriented website for a single owner, and set to `main-comp` for a standalone host for a public photo competition.
 
 **video-types** ` ` acceptable video file types, such as `.mp4, .mov`.
 
