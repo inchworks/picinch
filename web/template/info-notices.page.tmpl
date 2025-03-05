@@ -17,12 +17,7 @@
 {{define "page"}}
     <div class="container">
         {{block "copyrightNotice" .}}
-            <h2>Copyright Notice</h2>
-            <p>The copyright for all images and and slideshows on this website belongs to the individual contributors. 
-            You may not use the content of the website for any purpose, except to view it on your web browser.</p>
-
-            <p>Contributors to the web site are reminded that they must not upload any images or text unless they personally hold the
-            copyright for the items submitted.</p>
+            {{template "copyrightOption" .}}
         {{end}}
 
         <p>PicInch Gallery - Copyright (C) 2020 Rob Burke<br>

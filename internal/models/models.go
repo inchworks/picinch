@@ -58,7 +58,7 @@ const (
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
 	SlideshowTopic   = -1  // slideshow for a topic
 	SlideshowPrivate = 0
-	SlideshowClub    = 1
+	SlideshowClub    = 1 // club or friends
 	SlideshowPublic  = 2
 
 	// user roles

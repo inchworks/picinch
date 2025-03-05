@@ -40,31 +40,15 @@
     {{end}}
 {{end}}
 
-{{define "pageCards0"}}
-    {{$cols := .Format}}
-    {{range .Cards}}
-        <div class="col-md-{{ $cols }}">
-            <div class="card h-100 bg-secondary-subtle border-dark">
-                {{if eq .Format 2}}
-                    <img class="card-img-top" src="{{viewable .Media}}">
-                {{end}}
-                <div class="card-body">
-                    {{ .Div }}
-                </div>
-            </div>
-        </div>
-    {{end}}
-{{end}}
-
 {{define "pageCards"}}
     <div class="row mb-4 {{cardCols (len .Cards)}}">
         {{range .Cards}}
             <div class="col mb-4">
-                <div class="card text-white bg-dark h-100">
-                    {{if eq .Format 2}}
-                            <img class="card-img-top" src="{{viewable .Media}}">
-                    {{end}}
+                <div class="card bg-light h-100">
                     <div class="card-body">
+                        {{if eq .Format 2}}
+                                <img class="card-img-top mb-3" src="{{viewable .Media}}">
+                        {{end}}
                         {{ .Div }}
                     </div>
                 </div>
@@ -72,7 +56,6 @@
         {{end}}
     </div>
 {{end}}
-
 
 {{define "pageMedia"}}
     {{if eq .Format 2}}

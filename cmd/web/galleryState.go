@@ -21,8 +21,7 @@ package main
 
 import (
 	"net/http"
-	"path"
-	"strconv"
+
 	"strings"
 	"sync"
 	"time"
@@ -128,21 +127,6 @@ func (s *GalleryState) isHome(id int64) bool {
 	s.updatesNone()()
 
 	return s.publicPages.Paths[id] == "/"
-}
-
-// Construct response URL
-
-func respPath(route string, display string, nRound int, index int) string {
-
-	// URL
-	path := path.Join("/", route, display, strconv.Itoa(nRound))
-
-	// add slide index
-	if index > 0 {
-		path = path + "#slide-" + strconv.Itoa(index)
-	}
-
-	return path
 }
 
 // rollback must be called on all error returns from any function that calls updatesGallery.

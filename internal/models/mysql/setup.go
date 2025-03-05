@@ -193,7 +193,7 @@ var cmds = [...]string{
 		(1,	2, 2, "", "This is a photo gallery.", false, "");`,
 }
 
-var cmdClub =
+var cmdClub = 
 	`INSERT INTO slide (slideshow, format, show_order, created, revised, title, caption, image) VALUES
 		(%d, 1, 1, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', 'This is our photo gallery.', ''),
 		(%d, 1284, 2, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Next Meeting', ''),
@@ -201,6 +201,8 @@ var cmdClub =
 		(%d, 1796, 4, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Latest', '');`
 
 var cmdsSolo = [...]string{
+	`UPDATE slideshow SET format='H' WHERE id=1;`,
+
 	`INSERT INTO slide (slideshow, format, show_order, created, revised, title, caption, image) VALUES
 		(2, 1, 1, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', 'This is my photo gallery.', ''),
 		(2, 1540, 2, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Highlights', ''),
@@ -280,8 +282,12 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 				switch options {
 				case "solo":
 					err = setupTables(stGallery.DBX, *stGallery.ptx, cmdsSolo[:])
+
 				case "main-comp":
 					// no default content
+					
+				case "club":
+					fallthrough
 				default:
 					cmdsClub := []string{fmt.Sprintf(cmdClub, 2, 2, 2, 2)}
 					err = setupTables(stGallery.DBX, *stGallery.ptx, cmdsClub[:])

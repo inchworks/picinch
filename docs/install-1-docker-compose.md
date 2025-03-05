@@ -2,8 +2,6 @@
 Copy this example, and save it in `/srv/picinch` on your server.
 
 ```yml
-version: '3'
-
 services:
 
   db:
@@ -42,9 +40,9 @@ services:
       - geodb:/usr/share/GeoIP
 
   gallery:
-    image: inchworks/picinch:1.2
+    image: inchworks/picinch:1.3
     ports:
-      - 443:4000:
+      - 443:4000
       - 80:8000
     restart: always
     environment:

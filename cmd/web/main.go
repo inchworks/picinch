@@ -440,10 +440,18 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	case "solo":
 		optDir = "template-solo" // gallery website for a single user
 
-		//override sladeshow limits
+		// override slideshow limits
+		cfg.MaxHighlights = cfg.MaxHighlightsTotal
+		cfg.MaxSlidesTopic = cfg.MaxSlides
 		cfg.MaxSlideshowsClub = cfg.MaxSlideshowsTotal
 		cfg.MaxSlideshowsPublic = cfg.MaxSlideshowsTotal
 
+		// friends, not a club
+		models.VisibleOpts[1] = "friends"
+
+	case "club":
+		fallthrough
+		
 	default:
 		optDir = "template-club" // the original
 	}
