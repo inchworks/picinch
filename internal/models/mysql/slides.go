@@ -128,7 +128,7 @@ const (
 			FROM slide
 			INNER JOIN slideshow ON slideshow.id = slide.slideshow
 			INNER JOIN user ON user.id = slideshow.user
-			WHERE slideshow.topic = ? AND slideshow.visible >= -1 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > 0
+			WHERE slideshow.topic = ? AND slideshow.visible >= -1 AND (slide.image LIKE 'M%' OR slide.image LIKE 'P%') AND user.status > ?
 			)
 		SELECT format, title, caption, image, name
 		FROM s1
@@ -274,11 +274,11 @@ func (st *SlideStore) NextEvents(visible int, from time.Time, max int) []*models
 
 // RecentForTopic returns the most recent slides, in order with a per-user limit, and excluding suspended users.
 
-func (st *SlideStore) RecentForTopic(topicId int64, perUser int, max int) []*models.TopicSlide {
+func (st *SlideStore) RecentForTopic(topicId int64, usersHidden int, perUser int, max int, ) []*models.TopicSlide {
 
 	var slides []*models.TopicSlide
 
-	if err := st.DBX.Select(&slides, slidesRecentTopic, topicId, perUser, max); err != nil {
+	if err := st.DBX.Select(&slides, slidesRecentTopic, topicId, usersHidden, perUser, max); err != nil {
 		st.logError(err)
 		return nil
 	}

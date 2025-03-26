@@ -11,3 +11,19 @@
     <p>The copyright for all images, slideshows and information on this website belongs to the website owner. 
     You may not use the content of the website for any purpose, except to view it on your web browser.</p>
 {{end}}
+
+{{define "navbar-brand"}}
+    {{if .IsAuthenticated}}
+        <a class="navbar-brand" href="/owner"><img class="d-inline-block align-top" height="31" src="/static/images/brand.png"></a>
+    {{else}}
+        <a class="navbar-brand" href="/"><img class="d-inline-block align-top" height="31" src="/static/images/brand.png"></a>
+    {{end}}
+{{end}}
+
+{{define "edit-slideshows-h1"}}
+	<h1>Slideshows</h1>
+{{end}}
+
+{{define "user-gallery-h1-h2"}}
+	<h1>Slideshows</h1>
+{{end}}

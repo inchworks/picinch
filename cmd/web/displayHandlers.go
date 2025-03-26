@@ -251,8 +251,8 @@ func (app *Application) highlights(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "carousel-highlights.page.tmpl", data)
 }
 
-// homeMembers serves the main page for members.
-func (app *Application) homeMembers(w http.ResponseWriter, r *http.Request) {
+// homeMembers serves the main page for authenticated friends and members.
+func (app *Application) homeAuthenticated(w http.ResponseWriter, r *http.Request) {
 
 	app.home(w, r, true)
 }
@@ -270,7 +270,7 @@ func (app *Application) homePublic(w http.ResponseWriter, r *http.Request) {
 }
 
 // home serves the main page.
-func (app *Application) home(w http.ResponseWriter, r *http.Request, member bool) {
+func (app *Application) home(w http.ResponseWriter, r *http.Request, known bool) {
 
 	hs := app.cfg.HomeSwitch
 	if hs != "" {
@@ -279,7 +279,7 @@ func (app *Application) home(w http.ResponseWriter, r *http.Request, member bool
 	}
 
 	// default home page
-	data := app.galleryState.DisplayHome(member)
+	data := app.galleryState.DisplayHome(known)
 	if data == nil {
 		httpServerError(w)
 		return
@@ -659,6 +659,21 @@ func (app *Application) slideshowsOwn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.render(w, r, "my-gallery.page.tmpl", data)
+}
+
+// slideshowsSys handles a request by a curator for the system slideshows.
+func (app *Application) slideshowsSys(w http.ResponseWriter, r *http.Request) {
+
+	// system user
+	userId := app.userStore.Solo.Id
+
+	data := app.galleryState.DisplayGallery(userId)
+	if data == nil {
+		httpServerError(w)
+		return
+	}
+
+	app.render(w, r, "user-gallery.page.tmpl", data)
 }
 
 // slideshowsUser handles a request by the curator for a member's slideshows.

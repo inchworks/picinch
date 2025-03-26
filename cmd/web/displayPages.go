@@ -54,7 +54,7 @@ func (s *GalleryState) DisplayDiary(name string) (data *DataDiary) {
 }
 
 // DisplayHome returns the home page with slideshows
-func (s *GalleryState) DisplayHome(member bool) *DataInfo {
+func (s *GalleryState) DisplayHome(known bool) *DataInfo {
 
 	defer s.updatesNone()()
 
@@ -103,13 +103,13 @@ func (s *GalleryState) DisplayHome(member bool) *DataInfo {
 			ds.Layout = models.SlideBelow
 
 		case models.SlideSlideshows:
-			if member {
+			if known {
 				ds.Slideshows = s.dataShowsPublished(
-					a.SlideshowStore.RecentPublished(models.SlideshowClub, a.cfg.MaxSlideshowsClub),
+					a.SlideshowStore.RecentPublished(models.SlideshowClub, s.usersHidden, a.cfg.MaxSlideshowsClub),
 						a.cfg.MaxSlideshowsClub, a.cfg.MaxSlideshowsTotal)
-				} else {
+			} else {
 				ds.Slideshows = s.dataShowsPublished(
-					a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic),
+					a.SlideshowStore.RecentPublished(models.SlideshowPublic, s.usersHidden, a.cfg.MaxSlideshowsPublic),
 						a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
 			}
 			ds.Layout = models.SlideBelow
@@ -163,7 +163,7 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 			case models.SlideSlideshows:
 				// No option for members, unlike home page, because we don't have members versions of info pages.
 				ds.Slideshows = s.dataShowsPublished(
-					a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic),
+					a.SlideshowStore.RecentPublished(models.SlideshowPublic, s.usersHidden, a.cfg.MaxSlideshowsPublic),
 					a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
 				ds.Layout = models.SlideBelow
 				}

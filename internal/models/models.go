@@ -31,6 +31,8 @@ import (
 // Database field names are the same as structure names, with lower case first letter.
 
 const (
+	// These must match the database, so prefer specified values to iota.
+
 	// page formats
 	PageDiary = 1
 	PageHome  = 2
@@ -62,13 +64,16 @@ const (
 	SlideshowPublic  = 2
 
 	// user roles
-	// These must match the database, so prefer specified values to iota.
 	UserUnknown = 0
 	UserFriend  = 1
 	UserMember  = 2
 	UserCurator = 3
 	UserAdmin   = 4
 	UserSystem  = 10
+
+	// user status, not supported by webparts/v2/users
+	UserSysInfo = -5
+	UserSysSolo = -1
 
 	// field sizes
 	MaxName     = 60

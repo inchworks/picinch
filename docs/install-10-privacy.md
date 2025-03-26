@@ -23,7 +23,7 @@ The IP address is maintained in volatile memory so that sources can be recognise
 The IP address and time are recorded for blocked sources in the system log.
 
 - For signed-up users, PicInch records the images and text that they enter to create slideshows.
-It also records the creation and update times for images and slideshows so that recent contributions are show in order.
+It also records the creation and update times for images and slideshows so that recent contributions are shown in order.
 It does not record other user activity (although it might record popularity of viewing images and slideshows in future).
 
 - By default, PicInch records a random anonymised ID for each user to generate daily counts of the number of visits by signed-up users.

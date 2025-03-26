@@ -539,7 +539,7 @@ func (s *GalleryState) SlideshowTitle(showId int64) string {
 func (s *GalleryState) dataHighlightSlides(topic *models.Slideshow, from string, perUser int) *DataSlideshow {
 
 	// get slides for topic
-	slides := s.app.SlideStore.RecentForTopic(topic.Id, perUser, s.app.cfg.MaxHighlightsTopic)
+	slides := s.app.SlideStore.RecentForTopic(topic.Id, s.usersHidden, perUser, s.app.cfg.MaxHighlightsTopic)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide
@@ -569,7 +569,7 @@ func (s *GalleryState) dataHighlightSlides(topic *models.Slideshow, from string,
 func (s *GalleryState) dataHighlights(nImages int) []*DataSlide {
 
 	// get slides for highlights topic
-	slides := s.app.SlideStore.RecentForTopic(s.app.SlideshowStore.HighlightsId, s.app.cfg.MaxHighlights, nImages)
+	slides := s.app.SlideStore.RecentForTopic(s.app.SlideshowStore.HighlightsId, s.usersHidden, s.app.cfg.MaxHighlights, nImages)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide

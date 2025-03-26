@@ -41,6 +41,7 @@ type GalleryState struct {
 	gallery     *models.Gallery
 	highlights  []string // highlighted images
 	publicPages *cache.PageCache
+	usersHidden int
 
 	// for browser caching
 	muCache         sync.RWMutex
@@ -50,8 +51,9 @@ type GalleryState struct {
 }
 
 // Initialisation
-func (s *GalleryState) Init(a *Application) {
+func (s *GalleryState) Init(a *Application, usersHidden int) {
 	s.app = a
+	s.usersHidden = usersHidden
 }
 
 // Begin implements the DB interface for uploader.
@@ -65,7 +67,7 @@ func (s *GalleryState) Begin() func() {
 func (s *GalleryState) cacheHighlights() error {
 
 	// highlight slides, most recent first
-	slides := s.app.SlideStore.RecentForTopic(s.app.SlideshowStore.HighlightsId, s.app.cfg.MaxHighlights, s.app.cfg.MaxHighlightsParent)
+	slides := s.app.SlideStore.RecentForTopic(s.app.SlideshowStore.HighlightsId, s.usersHidden, s.app.cfg.MaxHighlights, s.app.cfg.MaxHighlightsParent)
 
 	// cache the image names
 	var images []string

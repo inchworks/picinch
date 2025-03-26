@@ -57,7 +57,7 @@ var cmds = [...]string{
 	PRIMARY KEY (id));`,
 
 	`INSERT INTO gallery (id, version, organiser, title, events, n_max_slides, n_showcased) VALUES
-	(1,	2, 'PicInch Gallery', '| PicInch', '', 10, 2);`,
+	(1,	3, 'PicInch Gallery', '| PicInch', '', 10, 2);`,
 
 	`CREATE TABLE page (
 		id int(11) NOT NULL AUTO_INCREMENT,
@@ -183,7 +183,8 @@ var cmds = [...]string{
 		CONSTRAINT FK_USER_GALLERY FOREIGN KEY (parent) REFERENCES gallery (id));`,
 
 	`INSERT INTO user (id, parent, username, name, role, status, password, created) VALUES
-		(1,	1, 'SystemInfo', 'System Info', 10, -1, '', '2024-12-01 15:52:42');`,
+		(1,	1, 'SystemInfo', 'System Info', 10, -5, '', '2024-12-01 15:52:42'),
+		(2,	1, 'SystemSolo', 'System Solo', 10, -1, '', '2025-03-23 15:52:42');`,
 
 	`INSERT INTO slideshow (id, gallery, gallery_order, access, visible, user, shared, topic, created, revised, title, caption, format, image, etag) VALUES
 		(1,	1, 10, 2, 2, NULL, 0, 0, '2020-04-25 15:52:42', '2020-04-25 15:52:42', 'Highlights', '', 'H.4', '', ''),
@@ -207,60 +208,6 @@ var cmdsSolo = [...]string{
 		(2, 1, 1, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', 'This is my photo gallery.', ''),
 		(2, 1540, 2, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Highlights', ''),
 		(2, 1796, 3, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Slideshows', '');`,
-}
-
-var cmdsInfo = [...]string{
-	`ALTER TABLE gallery
-		ADD COLUMN title varchar(60) NOT NULL,
-		ADD COLUMN events varchar(128) NOT NULL;`,
-	
-	`UPDATE gallery SET title=CONCAT('| ', organiser), events='Next Event' WHERE id=1;`,
-
-	`ALTER TABLE slide MODIFY COLUMN caption varchar(4096) NOT NULL;`,
-
-	`ALTER TABLE slideshow MODIFY COLUMN caption varchar(4096) NOT NULL;`,
-
-	`CREATE TABLE page (
-		id int(11) NOT NULL AUTO_INCREMENT,
-		slideshow int(11) NOT NULL,
-		format int(11) NOT NULL,
-		menu varchar(128) NOT NULL,
-		description varchar(512) NOT NULL,
-		noindex bool NOT NULL,
-		title varchar(128) NOT NULL,
-		PRIMARY KEY (id),
-		KEY IDX_SLIDESHOW (slideshow),
-		CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,
-
-
-	`INSERT INTO user (parent, username, name, role, status, password, created) VALUES
-		(1, 'SystemInfo', 'System Info', 10, -1, '', '2024-12-01 15:52:42');`,
-}
-
-var cmdsRedo = [...]string{
-
-	`CREATE TABLE redoV2 (
-		id BIGINT NOT NULL,
-		tx BIGINT NOT NULL,
-		manager varchar(32) NOT NULL,
-		redotype int(11) NOT NULL,
-		delay int(11) NOT NULL,
-		optype int(11) NOT NULL,
-		operation JSON NOT NULL,
-		PRIMARY KEY (id));`,
-
-	`ALTER TABLE slideshow
-		ADD COLUMN access smallint(6) NOT NULL,
-		ADD COLUMN etag varchar(64) NOT NULL;`,
-}
-
-var cmdsSessions = [...]string{
-	`CREATE TABLE sessions (
-		token CHAR(43) PRIMARY KEY,
-		data BLOB NOT NULL,
-		expiry TIMESTAMP(6) NOT NULL);`,
-
-	`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
 }
 
 // Setup initialises a new database, if it has no tables.
@@ -360,11 +307,28 @@ func setupTables(_ *sqlx.DB, tx *sqlx.Tx, cmds []string) error {
 // MigrateRedo2 adds the redo V2 table, and upgrades the slideshow table. Needed for version 1.1.0.
 func MigrateRedo2(stRedo *RedoStore, stSlideshow *SlideshowStore) error {
 
+	var cmds = [...]string{
+
+		`CREATE TABLE redoV2 (
+			id BIGINT NOT NULL,
+			tx BIGINT NOT NULL,
+			manager varchar(32) NOT NULL,
+			redotype int(11) NOT NULL,
+			delay int(11) NOT NULL,
+			optype int(11) NOT NULL,
+			operation JSON NOT NULL,
+			PRIMARY KEY (id));`,
+	
+		`ALTER TABLE slideshow
+			ADD COLUMN access smallint(6) NOT NULL,
+			ADD COLUMN etag varchar(64) NOT NULL;`,
+	}
+
 	if _, err := stRedo.Count(); err == nil {
 		return nil
 	}
 
-	if err := setupTables(stRedo.DBX, *stRedo.ptx, cmdsRedo[:]); err != nil {
+	if err := setupTables(stRedo.DBX, *stRedo.ptx, cmds[:]); err != nil {
 		return err
 	}
 
@@ -392,8 +356,17 @@ func MigrateRedoV1(stRedoV1 *RedoV1Store) bool {
 // MigrateSessions adds a sessions table. Needed for version 1.2.1.
 func MigrateSessions(stSession *SessionStore) error {
 
+	var cmds = [...]string{
+		`CREATE TABLE sessions (
+			token CHAR(43) PRIMARY KEY,
+			data BLOB NOT NULL,
+			expiry TIMESTAMP(6) NOT NULL);`,
+	
+		`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
+	}
+
 	if _, err := stSession.Count(); err != nil {
-		return setupTables(stSession.DBX, *stSession.ptx, cmdsSessions[:])
+		return setupTables(stSession.DBX, *stSession.ptx, cmds[:])
 	}
 	return nil
 }
@@ -401,13 +374,40 @@ func MigrateSessions(stSession *SessionStore) error {
 // MigrateInfo adds the user and slideshows for club information. Needed for version 1.3.0.
 func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageStore) error {
 
+	var cmds = [...]string{
+		`ALTER TABLE gallery
+			ADD COLUMN title varchar(60) NOT NULL,
+			ADD COLUMN events varchar(128) NOT NULL;`,
+		
+		`UPDATE gallery SET title=CONCAT('| ', organiser), events='Next Event' WHERE id=1;`,
+	
+		`ALTER TABLE slide MODIFY COLUMN caption varchar(4096) NOT NULL;`,
+	
+		`ALTER TABLE slideshow MODIFY COLUMN caption varchar(4096) NOT NULL;`,
+	
+		`CREATE TABLE page (
+			id int(11) NOT NULL AUTO_INCREMENT,
+			slideshow int(11) NOT NULL,
+			format int(11) NOT NULL,
+			menu varchar(128) NOT NULL,
+			description varchar(512) NOT NULL,
+			noindex bool NOT NULL,
+			title varchar(128) NOT NULL,
+			PRIMARY KEY (id),
+			KEY IDX_SLIDESHOW (slideshow),
+			CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,
+	
+		`INSERT INTO user (parent, username, name, role, status, password, created) VALUES
+			(1, 'SystemInfo', 'System Info', 10, -2, '', '2024-12-01 15:52:42');`,
+	}
+
 	// dummy user to own gallery information
 	if _, err := stUser.getSystem("SystemInfo"); err == nil {
 		return nil // nothing to do
 	}
 
 	// add pages table and system user
-	if err := setupTables(stUser.DBX, *stUser.ptx, cmdsInfo[:]); err != nil {
+	if err := setupTables(stUser.DBX, *stUser.ptx, cmds[:]); err != nil {
 		return err
 	}
 
@@ -511,5 +511,28 @@ func MigrateOptions(stGallery *GalleryStore, stPage *PageStore, g *models.Galler
 
 	// update version
 	g.Version = 2
+	return stGallery.Update(g)
+}
+
+// MigrateSole adds the user for the solo option. Needed for version 1.4.0.
+func MigrateSolo(stGallery *GalleryStore, stUser *UserStore, g *models.Gallery) error {
+
+	var cmds = [...]string {
+		`UPDATE user SET status=-5 WHERE username='SystemInfo';`,
+
+		`INSERT INTO user (parent, username, name, role, status, password, created) VALUES
+			(1, 'SystemSolo', 'System Solo', 10, -1, '', '2025-03-23 15:52:42');`,
+		}
+
+	if g.Version != 2 {
+		return nil // not version 2
+	}
+
+	if err := setupTables(stGallery.DBX, *stGallery.ptx, cmds[:]); err != nil {
+		return err
+	}
+
+	// update version
+	g.Version = 3
 	return stGallery.Update(g)
 }

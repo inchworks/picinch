@@ -1,21 +1,6 @@
 ## Customise your website
 Add files in `/srv/picinch/site/` to customise your installation. You must restart the service for changes to take effect.
 
-### Templates
-Files in `templates/` define Go templates to specify static content for your site. Files with the names `*.partial.tmpl` override application templates. Typically a single `site.partial.tmpl` file is sufficient. See [Template Example]({{ site.baseurl }}{% link template-examples.md %}).
-
-The following templates are intended to be redefined:
-
-**copyrightNotice** Copyright statement for the Copyright and Privacy page.
-
-**dataPrivacyNotice** Data privacy statement for the Copyright and Privacy page.
-
-**favicons** Favicon links and meta tags. There is no need to redefine this if you use the same names as the default set.
-
-**signupPage** Welcome text on the signup page.
-
-**website** Website name shown on log-in page.
-
 ### Graphics
 Files in `images/` replace the default brand and favicon images for PicInch.
 
@@ -39,6 +24,9 @@ The following may be left unchanged (although realfavicongenerator.net will make
 You may also add add additional images you wish to include in customised templates to `/images`. They will be served as `static/images/*`. These files are intended to be unchanging; dynamic content should go in
 `/srv/picinch/misc`.
 
+### Configuration Parameters
+The essential items can be set in docker-compose.yml. For a more specific configuration add a `configuration.yml` file. See [configuration.yml]({{ site.baseurl }}{% link configuration.yml.md %}) for the full set of options.
+
 ### Static Pages
 Additional pages are added more easily by logging on as administrator [&#8658; Site Administrator]({{ site.baseurl }}{% link administrator.md %}). However static pages can be used to get full control over page layouts.
 
@@ -50,7 +38,21 @@ These are not included automatically; you will need to reference them as needed 
 
 Note that additional templates and files should have different names to those used in the PicInch code, unless you intend to override the corresponding parts of PicInch.
 
-### Configuration Parameters
-The essential items are shown in docker-compose.yml. See [configuration.yml]({{ site.baseurl }}{% link configuration.yml.md %}) for the full set of options.
+### Templates
+Most content can be set more easily by logging on as administrator [&#8658; Site Administrator]({{ site.baseurl }}{% link administrator.md %}). However Go templates can be defined to change page layouts and content. This feature is provided mainly for compatibility with previous versions.
+
+Files in `templates/` define Go templates to specify static content for your site. Files with the names `*.partial.tmpl` override application templates. Typically a single `site.partial.tmpl` file is sufficient. See [Template Example]({{ site.baseurl }}{% link template-examples.md %}).
+
+The following templates are intended to be redefined:
+
+**copyrightNotice** Copyright statement for the Copyright and Privacy page.
+
+**dataPrivacyNotice** Data privacy statement for the Copyright and Privacy page.
+
+**favicons** Favicon links and meta tags. There is no need to redefine this if you use the same names as the default set.
+
+**signupPage** Welcome text on the signup page.
+
+**website** Website name shown on log-in page.
 
 [1]:	https://realfavicongenerator.net

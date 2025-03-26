@@ -28,7 +28,7 @@
 {{define "page"}}
 
 	<div class="container pb-3">
-		<h1>{{ .DisplayName }}</h1>
+        {{template "user-gallery-h1-h2" .}}
 
 		<h2>Topics</h2>
         {{range .Topics}}

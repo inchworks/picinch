@@ -73,7 +73,7 @@ func (app *Application) Routes() http.Handler {
 	case "main-comp":
 		app.authHome = "/members" // ## not a separate option yet, needs a different name
 	case "solo":
-		app.authHome = "/owner" // gallery website for a single user
+		app.authHome = "/known" // gallery website for a single user
 	default:
 		app.authHome = "/members" // the original
 	}
@@ -179,8 +179,8 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))
 
 	// home page for authorised users
-	router.Handler("GET", app.authHome, authCacheHs.ThenFunc(app.homeMembers))
-	router.Handler("GET", app.authHomeMsg, authNoStoreHs.ThenFunc(app.homeMembers))
+	router.Handler("GET", app.authHome, authCacheHs.ThenFunc(app.homeAuthenticated))
+	router.Handler("GET", app.authHomeMsg, authNoStoreHs.ThenFunc(app.homeAuthenticated))
 
 	// displays - general
 	router.Handler("GET", "/contrib-members", authNoCacheHs.ThenFunc(app.contributorsMembers))
@@ -190,6 +190,7 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("GET", "/my-slideshows-msg", memberNoStoreHs.ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/next", authNoStoreHs.ThenFunc(app.next))
 	router.Handler("GET", "/pages", curatorNoCacheHs.ThenFunc(app.pages))
+	router.Handler("GET", "/slideshows-sys", curatorNoCacheHs.ThenFunc(app.slideshowsSys))
 	router.Handler("GET", "/slideshows-user/:nUser", curatorNoCacheHs.ThenFunc(app.slideshowsUser))
 	router.Handler("GET", "/topic-contributors/:nId", slideshowHs.ThenFunc(app.topicContributors))
 	router.Handler("GET", "/topics", curatorNoCacheHs.ThenFunc(app.topics))

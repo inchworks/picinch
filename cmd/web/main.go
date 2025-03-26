@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.3.5"
+	version = "1.4.0"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -117,14 +117,14 @@ type Configuration struct {
 	MaxUpload  int `yaml:"max-upload" env-default:"64"`        // maximum file upload (megabytes)
 
 	// total limits
-	MaxHighlightsParent int `yaml:"parent-highlights"  env-default:"16"` // highlights for parent website
+	MaxHighlightsParent int `yaml:"parent-highlights" env-default:"16"` // highlights for parent website
 	MaxHighlightsTotal  int `yaml:"highlights-page" env-default:"12"`    // highlights for home page, and user's page
 	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`   // slides in highights slideshow
 	MaxNextEvents       int `yaml:"events-page" env-default:"1"`         // next events per diary on home page
 	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`    // total slideshows on home page
 
 	// per user limits
-	MaxHighlights       int `yaml:"highlights-user"  env-default:"2"`  // highlights on home page
+	MaxHighlights       int `yaml:"highlights-user" env-default:"2"`  // highlights on home page
 	MaxSlides           int `yaml:"slides-show" env-default:"50"`      // slides in a slideshow
 	MaxSlidesTopic      int `yaml:"slides-topic" env-default:"8"`      // slides in a topic contribution
 	MaxSlideshowsClub   int `yaml:"slideshows-club"  env-default:"2"`  // club slideshows on home page, per user
@@ -150,7 +150,7 @@ type Configuration struct {
 	DateFormat   string   `yaml:"date-format" env:"date-format" env-default:"2 January"`  // date format, using Go reference time 01/02 03:04:05PM '06
 	HomeSwitch   string   `yaml:"home-switch" env:"home-switch" env-default:""`           // switch home page to specified template, e.g when site disabled
 	MiscName     string   `yaml:"misc-name" env:"misc-name" env-default:"misc"`           // path in URL for miscellaneous files, as in "example.com/misc/file"
-	Options      string   `yaml:"options" env:"options" env-default:""`                   // site features: main-comp, solo
+	Options      string   `yaml:"options" env:"options" env-default:""`                   // site features: club, main-comp, or solo
 	VideoPackage string   `yaml:"video-package" env:"video-package" env-default:"ffmpeg"` // video processing package
 	VideoTypes   []string `yaml:"video-types" env:"video-types" env-default:""`           // video types (.mp4, .mov, etc.)
 
@@ -433,12 +433,23 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// options
 	var optDir string // option templates
+	var optRoles []string
+	var optRoleDisabled []bool
+	var usersHidden int
+
 	switch cfg.Options {
 	case "main-comp":
-		optDir = "template-club" // ## not a separate template set yet
+		optDir = "template-club"          // ## not a separate template set yet
+		usersHidden = users.UserSuspended // user status for contributions hidden
+
+		// roles
+		// ## revise
+		optRoles = []string{"unknown", "friend", "member", "curator", "admin"}
+		optRoleDisabled = []bool{true}
 
 	case "solo":
-		optDir = "template-solo" // gallery website for a single user
+		optDir = "template-solo"         // gallery website for a single user
+		usersHidden = models.UserSysInfo // user status for contributions hidden
 
 		// override slideshow limits
 		cfg.MaxHighlights = cfg.MaxHighlightsTotal
@@ -449,11 +460,20 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		// friends, not a club
 		models.VisibleOpts[1] = "friends"
 
+		// roles
+		optRoles = []string{"unknown", "friend", "member", "curator", "admin"}
+		optRoleDisabled = []bool{true, false, true, true}
+
 	case "club":
 		fallthrough
-		
+
 	default:
-		optDir = "template-club" // the original
+		optDir = "template-club"          // the original
+		usersHidden = users.UserSuspended // user status for contributions hidden
+
+		// roles
+		optRoles = []string{"unknown", "friend", "member", "curator", "admin"}
+		optRoleDisabled = []bool{true}
 	}
 
 	// package templates
@@ -519,7 +539,7 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	}
 
 	// initialise gallery state
-	app.galleryState.Init(app)
+	app.galleryState.Init(app, usersHidden)
 
 	// initialise data stores
 	gallery := app.initStores(cfg)
@@ -596,8 +616,8 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	// user management
 	app.users = users.Users{
 		App:          app,
-		Roles:        []string{"unknown", "friend", "member", "curator", "admin"},
-		RoleDisabled: []bool{true},
+		Roles:        optRoles,
+		RoleDisabled: optRoleDisabled,
 		Store:        &UserNoDelete{UserStore: app.userStore}, // ignores DeleteId
 		TM:           app.tm,
 	}
@@ -685,6 +705,9 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 		app.errorLog.Fatal(err)
 	}
 	if err = mysql.MigrateOptions(app.GalleryStore, app.PageStore, g); err != nil {
+		app.errorLog.Fatal(err)
+	}
+	if err = mysql.MigrateSolo(app.GalleryStore, app.userStore, g); err != nil {
 		app.errorLog.Fatal(err)
 	}
 
