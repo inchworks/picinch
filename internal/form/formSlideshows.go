@@ -68,7 +68,7 @@ func (f *SlideshowsForm) AddTemplate() {
 
 	f.Children = append(f.Children, &SlideshowFormData{
 		Child:   multiforms.Child{Parent: f.Form, ChildIndex: -1},
-		Visible: models.SlideshowClub,
+		Visible: models.SlideshowPublic,
 	})
 }
 

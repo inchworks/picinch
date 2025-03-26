@@ -1,0 +1,33 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2024.
+
+  Copying and distribution of this file, with or without modification, are permitted in any
+  medium without royalty, provided the copyright notice and this notice are preserved.
+  This file is offered as-is, without any warranty.
+*/}}
+
+{{define "copyrightOption"}}
+    <h2>Copyright Notice</h2>
+    <p>The copyright for all images and and slideshows on this website belongs to the individual contributors. 
+    You may not use the content of the website for any purpose, except to view it on your web browser.</p>
+
+    <p>Contributors to the web site are reminded that they must not upload any images or text unless they personally hold the
+    copyright for the items submitted.</p>
+{{end}}
+
+{{define "navbar-brand"}}
+    {{if .IsAuthenticated}}
+        <a class="navbar-brand" href="/members"><img class="d-inline-block align-top" height="31" src="/static/images/brand.png"></a>
+    {{else}}
+        <a class="navbar-brand" href="/"><img class="d-inline-block align-top" height="31" src="/static/images/brand.png"></a>
+    {{end}}
+{{end}}
+
+{{define "edit-slideshows-h1"}}
+	<h1>{{ .User }}</h1>
+{{end}}
+
+{{define "user-gallery-h1-h2"}}
+	<h1>{{ .DisplayName }}</h1>
+	<h2>Topics</h2>
+{{end}}

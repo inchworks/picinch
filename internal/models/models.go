@@ -31,6 +31,8 @@ import (
 // Database field names are the same as structure names, with lower case first letter.
 
 const (
+	// These must match the database, so prefer specified values to iota.
+
 	// page formats
 	PageDiary = 1
 	PageHome  = 2
@@ -42,21 +44,36 @@ const (
 	SlideCaption = 4
 	SlideVideo   = 8
 
+	SlideFormatShift = 8 // shift for manual formats (below)
+
+	SlideAbove      = 0 // image above text
+	SlideBelow      = 1 // image below text
+	SlideCard       = 2 // one of a grid of cards
+	SlideLeft       = 3 // image left of text
+	SlideRight      = 4 // image right of text
+    SlideEvents     = 5 // next events
+	SlideHighlights = 6 // Lighbox
+	SlideSlideshows = 7 // recent slideshows
+	SlideFormatMax  = 7 // manual formats are [0..max] shifted
+
 	// slideshow type and visibility
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
 	SlideshowTopic   = -1  // slideshow for a topic
 	SlideshowPrivate = 0
-	SlideshowClub    = 1
+	SlideshowClub    = 1 // club or friends
 	SlideshowPublic  = 2
 
 	// user roles
-	// These must match the database, so prefer specified values to iota.
 	UserUnknown = 0
 	UserFriend  = 1
 	UserMember  = 2
 	UserCurator = 3
 	UserAdmin   = 4
 	UserSystem  = 10
+
+	// user status, not supported by webparts/v2/users
+	UserSysInfo = -5
+	UserSysSolo = -1
 
 	// field sizes
 	MaxName     = 60
@@ -71,6 +88,8 @@ var (
 	ErrDuplicateEmail     = errors.New("models: duplicate email")
 )
 
+var FormatOpts = []string{"above", "below", "card", "left", "right", "events", "highlights", "slideshows"}
+
 var VisibleOpts = []string{"none", "club", "public"}
 
 type Gallery struct {
@@ -80,7 +99,7 @@ type Gallery struct {
 	// parameters
 	Organiser  string // website name
 	Title      string // site name appended to page titles
-	Events     string // heading for next events
+	Events     string // redundant
 	NMaxSlides int    `db:"n_max_slides"`
 	NShowcased int    `db:"n_showcased"`
 
@@ -223,6 +242,11 @@ func Nl2br(str string) template.HTML {
 func (s *Slideshow) VisibleStr() string {
 
 	return VisibleOpts[s.Visible]
+}
+
+// ManualFormat returns the manual component of the slide format
+func (s *Slide) ManualFormat() int {
+	return s.Format >> SlideFormatShift
 }
 
 // ParseFormat returns the slideshow format and maximum number of slides.

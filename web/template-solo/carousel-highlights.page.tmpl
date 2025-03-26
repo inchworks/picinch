@@ -1,0 +1,47 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2025.
+
+  Copying and distribution of this file, with or without modification, are permitted in any
+  medium without royalty, provided the copyright notice and this notice are preserved.
+  This file is offered as-is, without any warranty.
+*/}}
+
+{{template "fullscreen" .}}
+
+{{define "title"}}{{ .Title }}{{end}}
+
+{{define "pagemeta"}}
+    <meta name="robots" content="noindex">
+{{end}}
+
+{{define "slides"}}
+
+	{{range .Slides}}
+		<div class="carousel-item bg-slideshow text-slideshow">
+			<div class="d-flex flex-column vw-100 vh-100">
+
+				{{ if eq .Format 2 }}
+					{{template "image" .Image}}
+				{{ else if eq .Format 3 }}
+					<h2 class="mt-2 ms-5 fw-bold">{{ .Title }}</h2>
+					{{template "image" .Image}}
+				{{ else if eq .Format 6 }}
+					{{template "image" .Image}}
+				{{ else if eq .Format 7 }}
+					<h2 class="mt-2 ms-5 fw-bold">{{ .Title }}</h2>
+					{{template "image" .Image}}
+				{{ else if eq .Format 8 }}
+					{{template "video" .Image}}
+				{{ else if eq .Format 9 }}
+					<h2 class="mt-2 ms-5 fw-bold">{{ .Title }}</h2>
+					{{template "video" .Image}}
+				{{ else if eq .Format 12 }}
+					{{template "video" .Image}}
+				{{ else if eq .Format 13 }}
+					{{template "video" .Image}}
+					<div class="h4 mb-4 mx-auto px-5">{{ .Caption }}</div>
+				{{ end }}
+			</div>
+		</div>
+	{{end}}
+{{end}}

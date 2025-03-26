@@ -19,7 +19,7 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}Edit Gallery{{end}}
+{{define "title"}}Setup Website{{end}}
 
 {{define "pagemeta"}}
     <meta name="robots" content="noindex">
@@ -43,13 +43,6 @@
 					<label>Site Title - appended to page titles</label>
 					<input type='text' class='form-control {{.Errors.Valid "title"}}' name='title' placeholder='| website name' value='{{.Get "title"}}'>
 					{{with .Errors.Get "title"}}
-						<div class='invalid-feedback'>{{.}}</div>
-					{{end}}
-				</div>
-				<div class="col-md-6 mb-3">
-					<label>Events heading</label>
-					<input type='text' class='form-control {{.Errors.Valid "events"}}' name='events' value='{{.Get "events"}}'>
-					{{with .Errors.Get "events"}}
 						<div class='invalid-feedback'>{{.}}</div>
 					{{end}}
 				</div>

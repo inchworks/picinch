@@ -68,6 +68,17 @@ import (
 
 func (app *Application) Routes() http.Handler {
 
+	// set routes for authorised home page
+	switch app.cfg.Options {
+	case "main-comp":
+		app.authHome = "/members" // ## not a separate option yet, needs a different name
+	case "solo":
+		app.authHome = "/known" // gallery website for a single user
+	default:
+		app.authHome = "/members" // the original
+	}
+	app.authHomeMsg = app.authHome + "-msg"
+
 	commonHs := alice.New(secureHeaders, app.noBanned, app.geoBlock, app.noQuery, wwwRedirect)
 	dynHs := alice.New(app.timeout, app.limitPage, app.session.LoadAndSave, noSurf, app.authenticate, app.logRequest) // dynamic page handlers
 	immutableHs := alice.New(app.timeoutMedia, app.limitFile, app.ccImmutable)
@@ -158,25 +169,28 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("POST", "/edit-slides", authHs.ThenFunc(app.postFormSlides))
 	router.Handler("GET", "/edit-slideshows/:nUser", ownerNoStoreHs.ThenFunc(app.getFormSlideshows))
 	router.Handler("POST", "/edit-slideshows/:nUser", ownerHs.ThenFunc(app.postFormSlideshows))
+	router.Handler("GET", "/edit-topic/:nId/:nUser", ownerNoStoreHs.ThenFunc(app.getFormTopic))
 
 	// edit topics
 	router.Handler("GET", "/assign-slideshows", curatorNoStoreHs.ThenFunc(app.getFormAssignShows))
 	router.Handler("POST", "/assign-slideshows", curatorHs.ThenFunc(app.postFormAssignShows))
-	router.Handler("GET", "/edit-topic/:nId/:nUser", ownerNoStoreHs.ThenFunc(app.getFormTopic))
 
 	// upload media files
 	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))
+
+	// home page for authorised users
+	router.Handler("GET", app.authHome, authCacheHs.ThenFunc(app.homeAuthenticated))
+	router.Handler("GET", app.authHomeMsg, authNoStoreHs.ThenFunc(app.homeAuthenticated))
 
 	// displays - general
 	router.Handler("GET", "/contrib-members", authNoCacheHs.ThenFunc(app.contributorsMembers))
 	router.Handler("GET", "/contrib-member/:nUser", authNoCacheHs.ThenFunc(app.contributorMembers))
 	router.Handler("GET", "/entry/:nId", authNoCacheHs.ThenFunc(app.entry))
-	router.Handler("GET", "/members", authCacheHs.ThenFunc(app.homeMembers)) // home page for members
-	router.Handler("GET", "/members-msg", authNoStoreHs.ThenFunc(app.homeMembers))
 	router.Handler("GET", "/my-slideshows", memberNoCacheHs.ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/my-slideshows-msg", memberNoStoreHs.ThenFunc(app.slideshowsOwn))
 	router.Handler("GET", "/next", authNoStoreHs.ThenFunc(app.next))
 	router.Handler("GET", "/pages", curatorNoCacheHs.ThenFunc(app.pages))
+	router.Handler("GET", "/slideshows-sys", curatorNoCacheHs.ThenFunc(app.slideshowsSys))
 	router.Handler("GET", "/slideshows-user/:nUser", curatorNoCacheHs.ThenFunc(app.slideshowsUser))
 	router.Handler("GET", "/topic-contributors/:nId", slideshowHs.ThenFunc(app.topicContributors))
 	router.Handler("GET", "/topics", curatorNoCacheHs.ThenFunc(app.topics))

@@ -1,5 +1,5 @@
 {{/*
-  Copyright © Rob Burke inchworks.com, 2020.
+  Copyright © Rob Burke inchworks.com, 2025.
 
   Copying and distribution of this file, with or without modification, are permitted in any
   medium without royalty, provided the copyright notice and this notice are preserved.
@@ -18,18 +18,11 @@
 {{define "page"}}
     <div class="container">
 		<h1>{{ .Title }}</h1>
-        <p>{{ .Caption }}</p>
-        {{range .Sections}}
-            <div class="container">
-                <div class="row">
-                    {{ .Div }}
-                    {{if eq .Format 2}}
-                        <img class="img-fluid px-4 mb-4" src="{{viewable .Media }}">
-                    {{else if eq .Format 8}}
-                        {{template "infoVideo" .Media}}
-                    {{end}}
-                </div>
-            </div>
-        {{end}}
+        {{template "pageSections" .}}
     </div>
+{{end}}
+
+{{ define "pagescripts" }}
+   <script type="text/javascript" src='/static/js/card-01.js'></script>
+   <script type="text/javascript" src='/static/js/lightbox-01.js'></script>
 {{end}}

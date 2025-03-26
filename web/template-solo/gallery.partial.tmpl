@@ -1,0 +1,25 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2025.
+
+  Copying and distribution of this file, with or without modification, are permitted in any
+  medium without royalty, provided the copyright notice and this notice are preserved.
+  This file is offered as-is, without any warranty.
+*/}}
+
+{{define "pageGallery"}}
+
+	<div class="row mb-4 {{cardCols (len .Slideshows)}}">
+		{{range .Slideshows}}
+			<div class="col mb-4">
+				<div class="card text-white bg-dark h-100">
+					<div class="card-body">
+						<a class="card-link text-light" href="{{ .Ref }}">
+							<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
+							<h5 class="card-title">{{ .Title }}</h5>
+						</a>
+					</div>
+				</div>
+			</div>
+		{{end}}
+	</div>
+{{end}}

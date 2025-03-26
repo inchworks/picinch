@@ -165,7 +165,7 @@ const (
 		SELECT s1.id, visible, user, title, caption, format, image
 		FROM s1
 		LEFT JOIN user ON user.id = s1.user
-		WHERE s1.user IS NULL OR (rnk <= ? AND user.status > 0) 
+		WHERE s1.user IS NULL OR (user.status > ? AND rnk <= ?) 
 		ORDER BY s1.created DESC
 	`
 	slideshowsTopicPublished = `
@@ -496,13 +496,13 @@ func (st *SlideshowStore) GetIfShared(shared int64) *models.Slideshow {
 	return &r
 }
 
-// Most recent shows, up to N per user, excluding RecentPublic and including topics, in descending publication date
+// Most recent shows, up to N per user, and including topics, in descending publication date
 
-func (st *SlideshowStore) RecentPublished(visible int, max int) []*models.Slideshow {
+func (st *SlideshowStore) RecentPublished(visible int, usersHidden int, max int) []*models.Slideshow {
 
 	var slideshows []*models.Slideshow
 
-	if err := st.DBX.Select(&slideshows, slideshowsRecentPublished, st.GalleryId, visible, max); err != nil {
+	if err := st.DBX.Select(&slideshows, slideshowsRecentPublished, st.GalleryId, visible, usersHidden, max); err != nil {
 		st.logError(err)
 		return nil
 	}

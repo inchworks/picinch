@@ -20,86 +20,21 @@
 {{define "page"}}
     <div class="container">
         <header> 
-            <h1 class="banner mt-2">{{block "banner" .}}{{ .DisplayName }}{{end}}</h1>
+            <h1 class="banner mt-2">{{block "banner" .}}{{ .Title }}{{end}}</h1>
         </header>
+		{{template "pageSections" .}}
     </div>
 
-	<div class="container">
-		{{block "homePage" .}}
-			{{range .Top}}
-				<div>{{ .Div }}</div>
-			{{end}}
-		{{end}}
-		{{if .Events}}
-			{{block "events-next" .}}
-			{{end}}
-		{{end}}
-		<h2>Highlights</h2>
-	</div>
-
-	<div class="container lightbox2 photo-thumbnails rounded">
-		<div class="row photos ">
-		{{range .Highlights}}
-			{{ if eq .Format 2 }}
-				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
-			{{ else if eq .Format 3 }}
-				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
-			{{ else if eq .Format 6 }}
-				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
-			{{ else if eq .Format 7 }}
-				<div class="col-sm-6 col-md-4 col-lg-3 d-flex align-items-center justify-content-center item"><a href="{{ viewable .Image }}" data-lightbox="photos" data-title="{{ .DisplayName }}"><img class="img-fluid img-thumbnail" src="{{ thumbnail .Image }}"></a></div>
-			{{ end }}
-		{{end}}
-		</div>
-	</div>
-
-	<div class="container">
-		{{if .IsAuthenticated}}
-			<h2>Latest</h2>
-		{{else}}
-			<h2>Slideshows</h2>
-		{{end}}
-		<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 row-cols-xxl-4 mb-4">
-			{{range .Slideshows}}
-				<div class="col mb-4">
-					<div class="card text-white bg-dark h-100">
-						<div class="card-body">
-							<a class="card-link text-light" href="{{ .Ref }}">
-								<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
-								<h5 class="card-title">{{ .Title }}</h5>
-							</a>
-							{{if eq .NUser 0}}
-								<div class="text-end mt-2">
-									<a href="/topic-contributors/{{ .Id }}" class="btn btn-secondary">Contributors</a>
-								</div>
-							{{else}}
-								<p class="card-text"><a class="card-link text-light" href="/contributor/{{ .NUser }}">{{ .DisplayName }}</a></p>
-							{{end}}
-						</div>
-					</div>
-				</div>
-			{{end}}
-		</div>
-	</div>
-
-	{{if not .IsAuthenticated}}
-		<div class="container">
-			<p><strong>More slideshows</strong> are available to to members. Please sign up or log in.</p>
-		</div>
-	{{end}}
-
-	{{if .Bottom}}
-		<div class="container">
-			{{range .Bottom}}
-				<div>{{ .Div }}</div>
-			{{end}}
-		</div>
+	{{if .IsAuthenticated}}
+		{{block "homeAuthenticated" .}}{{end}}
+	{{else}}
+		{{block "homeVisitor" .}}{{end}}
 	{{end}}
 
 	<footer>
 		<div class="container">
 			<p class="float-end">
-				<a href="/info/notices">Copyright and Data Privacy Notices</a>
+				<a href="/info/notices">Copyright and Other Notices</a>
 			</p>
 		</div>
 	</footer>

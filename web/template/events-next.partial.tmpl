@@ -1,15 +1,24 @@
+{{/*
+  Copyright © Rob Burke inchworks.com, 2025.
+
+  Copying and distribution of this file, with or without modification, are permitted in any
+  medium without royalty, provided the copyright notice and this notice are preserved.
+  This file is offered as-is, without any warranty.
+*/}}
+
 {{define "events-next"}}
-    <div class="mb-4">
-        <h2>{{ .HEvents }}</h2>
-        {{range .Events}}
-            <div class="row">
-                <div class="col-md-2 col-sm-3">
-                    <span >{{ .Start }}</span>
+    <div class="container">
+        <div class="mb-4">
+            {{range .Events}}
+                <div class="row">
+                    <div class="col-md-2 col-sm-3">
+                        <span >{{ .Start }}</span>
+                    </div>
+                    <div class="col-md-8 col-sm-7">
+                        <a href="/diary/{{ .Diary }}">{{ .Title }}</a>
+                    </div>
                 </div>
-                <div class="col-md-8 col-sm-7">
-                    <a href="/diary/{{ .Diary }}">{{ .Title }}</a>
-                </div>
-            </div>
-        {{end}}
+            {{end}}
+        </div>
     </div>
 {{end}}

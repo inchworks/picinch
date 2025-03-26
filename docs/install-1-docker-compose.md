@@ -2,8 +2,6 @@
 Copy this example, and save it in `/srv/picinch` on your server.
 
 ```yml
-version: '3'
-
 services:
 
   db:
@@ -42,14 +40,15 @@ services:
       - geodb:/usr/share/GeoIP
 
   gallery:
-    image: inchworks/picinch:1.2
+    image: inchworks/picinch:1.3
     ports:
-      - 443:4000:
+      - 443:4000
       - 80:8000
     restart: always
     environment:
       db-password: "<server-password>"
-      domains: "example.com, www.example.com"
+      options: "<club|solo|main-comp>"
+      domains: "example.com,www.example.com"
       certificate-email: "you@example.com"
       admin-name: "admin@example.com"
       admin-password: "<your-password>"
@@ -78,9 +77,13 @@ volumes:
   mysql:
 ```
 
+Choose between installation of a club, solo or competition website mode.
+Changing the mode after installation is unsupported.
+
 Edit the example to change the following items. (Take care to keep indentation unchanged when editing. Do not use tabs.)
-- `MY_SQL_ROOT_PASWORD`
+- `MY_SQL_ROOT_PASSWORD`
 - `MYSQL_PASSWORD` and `db-password` Make them the same.
+- `options` Set to `club`, `solo` or `main-comp`.
 - `domains` The domains or sub-domains for your server. They are needed here for certificate registration with Let's Encrypt.
 - `certificate-email` An email address that Let’s Encrypt will use to notify you of any problems with certificates.
 - `admin-name` The username you will use to log-in to PicInch as administrator. An email address is recommended.

@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"time"
 
-	"inchworks.com/picinch/internal/cache"
 	"inchworks.com/picinch/internal/models"
 )
 
@@ -51,7 +50,7 @@ func (s *GalleryState) DisplayClasses(_ bool) *dataCompetition {
 }
 
 // DisplayContributor returns a list of published slideshows for a user.
-func (s *GalleryState) DisplayContributor(userId int64, member bool) *DataHome {
+func (s *GalleryState) DisplayContributor(userId int64, member bool) *DataContributor {
 
 	defer s.updatesNone()()
 
@@ -98,7 +97,7 @@ func (s *GalleryState) DisplayContributor(userId int64, member bool) *DataHome {
 	}
 
 	// template and its data
-	return &DataHome{
+	return &DataContributor{
 		DisplayName: user.Name,
 		Highlights:  dHighlights,
 		Slideshows:  dShows,
@@ -219,70 +218,6 @@ func (s *GalleryState) DisplayGallery(userId int64) *DataMyGallery {
 		DisplayName: user.Name,
 		Slideshows:  dataShows,
 		Topics:      dataTopics,
-	}
-}
-
-// DisplayHome returns the home page with slideshows
-func (s *GalleryState) DisplayHome(member bool) *DataHome {
-
-	defer s.updatesNone()()
-
-	a := s.app
-
-	// sections from system slideshow
-	var top []*cache.Section
-	var bottom []*cache.Section
-
-	pg := s.publicPages.Infos["/"]
-	if pg != nil {
-		ss := pg.Sections
-
-		// final section at the bottom
-		n := len(ss)
-		if n == 1 {
-			top = ss
-		} else if n > 1 {
-			top = ss[:n-1]
-			bottom = ss[n-1:]
-		}
-	}
-
-	// diary events
-	dEvents := s.dataEventsNext(a.cfg.MaxNextEvents)
-
-	// highlight slides
-	dHighlights := s.dataHighlights(a.cfg.MaxHighlightsTotal)
-
-	var dShows []*DataPublished
-	if member {
-		dShows = s.dataShowsPublished(
-			a.SlideshowStore.RecentPublished(models.SlideshowClub, a.cfg.MaxSlideshowsClub), a.cfg.MaxSlideshowsClub, a.cfg.MaxSlideshowsTotal)
-	} else {
-		dShows = s.dataShowsPublished(
-			a.SlideshowStore.RecentPublished(models.SlideshowPublic, a.cfg.MaxSlideshowsPublic), a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
-	}
-
-	// default title
-	// ## cleaner if cached
-	title := pg.MetaTitle
-	if title == "" {
-		title = s.gallery.Organiser
-	}
-
-	// template and its data
-	return &DataHome{
-		Meta: DataMeta{
-			Title:       title,
-			Description: pg.Description,
-			NoIndex:     pg.NoIndex,
-		},
-		DisplayName: s.gallery.Organiser,
-		Top:         top,
-		HEvents:     s.gallery.Events,
-		Events:      dEvents,
-		Highlights:  dHighlights,
-		Slideshows:  dShows,
-		Bottom:      bottom,
 	}
 }
 
@@ -604,7 +539,7 @@ func (s *GalleryState) SlideshowTitle(showId int64) string {
 func (s *GalleryState) dataHighlightSlides(topic *models.Slideshow, from string, perUser int) *DataSlideshow {
 
 	// get slides for topic
-	slides := s.app.SlideStore.RecentForTopic(topic.Id, perUser, s.app.cfg.MaxHighlightsTopic)
+	slides := s.app.SlideStore.RecentForTopic(topic.Id, s.usersHidden, perUser, s.app.cfg.MaxHighlightsTopic)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide
@@ -634,7 +569,7 @@ func (s *GalleryState) dataHighlightSlides(topic *models.Slideshow, from string,
 func (s *GalleryState) dataHighlights(nImages int) []*DataSlide {
 
 	// get slides for highlights topic
-	slides := s.app.SlideStore.RecentForTopic(s.app.SlideshowStore.HighlightsId, s.app.cfg.MaxHighlights, nImages)
+	slides := s.app.SlideStore.RecentForTopic(s.app.SlideshowStore.HighlightsId, s.usersHidden, s.app.cfg.MaxHighlights, nImages)
 
 	// replace slide data with HTML formatted fields
 	var dataSlides []*DataSlide

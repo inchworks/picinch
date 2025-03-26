@@ -101,8 +101,9 @@ const (
 type UserStore struct {
 	GalleryId int64
 
-	// cached system info
+	// cached system users
 	Info *users.User
+	Solo *users.User
 
 	threatLog *log.Logger
 	store
@@ -228,10 +229,13 @@ func (st *UserStore) GetNamed(username string) (*users.User, error) {
 	return &t, nil
 }
 
-// InitSystem finds the system user that owns information slideshows.
+// InitSystem finds the system users that owns information and solo slideshows.
 func (st *UserStore) InitSystem() error {
 	var err error
 	st.Info, err = st.getSystem("SystemInfo")
+	if err == nil {
+		st.Solo, err = st.getSystem("SystemSolo")
+	}
 	return err
 }
 

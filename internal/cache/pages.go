@@ -50,10 +50,10 @@ type Diary struct {
 
 type Info struct {
 	Page
-	Id       int64
-	Title    string
-	Caption  template.HTML
-	Sections []*Section
+	Id         int64
+	Title      string
+	Caption    template.HTML
+	Sections   []*Section
 }
 
 type Page struct {
@@ -65,7 +65,9 @@ type Page struct {
 type Section struct {
 	Div    template.HTML
 	Format int
+	Layout int
 	Media  string
+	Cards  []*Section // row of cards
 }
 
 type item struct {
@@ -264,6 +266,29 @@ func (pc *PageCache) SetMetadata(page *models.PageSlideshow) {
 	}
 }
 
+// addCard adds a card to a row of cards, and updates the row in the page
+func addCard(card *Section, row *Section, sections []*Section) (*Section, []*Section) {
+
+	if row == nil {
+		// start new row
+		row = &Section{
+			Layout: card.Layout,
+			Cards: make([]*Section, 0, 2),
+		}
+	}
+
+	// add card to group
+	row.Cards = append(row.Cards, card)
+
+	// add new row
+	if len(row.Cards) == 1 {
+		sections = append(sections, row)
+	}
+
+	// current group and updated sections
+	return row, sections
+}
+
 // addMenu recusively adds page menu names to menu maps.
 func addMenu(names []string, prefix string, path string, to map[string]*item, warn []string) []string {
 
@@ -371,12 +396,37 @@ func buildMenu(from map[string]*item) (to []*MenuItem) {
 	return
 }
 
-// sectionFormat returns a section format, currently a subset of slide formats. 
+// closeRow sets column width for the row.
+func closeRow(r *Section) {
+	switch len(r.Cards) {
+	case 1: r.Format = 12
+	case 2: r.Format = 6
+	case 3: r.Format = 4
+	default: r.Format = 3
+	}
+}
+
+// sectionFormat returns a section's auto format.
 func sectionFormat(fmt int) int {
 	return fmt & (models.SlideImage + models.SlideVideo)
 }
 
-// setMetadata updates common metadata for diary and information pages
+// sectionLayout returns a section's manual format.
+func sectionLayout(fmt int) int {
+	l := fmt >> models.SlideFormatShift
+	switch l {
+	case models.SlideCard, models.SlideEvents, models.SlideSlideshows, models.SlideHighlights:
+		return l
+
+	default:
+		if fmt&(models.SlideImage+models.SlideVideo) == 0 {
+			return 0 // default layout with no media
+		}
+	}
+	return l
+}
+
+// setMetadata updates common metadata for diary and information pages.
 func setMetadata(from *models.PageSlideshow, to *Page) {
 	// ## why not cache whole records? Just because of markdown processing?
 	to.MetaTitle = from.MetaTitle
@@ -387,15 +437,30 @@ func setMetadata(from *models.PageSlideshow, to *Page) {
 // setSections sets the text+media sections for an information page.
 func setSections(sections []*models.Slide, to *Info) {
 
+	var row *Section // current row of cards
 	toS := make([]*Section, 0, len(sections))
 
 	for _, s := range sections {
 		cs := &Section{
 			Div:    toHTML(s.Caption),
 			Format: sectionFormat(s.Format),
+			Layout: sectionLayout(s.Format),
 			Media:  s.Image,
 		}
-		toS = append(toS, cs)
+	
+		if cs.Layout == models.SlideCard {
+			row, toS = addCard(cs, row, toS)
+
+		} else {
+			// close row
+			if row != nil {
+				closeRow(row)
+				row = nil
+			}
+
+			// single section
+			toS = append(toS, cs)
+		}
 	}
 	to.Sections = toS
 }

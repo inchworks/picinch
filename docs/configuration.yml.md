@@ -1,15 +1,24 @@
 # configuration.yml
-Configuration parameters may be specified in this file, or as environment variables. Settings here will be overridden by environment variables in `docker-compose.yml`.
-This an example configuration file with just the essential settings.  
+Configuration parameters should be specified in this file.
+
+Some settings will be overridden by environment variables in `docker-compose.yml`.
+However this is intended for a simple setup and for testing. `configuration.yml` is needed for more specific settings.
+
+This an example configuration file with just the essential settings, which must then be removed from the `gallery: environment:` section of `docker-compose.yml` to take effect. (But do not remove `TZ`!)
 
 ```yml
 # Example configuration for PicInch Gallery server.
 #  - Edit and rename to configuration.yml
 #  - Take care to keep indentation unchanged when editing. Do not use tabs.
 
-db-password: <server password>
+# The same password as set for MYSQL_PASSWORD in docker-compose.yml.
+db-password: <server-password>
 
-# The following is needed for certificate registration with Let's Encrypt domains:
+# Website mode
+options: <club|solo|main-comp>
+
+# The following is needed for certificate registration with Let's Encrypt
+domains:
   - our-domain.com
   - www.our-domain.com
 
@@ -21,11 +30,12 @@ admin-name: admin@example.com
 admin-password: <your-password>
 ```
 
-Set the following items as needed. Default values are as shown.
-## Database
-A database connection is requested with DSN `db-user:db-password@db-source?parseTime=true `. A MariaDB or MySQL database is required.
+Set the following items as needed. Default values are as shown immediately after the item name.
 
-**db-source** `tcp(picinch_db:3306)/picinch`
+## Database
+A database connection is requested with DSN `db-user:db-password@db-source?parseTime=true `. A MariaDB or MySQL database is required. 
+
+**db-source** `tcp(picinch_db:3306)/picinch` Leave as default to use the database set up by the example `docker-compose.yml`.
 
 **db-user** `server`
 
@@ -91,7 +101,7 @@ Photos uploaded are resized to fit these dimensions.
 
 **ban-bad-files** `false` apply IP ban to requests for missing media files.
 
-**geo-block** ` ` blocked countries, specified by ISO 3166-1 alpha-2 codes. For example, `KP, RU`.
+**geo-block** list of blocked countries, specified by ISO 3166-1 alpha-2 codes. For example, `KP` and `RU`, set as a YML list.
 
 **max-cache-age** `1h` browser Cache-Control max-age
 
@@ -119,13 +129,13 @@ Options to change the operation of the website.
 
 **date-format** `2 January` displayed date format, using the Go reference time `01/02 03:04:05PM '06`.
 
-**home-switch** ` ` switches the home page to a specified template, for example, `disabled` to show `disabled.page.tmpl` when the website is offline.
+**home-switch** switches the home page to a specified template, for example, `disabled` to show `disabled.page.tmpl` when the website is offline.
 
-**misc-name** `misc` path in URL for miscellaneous files, as in `example.com/misc/file`
+**misc-name** `misc` path in URL for miscellaneous files, as in `example.com/misc/file`.
 
-**options** ` ` set to `solo` to configure PicInch as an image-oriented website for a single owner, and set to `main-comp` for a standalone host for a public photo competition
+**options** `club` set to `solo` to configure PicInch as an image-oriented website for a single owner, and set to `main-comp` for a standalone host for a public photo competition.
 
-**video-types** ` ` acceptable video file types, such as `.mp4, .mov`.
+**video-types** list of acceptable video file types, such as `.mp4` and `.mov`, set as a YML list.
 
 ## For testing
 **http-addr** `:8000` site HTTP address
