@@ -11,23 +11,16 @@
 </div>
 
 ## Features
-PicInch provides a simple way for a group of website members, such as a photography club, to share their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
+PicInch makes an image-oriented website. Optionally it provides a simple way for a group of website members, such as a photography club, to share their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
 
-- Contributors create simple slideshows. Each slide has a selection of title, photo and caption. Slides adjust in layout to match the content. There is a basic facility to edit and reorder slides.
+Information pages and menu items can be added and edited, making PicInch a full-featured website. The aim is to make website editing as simple as possible, not to provide precise control of the website appearance.
 
-- Slideshows may be organised into topics, as defined by a curator. Topics may be defined in advance, or applied to existing slideshows. A topic can be viewed as a single slideshow, or as a page listing the individual contributions.
+Three options are provided:
+- Club mode shows slideshows attributed to individual contributors.
+- Solo mode makes an image-oriented website for images by a single owner.
+- Competition mode makes a standalone host for a public photo competition.
 
-- Sign-up is restricted to a pre-set list of members, suitable for a club.
-
-- Slideshows can be specified as publicly visible, or visible to website users, or hidden.
-
-- Individual photos can be added to a special topic “Highlights”, featured on the home page. It includes just the most recent highlights from each contributor.
-
-- The home page shows the most recent highlights and slideshows for each user. The number shown of each is configurable. A page for each contributor shows all their highlights and slideshows.
-
-- Sideshows can include videos as well as photos.
-
-- Written in Go and ready to be deployed to a virtual machine using Docker, for good performance and easy setup. 
+PicInch is written in Go and ready to be deployed to a virtual machine using Docker, for good performance and easy setup. Support for HTTPS is automatic, using Let’s Encrypt certificates.
 
 [![Project Status: Inactive – The project has reached a stable, usable state but new features are not being actively developed; support/maintenance will be provided as needed.](https://www.repostatus.org/badges/latest/inactive.svg)](https://www.repostatus.org/#inactive)
 

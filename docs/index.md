@@ -1,7 +1,7 @@
 # PicInch Gallery
-This web server application provides a simple way for a group of members, such as a photography club, to display their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
+This web server application provides an image-oriented website. Optionally it provides a simple way for a group of members, such as a photography club, to share their photographs. The emphasis is on uncluttered presentation of images, organised into slideshows.
 
-Information pages and menu items can be added and edited, making PicInch a full-featured image-oriented website. The aim is to make website editing as simple as possible, not to provide precise control of the website appearance.
+Information pages and menu items can be added and edited, making PicInch a full-featured website. The aim is to make website editing as simple as possible, not to provide precise control of the website appearance.
 
 Three options are provided:
 - Club mode shows slideshows attributed to individual contributors.
