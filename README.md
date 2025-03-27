@@ -22,7 +22,7 @@ Three options are provided:
 
 PicInch is written in Go and ready to be deployed to a virtual machine using Docker, for good performance and easy setup. Support for HTTPS is automatic, using Let’s Encrypt certificates.
 
-[![Project Status: Inactive – The project has reached a stable, usable state but new features are not being actively developed; support/maintenance will be provided as needed.](https://www.repostatus.org/badges/latest/inactive.svg)](https://www.repostatus.org/#inactive)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
 _This is used at one photo club. I would like to work with another club, ideally in Scotland or the UK, to adapt it as needed for more general use. Contact support@picinch.com._
 
