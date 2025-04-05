@@ -1,0 +1,58 @@
+/* allow image to shrink within flex box, and maintain aspect ratio */
+.shrink-image {
+	object-fit: contain;
+	height: 0%;
+}
+
+/* extra spacing for newlines in questions */
+br {
+	display: block;		/* makes it have a width */
+	content: "";		/* clears default height */
+	margin-top: 4px;	/* extra height */
+}
+
+/* carousel quit button, adapted from Bootstrap next button */
+
+.slideshow-control-quit {
+  position: absolute;
+  bottom: 10%;
+  z-index: 1;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-align: center;
+  align-items: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  width: 15%;
+  color: #fff;
+  text-align: center;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slideshow-control-quit {
+    transition: none;
+  }
+}
+
+.slideshow-control-quit:hover, .slideshow-control-quit:focus {
+  color: #fff;
+  text-decoration: none;
+  outline: 0;
+  opacity: 0.9;
+}
+
+.slideshow-control-quit {
+  right: 0;
+}
+
+/* icon from https://icons.getbootstrap.com */
+
+.slideshow-control-quit-icon {
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  background: no-repeat 50% / 100% 100%;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='%23fff' width='1em' height='1em' viewBox='0 0 16 16'%3e%3cpath fill-rule='evenodd' d='M11.854 4.146a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708-.708l7-7a.5.5 0 0 1 .708 0z'/%3e%3cpath fill-rule='evenodd' d='M4.146 4.146a.5.5 0 0 0 0 .708l7 7a.5.5 0 0 0 .708-.708l-7-7a.5.5 0 0 0-.708 0z'/%3e%3c/svg%3e");
+}

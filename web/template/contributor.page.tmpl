@@ -31,7 +31,7 @@
 		<h1>{{ .DisplayName }}</h1>
 	</div>
 
-	<div class="container lightbox2 photo-thumbnails rounded">
+	<div class="container lightbox2 highlight-thumbnails rounded">
 
 		<div class="row photos ">
 		{{range .Highlights}}
@@ -53,9 +53,9 @@
 
 			{{range .Slideshows}}
 				<div class="col mb-4">
-					<div class="card text-white bg-dark mb-4 h-100">
+					<div class="card slides-thumbnail mb-4 h-100">
 						<div class="card-body">
-							<a class="card-link text-light" href="{{ .Ref }}">
+							<a class="card-link" href="{{ .Ref }}">
 								<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
 								<h5 class="card-title">{{ .Title }}</h5>
 							</a>

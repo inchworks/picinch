@@ -1,4 +1,4 @@
-# Template Example
+# Template Examples
 This example file reproduces the content of the default website.
 
 ```html

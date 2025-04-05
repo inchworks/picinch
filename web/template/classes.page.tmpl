@@ -24,9 +24,9 @@
 			<div class="row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 mb-4">
 			{{range .Categories}}
 				<div class="col mb-4">
-					<div class="card text-white bg-dark h-100">
+					<div class="card slides-thumbnail h-100">
 						<div class="card-body">
-							<a class="card-link text-light" href="/enter-comp/{{ .Id }}">
+							<a class="card-link" href="/enter-comp/{{ .Id }}">
 								<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
 								<h5 class="card-title">{{ .Title }}</h5>
 							</a>

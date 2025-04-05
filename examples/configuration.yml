@@ -8,6 +8,9 @@ db-password: test-only
 admin-name: admin@example.com
 admin-password: admin-test-only
 
+# Website mode
+options: <club|solo|main-comp>
+
 # The following is needed for certificate registration with Let's Encrypt
 domains:
   - example.com

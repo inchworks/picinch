@@ -52,7 +52,7 @@ const (
 	SlideLeft       = 3 // image left of text
 	SlideRight      = 4 // image right of text
     SlideEvents     = 5 // next events
-	SlideHighlights = 6 // Lighbox
+	SlideHighlights = 6 // Lightbox
 	SlideSlideshows = 7 // recent slideshows
 	SlideFormatMax  = 7 // manual formats are [0..max] shifted
 

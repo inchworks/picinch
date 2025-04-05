@@ -36,9 +36,9 @@
 
 			{{range .Slideshows}}
 				<div class="col mb-4">
-					<div class="card text-white bg-dark h-100">
+					<div class="card slides-thumbnail h-100">
 						<div class="card-body">
-							<a class="card-link text-light" href="{{ .Ref }}">
+							<a class="card-link" href="{{ .Ref }}">
 								<img class="card-img-top ie-image" src="{{thumbnail .Image }}">
 								<h5 class="card-title">{{ .DisplayName }}</h5>
 							</a>

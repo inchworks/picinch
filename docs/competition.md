@@ -45,8 +45,6 @@ Other templates allow customisation and will probably need to be defined:
 
 **signupPage** Content shown to friends (judges) and members (managers) when they sign-up.
 
-**siteStyle** Link to the site stylesheet. The default gallery style is deliberately plain, and a more lively appearance will probably be needed for a competition. (See `site-04.css` for an example.)
-
 (See `site.partial.tmpl` for an example of competition customisation.)
 
 These templates customise the competition entry form:

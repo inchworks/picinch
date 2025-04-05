@@ -1,0 +1,68 @@
+body {
+  text-rendering: optimizeLegibility;
+}
+
+/* navigation */
+nav.navbar { background-color: #ccc; }
+ul.dropdown-menu { background-color: #ccc; }
+
+header { text-align:left; }
+img.banner { height: 40px;}
+h1.banner {font-family: Palatino, serif; font-size:40px;}
+
+/* scale down headers */
+h1 { font-size: 2rem; }
+h2 { font-size: 1.75rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1rem; }
+
+/* modify bootstrap cards */
+.card-title { margin-top: 12px; margin-bottom: 0px; }
+.card-text { margin-top: 8px; }
+.card-img-top {
+  width: 100%;
+  height: 207px;
+  object-fit: scale-down;
+}
+.card-link { text-decoration: none; }
+
+.upload-status {
+  margin-bottom: 1px;
+  height: 20px;
+  line-height:20px;
+  padding:0px 15px;
+}
+
+.progress {
+  height: 20px;
+}
+
+/* highlight thumbnails */
+.highlight-thumbnails {
+  margin-bottom: 24px;
+}
+  
+.highlight-thumbnails .item {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  flex-wrap: wrap;
+  }
+
+.row > [class*='col-'] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* IE10+ rubbish */
+/* Do this because IE doesn't even recognise object-fit: scale-down as valid */
+@media all and (-ms-high-contrast: none), (-ms-high-contrast: active) {
+.ie-image { object-fit: contain; }
+}

@@ -46,5 +46,5 @@ require (
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
 )
 
-//replace github.com/inchworks/usage v1.3.1 => ../usage
+// replace github.com/inchworks/usage v1.3.1 => ../usage
 // replace github.com/inchworks/webparts/v2 v2.4.1 => ../webparts
