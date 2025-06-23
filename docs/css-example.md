@@ -20,10 +20,6 @@ It reproduces the default site appearance.
   header { background-color: #DDD; }
   h1.banner {font-family: Palatino, serif; font-size:40px;}
 
-  {{/* section */}}
-  section.intro {background-color: #DDD;}
-  section.slideshows { background-color: #ccc; }
-
   {{/* scale down headers */}}
   h1 { font-size: 2rem; }
   h2 { font-size: 1.75rem; }
@@ -44,6 +40,11 @@ It reproduces the default site appearance.
   .slides-thumbnail { background-color: rgb(52,58,64); }
   .slides-thumbnail a.card-link { color: rgb(255,255,255); }
   .slides-thumbnail .card-link: hover { color: rgb(203,211,218); }
+
+  {{/* sub-page thumbnail */}}
+  .page-thumbnail { background-color: rgb(204,204,204); color: rgb(33, 37, 41); }
+  .page-thumbnail a.card-link { color: rgb(33, 37, 41); }
+  .page-thumbnail .card-link:hover { color: rgb(13, 110, 253); }
 
 </style>
 {{end}}

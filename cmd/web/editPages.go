@@ -257,7 +257,7 @@ func (s *GalleryState) ForEditPages(fmt int, tok string) (f *form.PagesForm) {
 	// add template and pages to form
 	f.AddTemplate()
 	for i, pg := range pages {
-		f.Add(i, pg.Menu, pg.Title, pg.Id)
+		f.Add(i, pg.Name, pg.Title, pg.Id)
 	}
 
 	return
@@ -302,7 +302,7 @@ func (s *GalleryState) OnEditPages(fmt int, rsSrc []*form.PageFormData) (int, et
 
 			// no more destination pages - add new one
 			r := models.PageSlideshow{
-				Menu: rsSrc[iSrc].Menu,
+				Name: rsSrc[iSrc].Name,
 				PageFormat: fmt,
 				Slideshow: models.Slideshow{
 					Access:       models.SlideshowPublic,
@@ -332,8 +332,8 @@ func (s *GalleryState) OnEditPages(fmt int, rsSrc []*form.PageFormData) (int, et
 				rSrc := rsSrc[iSrc]
 				rDest := rsDest[iDest]
 
-				if rSrc.Menu != rDest.Menu || rSrc.Title != rDest.Title {
-					rDest.Menu = rSrc.Menu
+				if rSrc.Name != rDest.Name || rSrc.Title != rDest.Title {
+					rDest.Name = rSrc.Name
 					rDest.Title = rSrc.Title
 					rDest.Revised = now
 					s.app.PageStore.UpdateWith(rDest)

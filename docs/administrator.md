@@ -21,7 +21,7 @@ Typically a solo website has just the administrator. However it is possible to a
 Each user has a role. A `friend` can view slideshows limited to friends, but not add slideshows. A `curator` can edit slideshows, information pages and diary events. An `admin` has full control of the website, including adding or removing users, information pages, and diaries.
 
 ## Additional Content
-As administrator you can add additional information pages and menu items with `Admin > Pages`. Specify the menu path for a page as `name` for a top-level menu item or `name.sub` for a dropdown menu item. A leading "`.`", i.e. `.name` specifies a page without a menu item. Pages are accessed by `https://<your-domain/info/name` or `/info/name.sub`.
+As administrator you can add additional information pages and menu items with `Admin > Pages`. Specify the menu path for a page as `name` for a top-level menu item or `name.sub` for a dropdown menu item. A leading "`.`", i.e. `.name` specifies a page without a menu item. Pages are referenced by `https://<your-domain>/info/name` or `/info/name.sub`.
 
 Similarly, diaries can be added with `Admin > Diaries`. Typically just one diary is sufficient. By default the next upcoming event in each diary is shown automatically on the home page. Diaries are accessed by `https://<your-domain/diary/name` or `/diary/name.sub`.
 
@@ -49,6 +49,9 @@ A section format specifies the layout of the section:
 **highlights** This special section shows a panel of thumbnails for the most recent hightlight images.
 
 **slideshows** This special section shows a panel of thumbnails for the most recent slideshows.
+
+**subpages** This special section shows summary cards for the sub-pages of this page that do not have menu items.
+I.e. pages named `.name.sub`.
 
 The special section formats `events`, `highlights` and `slideshows` are intended to be used just once each, and by default they are added to the home page. They can be rearranged in order on the home page, or moved to separate pages. The section text appears above the special content and typically is just a heading.
 

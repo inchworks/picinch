@@ -88,7 +88,7 @@ func (s *GalleryState) cachePages() []string {
 	var warn []string
 
 	// reset cache
-	cache := cache.NewPages()
+	cache := cache.NewPageCache()
 	s.publicPages = cache
 
 	// add any menu template files (always public)
@@ -100,8 +100,27 @@ func (s *GalleryState) cachePages() []string {
 
 	// add public diaries and information pages
 	for _, pg := range s.app.PageStore.AllVisible(models.SlideshowPublic) {
+		var subs []*models.SubPage
+
+		// sections
 		ss := s.app.SlideStore.ForSlideshowOrdered(pg.Id, false, 100)  // ## configure max
-		w := cache.AddPage(pg, ss)
+
+		// sub-pages, except for a diary
+		if pg.PageFormat != models.PageDiary {
+			nm := pg.Name
+			if nm == "" {
+				// parent is the home page
+				nm = ".Home" 
+			} else {
+				// sub-pages are '.name.sub', but parent page may have a menu or not
+				if nm[0] != '.' {
+					nm = "." + nm
+				}
+			}
+			subs = s.app.PageStore.AllSubPages(nm)
+		}
+
+		w := cache.AddPage(pg, ss, subs)
 		if len(w) > 0 {
 			warn = append(warn, w...)
 		}

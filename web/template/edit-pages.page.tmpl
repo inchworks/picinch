@@ -38,7 +38,7 @@
 				{{if .Children}}
 					<div class="row mb-1">
         				<label class="col-xl-6 col-lg-5 col-md-5 col-sm-4 col-form-label">Heading</label>
-						<label class="col-xl-4 col-lg-3 col-md-3 col-sm-4 col-form-label">Menu</label>
+						<label class="col-xl-4 col-lg-3 col-md-3 col-sm-4 col-form-label">Name</label>
         			</div>
 				{{end}}
 
@@ -48,7 +48,7 @@
 							<input type='text' class='form-control' placeholder='{{ $.HomeName }}' disabled>
 						</div>
 						<div class="col-xl-4 col-lg-3 col-md-4 col-sm-4">
-							<input type='text' class='form-control' placeholder='Gallery' disabled>
+							<input type='text' class='form-control' placeholder='Home' disabled>
 						</div>
 						<div class="col-xl-1 col-lg-2 col-md-2 col-sm-2 offset-xl-1 offset-lg-2 offset-md-2 offset-sm-2">
 							<button type='submit' formaction='{{ $.Action }}/{{ $.HomePage }}' class="btn btn-primary">Metadata</button>
@@ -68,9 +68,9 @@
 									<div class='invalid-feedback'>{{.ChildError "title"}}</div>
 								</div>
 								<div class="col-xl-4 col-lg-3 col-md-4 col-sm-4">
-									<label class="visually-hidden">Menu</label>
-									<input type='text' class='form-control {{.ChildValid "title"}}' placeholder='Menu' name='menu' value='{{ .Menu }}'>
-									<div class='invalid-feedback'>{{.ChildError "menu"}}</div>
+									<label class="visually-hidden">Name</label>
+									<input type='text' class='form-control {{.ChildValid "title"}}' placeholder='Name' name='name' value='{{ .Name }}'>
+									<div class='invalid-feedback'>{{.ChildError "name"}}</div>
 								</div>
 								<div class="col-xl-1 col-lg-2 col-md-2 col-sm-2">
 									<a href="#" class='btn btn-secondary btnConfirmDelChild'>Delete</a>

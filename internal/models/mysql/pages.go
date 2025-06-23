@@ -56,6 +56,13 @@ const (
 
 	pagesWhereFormat  = pageShowSelect + ` WHERE slideshow.gallery = ? AND slideshow.visible >=  0 AND page.format = ?` + pageOrderTitle
 	pagesWhereVisible = pageShowSelect + ` WHERE slideshow.gallery = ? AND slideshow.visible = ?`
+
+	subPagesWherePage = `
+		SELECT page.menu, slideshow.title, slide.caption, slide.image FROM page
+		JOIN slideshow ON slideshow.id = page.slideshow
+		JOIN slide ON slide.slideshow = slideshow.id AND show_order = 1
+		WHERE page.menu LIKE ?
+	`
 )
 
 type PageStore struct {
@@ -76,6 +83,18 @@ func NewPageStore(db *sqlx.DB, tx **sqlx.Tx, log *log.Logger) *PageStore {
 			sqlUpdate: pageUpdate,
 		},
 	}
+}
+
+// AllSubPages returns a list of all subpages for a page.
+func (st *PageStore) AllSubPages(name string) []*models.SubPage {
+	var subPages []*models.SubPage
+
+	if err := st.DBX.Select(&subPages, subPagesWherePage,  name + ".%"); err != nil {
+		st.logError(err)
+		return nil
+	}
+
+	return subPages
 }
 
 // AllVisible returns a list of pages with specified visibility.
@@ -144,7 +163,7 @@ func (st *PageStore) UpdateFrom(pg *models.PageSlideshow) error {
 		Id:          pg.PageId,
 		Slideshow:   pg.Slideshow.Id,
 		Format:      pg.PageFormat,
-		Menu:        pg.Menu,
+		Name:        pg.Name,
 		Description: pg.Description,
 		NoIndex:     pg.NoIndex,
 		Title:       pg.MetaTitle,

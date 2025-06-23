@@ -51,10 +51,11 @@ const (
 	SlideCard       = 2 // one of a grid of cards
 	SlideLeft       = 3 // image left of text
 	SlideRight      = 4 // image right of text
-    SlideEvents     = 5 // next events
+	SlideEvents     = 5 // next events
 	SlideHighlights = 6 // Lightbox
 	SlideSlideshows = 7 // recent slideshows
-	SlideFormatMax  = 7 // manual formats are [0..max] shifted
+	SlideSubPages   = 8 // sub-pages
+	SlideFormatMax  = 8 // manual formats are [0..max] shifted
 
 	// slideshow type and visibility
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
@@ -88,7 +89,7 @@ var (
 	ErrDuplicateEmail     = errors.New("models: duplicate email")
 )
 
-var FormatOpts = []string{"above", "below", "card", "left", "right", "events", "highlights", "slideshows"}
+var FormatOpts = []string{"above", "below", "card", "left", "right", "events", "highlights", "slideshows", "subpages"}
 
 var VisibleOpts = []string{"none", "club", "public"}
 
@@ -112,7 +113,7 @@ type Page struct {
 	Id          int64
 	Slideshow   int64
 	Format      int
-	Menu        string
+	Name        string `db:"menu"`
 	Description string // for <meta>
 	NoIndex     bool
 	Title       string // for <title>
@@ -171,7 +172,7 @@ type TagRef struct {
 type PageSlideshow struct {
 	PageId      int64
 	PageFormat  int
-	Menu        string
+	Name        string `db:"menu"`
 	Description string
 	MetaTitle   string
 	NoIndex     bool
@@ -201,6 +202,13 @@ type SlideshowUser struct {
 	Image  string
 	UserId int64
 	Name   string // user's display name
+}
+
+type SubPage struct {
+	Name    string `db:"menu"` // from page
+	Title   string // from slideshow
+	Caption string // from 1st section?
+	Image   string // from 1st section
 }
 
 type TagItem struct {

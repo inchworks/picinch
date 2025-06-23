@@ -1,0 +1,56 @@
+body {
+  text-rendering: optimizeLegibility;
+}
+
+header { text-align:left; }
+img.banner { height: 40px;}
+
+/* modify bootstrap cards */
+.card-title { margin-top: 12px; margin-bottom: 0px; }
+.card-text { margin-top: 8px; }
+.card-img-top {
+  width: 100%;
+  height: 207px;
+  object-fit: scale-down;
+}
+.card-link { text-decoration: none; }
+
+.upload-status {
+  margin-bottom: 1px;
+  height: 20px;
+  line-height:20px;
+  padding:0px 15px;
+}
+
+.progress {
+  height: 20px;
+}
+
+/* highlight thumbnails */
+.highlight-thumbnails {
+  margin-bottom: 24px;
+}
+  
+.highlight-thumbnails .item {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  flex-wrap: wrap;
+  }
+
+.row > [class*='col-'] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* IE10+ rubbish */
+/* Do this because IE doesn't even recognise object-fit: scale-down as valid */
+@media all and (-ms-high-contrast: none), (-ms-high-contrast: active) {
+.ie-image { object-fit: contain; }
+}

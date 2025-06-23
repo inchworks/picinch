@@ -34,7 +34,7 @@ type PagesForm struct {
 
 type PageFormData struct {
 	multiforms.Child
-	Menu  string
+	Name  string
 	Title string
 	Page  string // page ID, base 36, not trusted and only for a URL 
 }
@@ -49,11 +49,11 @@ func NewPages(data url.Values, token string) *PagesForm {
 }
 
 // Add appends a page to the form.
-func (f *PagesForm) Add(index int, menu string, title string, pageId int64) {
+func (f *PagesForm) Add(index int, name string, title string, pageId int64) {
 
 	f.Children = append(f.Children, &PageFormData{
 		Child: multiforms.Child{Parent: f.Form, ChildIndex: index},
-		Menu:  menu,
+		Name:  name,
 		Title: title,
 		Page:  strconv.FormatInt(pageId, 36),
 	})
@@ -81,7 +81,7 @@ func (f *PagesForm) GetPages() (items []*PageFormData, err error) {
 
 		items = append(items, &PageFormData{
 			Child: multiforms.Child{Parent: f.Form, ChildIndex: ix},
-			Menu:  f.ChildText("menu", i, ix, 1, models.MaxTitle),
+			Name:  f.ChildText("name", i, ix, 1, models.MaxTitle),
 			Title: f.ChildText("title", i, ix, 1, models.MaxTitle),
 			Page: f.ChildText("page", i, ix, 0, 12),
 		})

@@ -391,7 +391,7 @@ func (app *Application) postFormMedia(w http.ResponseWriter, r *http.Request) {
 
 	// get file returned with form
 	f := r.MultipartForm.File["media"]
-	if f == nil || len(f) == 0 {
+	if len(f) == 0 {
 		// ## don't know how we can get a form without a file, but we do
 		app.httpBadRequest(w, errors.New("Upload received without file."))
 		return

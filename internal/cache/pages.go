@@ -50,10 +50,10 @@ type Diary struct {
 
 type Info struct {
 	Page
-	Id         int64
-	Title      string
-	Caption    template.HTML
-	Sections   []*Section
+	Id       int64
+	Title    string
+	Sections []*Section
+	SubPages []*SubPage
 }
 
 type Page struct {
@@ -68,6 +68,13 @@ type Section struct {
 	Layout int
 	Media  string
 	Cards  []*Section // row of cards
+}
+
+type SubPage struct {
+	Path        string        // from page
+	Title       string        // from slideshow
+	Description template.HTML // from 1st section? ####
+	Media       string        // from 1st section
 }
 
 type item struct {
@@ -117,7 +124,7 @@ func (pc *PageCache) AddFile(filename string, prefix string, suffix string) (war
 
 // AddPage adds a page, optionally as a diary and/or a menu item.
 // It returns a list of warnings.
-func (pc *PageCache) AddPage(p *models.PageSlideshow, sections []*models.Slide) []string {
+func (pc *PageCache) AddPage(p *models.PageSlideshow, sections []*models.Slide, subPages []*models.SubPage) []string {
 
 	var path string
 	var warn []string
@@ -127,11 +134,11 @@ func (pc *PageCache) AddPage(p *models.PageSlideshow, sections []*models.Slide) 
 
 	case models.PageDiary:
 		// encode path and add to menu
-		path, warn = pc.addPage("/diary/", p.Menu)
+		path, warn = pc.addPage("/diary/", p.Name)
 
 	case models.PageInfo:
 		// encode path and add to menu
-		path, warn = pc.addPage("/info/", p.Menu)
+		path, warn = pc.addPage("/info/", p.Name)
 
 	default:
 		return nil // unknown
@@ -151,7 +158,7 @@ func (pc *PageCache) AddPage(p *models.PageSlideshow, sections []*models.Slide) 
 		pc.SetDiary(p, sections)
 
 	case models.PageHome, models.PageInfo:
-		pc.SetInformation(p, sections)
+		pc.SetInformation(p, sections, subPages)
 	}
 	return warn
 }
@@ -162,8 +169,8 @@ func (pc *PageCache) BuildMenus() {
 	pc.mainMenu = nil
 }
 
-// NewCache returns an empty page cache
-func NewPages() *PageCache {
+// NewPageCache returns an empty page cache
+func NewPageCache() *PageCache {
 	return &PageCache{
 		Diaries:  make(map[string]*Diary, 2),
 		Files:    make(map[string]string, 8),
@@ -206,7 +213,7 @@ func (pc *PageCache) SetDiary(page *models.PageSlideshow, _ []*models.Slide) {
 }
 
 // SetInformation updates an information page's content in the cache.
-func (pc *PageCache) SetInformation(page *models.PageSlideshow, sections []*models.Slide) {
+func (pc *PageCache) SetInformation(page *models.PageSlideshow, sections []*models.Slide, subPages []*models.SubPage) {
 
 	p := &Info{
 		Page: Page{
@@ -214,12 +221,12 @@ func (pc *PageCache) SetInformation(page *models.PageSlideshow, sections []*mode
 			Description: page.Description,
 			NoIndex:     page.NoIndex,
 		},
-		Id:      page.Id,
-		Title:   page.Title,
-		Caption: toHTML(page.Caption), // #### don't need a page caption
+		Id:    page.Id,
+		Title: page.Title,
 	}
 
 	setSections(sections, p)
+	setSubPages(subPages, p)
 
 	// default metadata title (home page has a different default)
 	if p.MetaTitle == "" && page.PageFormat == models.PageInfo {
@@ -273,7 +280,7 @@ func addCard(card *Section, row *Section, sections []*Section) (*Section, []*Sec
 		// start new row
 		row = &Section{
 			Layout: card.Layout,
-			Cards: make([]*Section, 0, 2),
+			Cards:  make([]*Section, 0, 2),
 		}
 	}
 
@@ -312,6 +319,10 @@ func addMenu(names []string, prefix string, path string, to map[string]*item, wa
 		if exists {
 			if m.path != "" {
 				warn = append(warn, `Menu dropdown replaces "`+name+`"`)
+
+				// change parent to dropdown
+				m.path = ""
+				m.sub = make(map[string]*item, 3)
 			}
 		} else {
 			// add new parent
@@ -325,50 +336,19 @@ func addMenu(names []string, prefix string, path string, to map[string]*item, wa
 }
 
 // addPage adds an ID or file as a menu item.
-func (pc *PageCache) addPage(prefix string, spec string) (path string, warn []string) {
+func (pc *PageCache) addPage(prefix string, name string) (path string, warn []string) {
 
-	warn = make([]string, 0)
+	var isMenu bool
+	var es []string
 
-	// normalise menu item names
-	spec = normaliser.Replace(spec)
-
-	// elements of path
-	es := strings.Split(spec, ".")
-	if len(es) > 2 {
-		warn = append(warn, `Menu for "`+spec+`" too deep`)
+	// make path from elements of normalised page name
+	path, es, isMenu, warn = toPathMenu(name)
+	if len(warn) > 0 {
 		return
 	}
 
-	toMenu := true
-
-	for i, e := range es {
-
-		// simplify whitespace
-		ws := strings.Fields(e) // words
-		e = strings.Join(ws, " ")
-
-		// check for blank elements
-		if len(e) == 0 {
-			if i == 0 && len(es) > 1 {
-				toMenu = false // ".name" is a page without a menu item
-			} else {
-				warn = append(warn, `Blank menu item for "`+spec+`"`)
-				return
-			}
-		}
-		es[i] = e
-	}
-	if toMenu {
-		path = strings.Join(es, ".")
-	} else {
-		path = strings.Join(es[1:], ".")
-	}
-
-	// simplify path for page address
-	path = simplify(path)
-
 	// add to menu
-	if toMenu {
+	if isMenu {
 		warn = addMenu(es, prefix, path, pc.mainMenu, warn)
 	}
 
@@ -399,10 +379,14 @@ func buildMenu(from map[string]*item) (to []*MenuItem) {
 // closeRow sets column width for the row.
 func closeRow(r *Section) {
 	switch len(r.Cards) {
-	case 1: r.Format = 12
-	case 2: r.Format = 6
-	case 3: r.Format = 4
-	default: r.Format = 3
+	case 1:
+		r.Format = 12
+	case 2:
+		r.Format = 6
+	case 3:
+		r.Format = 4
+	default:
+		r.Format = 3
 	}
 }
 
@@ -415,7 +399,7 @@ func sectionFormat(fmt int) int {
 func sectionLayout(fmt int) int {
 	l := fmt >> models.SlideFormatShift
 	switch l {
-	case models.SlideCard, models.SlideEvents, models.SlideSlideshows, models.SlideHighlights:
+	case models.SlideCard, models.SlideEvents, models.SlideSlideshows, models.SlideHighlights, models.SlideSubPages:
 		return l
 
 	default:
@@ -447,7 +431,7 @@ func setSections(sections []*models.Slide, to *Info) {
 			Layout: sectionLayout(s.Format),
 			Media:  s.Image,
 		}
-	
+
 		if cs.Layout == models.SlideCard {
 			row, toS = addCard(cs, row, toS)
 
@@ -463,6 +447,26 @@ func setSections(sections []*models.Slide, to *Info) {
 		}
 	}
 	to.Sections = toS
+}
+
+// setSubPages sets the sub-pages for an information page.
+func setSubPages(subs []*models.SubPage, to *Info) {
+
+	to.SubPages = make([]*SubPage, 0, len(subs))
+
+	for _, s := range subs {
+
+		// elements of normalised page name
+		path, _, _, _ := toPathMenu(s.Name)
+
+		sp := &SubPage{
+			Path:        "/info/" + path,
+			Title:       s.Title,
+			Description: toHTML(s.Caption),
+			Media:       s.Image,
+		}
+		to.SubPages = append(to.SubPages, sp)
+	}
 }
 
 // simplify returns a lower-case path with spaces and '-' characters replaced by single '-' characters.
@@ -494,4 +498,51 @@ func toHTML(md string) template.HTML {
 	unsafe := markdown.Render(doc, mdRenderer)
 	html := sanitizer.SanitizeBytes(unsafe)
 	return template.HTML(html)
+}
+
+// toPath makes an HTML path and menu elements from a page or file name.
+func toPathMenu(name string) (path string, es []string, isMenu bool, warn []string) {
+
+	warn = make([]string, 0)
+
+	// normalise menu item names
+	name = normaliser.Replace(name)
+
+	// elements of path
+	es = strings.Split(name, ".")
+
+	isMenu = true
+
+	for i, e := range es {
+
+		// simplify whitespace
+		ws := strings.Fields(e) // words
+		e = strings.Join(ws, " ")
+
+		// check for blank elements
+		if len(e) == 0 {
+			if i == 0 && len(es) > 1 {
+				isMenu = false // ".name" is a page without a menu item
+			} else {
+				warn = append(warn, `Blank element in "`+name+`"`)
+				return
+			}
+		}
+		es[i] = e
+	}
+	if isMenu {
+		if len(es) > 2 {
+			warn = append(warn, name+`" has too many elements`)
+			return
+		}
+		path = strings.Join(es, ".")
+		
+	} else {
+		path = strings.Join(es[1:], ".")
+	}
+
+	// simplify path for page address
+	path = simplify(path)
+
+	return
 }

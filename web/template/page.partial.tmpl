@@ -37,6 +37,7 @@
         {{if .Events}}{{template "events-next" .}}{{end}}
         {{if .Highlights}}{{template "pageHighlights" .}}{{end}}
         {{if .Slideshows}}{{template "pageGallery" .}}{{end}}
+        {{if .SubPages}}{{template "pageSubPages" .}}{{end}}
     {{end}}
 {{end}}
 
@@ -64,4 +65,23 @@
         {{template "infoVideo" .Media}}
     {{end}}
 {{end}}
- 
+
+{{define "pageSubPages"}}
+    <div class="row mb-4 {{cardCols (len .SubPages)}}">
+        {{range .SubPages}}
+            <div class="col mb-4">
+                <div class="card page-thumbnail h-100">
+                    <div class="card-body">
+                        <a class="card-link" href="{{ .Path }}">
+                            {{if .Media}}
+                                <img class="card-img-top mb-3" src="{{viewable .Media}}">
+                            {{end}}
+                            <h5>{{ .Title }}</h5>
+                            {{ .Description }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {{end}}
+    </div>
+{{end}}

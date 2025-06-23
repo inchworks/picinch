@@ -113,6 +113,11 @@ func (s *GalleryState) DisplayHome(known bool) *DataInfo {
 						a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
 			}
 			ds.Layout = models.SlideBelow
+
+		case models.SlideSubPages:
+			// sub-pages
+			ds.SubPages = pg.SubPages
+			ds.Layout = models.SlideSubPages
 		}
 	}
 	return d
@@ -166,7 +171,12 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 					a.SlideshowStore.RecentPublished(models.SlideshowPublic, s.usersHidden, a.cfg.MaxSlideshowsPublic),
 					a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
 				ds.Layout = models.SlideBelow
-				}
+
+			case models.SlideSubPages:
+				// sub-pages
+				ds.SubPages = pg.SubPages
+				ds.Layout = models.SlideBelow
+			}
 		}
 
 		data = d
@@ -202,7 +212,7 @@ func (s *GalleryState) DisplayPages() (data *DataPages) {
 	}
 }
 
-// returns template data for pages of the specified type.
+// dataPages returns template data for pages of the specified type.
 func (s *GalleryState) dataPages(fmt int) []*DataPage {
 
 	// get pages
@@ -224,7 +234,7 @@ func (s *GalleryState) dataPages(fmt int) []*DataPage {
 		d := DataPage{
 			NPage: pg.Id, // slideshow ID to be edited, not page ID
 			Title: title,
-			Menu:  pg.Menu,
+			Name:  pg.Name,
 		}
 
 		dPages = append(dPages, &d)

@@ -117,9 +117,9 @@ type DataEvent struct {
 }
 
 type DataInfo struct {
-	Meta       DataMeta
-	Title      string
-	Sections   []*DataSection
+	Meta     DataMeta
+	Title    string
+	Sections []*DataSection
 	DataCommon
 }
 
@@ -142,7 +142,7 @@ type DataMySlideshow struct {
 type DataPage struct {
 	NPage int64
 	Title string
-	Menu  string
+	Name  string
 }
 
 type DataPages struct {
@@ -165,11 +165,14 @@ type DataPublished struct {
 	DataCommon
 }
 
-type DataSection struct {
+type DataSection struct { 
 	cache.Section
 
+	// sub-pages for page, if section includes them
+	SubPages []*cache.SubPage
+
 	// updated with live data
-	Events []*DataEvent         // if section includes next events
+	Events     []*DataEvent     // if section includes next events
 	Highlights []*DataSlide     // if section includes highlights
 	Slideshows []*DataPublished // if section includes slideshows
 }
@@ -365,7 +368,7 @@ func cardCols(nCards int) string {
 	case 2:
 		return "row-cols-1 row-cols-sm-1 row-cols-md-2"
 	case 3:
-	 	return "row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3"
+		return "row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3"
 	case 4:
 		// pairs, never 3+1
 		return "row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-2 row-cols-xxl-4"
