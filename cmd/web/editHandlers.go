@@ -565,9 +565,16 @@ func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
 	status, _ := app.galleryState.OnEditSlideshow(nPage, 0, tx, app.userStore.Info.Id, slides, true)
 	if status == 0 {
 
+		// rebuild page cache
+		warn := app.galleryState.cachePages()
+
 		// claim updated media, now that update is committed
 		app.tm.Do(tx)
-		app.redirectWithFlash(w, r, "/pages", "Page content saved.")
+		
+		app.redirectWithFlash(w, r, "/pages", warnings(
+			"Page content saved.",
+			"Menu conflict, for admin: ",
+			warn))
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
