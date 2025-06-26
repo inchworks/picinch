@@ -9,15 +9,13 @@ Files in `images/` replace the default brand and favicon images for PicInch.
 `brand.png` is the image shown on the site’s navbar. It should be 124px high. The width isn’t critical ; as a guide the default image is 558px wide.
 
 [realfavicongenerator.net][1] was used to generate the default set of favicon files. If you want your own set, take care to generate all of these:
-- android-chrome-192x192.png
-- android-chrome-512x512.png
 - apple-touch-icon.png
-- apple-touch-icon-152x152-precomposed.png
+- favicon-96x96.png
 - favicon.ico
-- favicon-16x16.png
-- favicon-32x32.png
-- mstile-150x150.png
-- safari-pinned-tab.svg
+- favicon.svg
+- site.webmanifest
+- web-app-manifest-192x192.png
+- web-app-manifest-512x512.png
 
 The following may be left unchanged (although realfavicongenerator.net will make them for you):
 - browserconfig.xml

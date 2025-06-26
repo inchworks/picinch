@@ -262,8 +262,14 @@ func (app *Application) Routes() http.Handler {
 	fsImages, _ := fs.Sub(app.staticFS, "images")
 	fsRoot := http.FS(fsImages)
 	router.Handler("GET", "/robots.txt", staticHs.Then(app.fileServer(fsStatic, false, "")))
+
 	router.Handler("GET", "/apple-touch-icon.png", staticHs.Then(app.fileServer(fsRoot, false, "")))
+	router.Handler("GET", "/favicon-96x96.png", staticHs.Then(app.fileServer(fsRoot, false, "")))
 	router.Handler("GET", "/favicon.ico", staticHs.Then(app.fileServer(fsRoot, false, "")))
+	router.Handler("GET", "/favicon.svg", staticHs.Then(app.fileServer(fsRoot, false, "")))
+	router.Handler("GET", "/site.webmanifest", staticHs.Then(app.fileServer(fsRoot, false, "")))
+	router.Handler("GET", "/web-app-manifest-192x192.png", staticHs.Then(app.fileServer(fsRoot, false, "")))
+	router.Handler("GET", "/web-app-manifest-512x512.png", staticHs.Then(app.fileServer(fsRoot, false, "")))
 
 	// return 'standard' middleware chain followed by router
 	return commonHs.Then(router)
