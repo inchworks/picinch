@@ -115,7 +115,7 @@ func (app *Application) getFormEnterComp(w http.ResponseWriter, r *http.Request)
 		Form:      f,
 		Class:     c,
 		Caption:   models.Nl2br(cap),
-		Accept:    app.accept(),
+		Accept:    app.accept(false),
 		MaxUpload: app.cfg.MaxUpload,
 	})
 }
@@ -181,7 +181,7 @@ func (app *Application) postFormEnterComp(w http.ResponseWriter, r *http.Request
 			Form:      f,
 			Class:     show.Title,
 			Caption:   models.Nl2br(show.Caption),
-			Accept:    app.accept(),
+			Accept:    app.accept(false),
 			MaxUpload: app.cfg.MaxUpload,
 		})
 		return
@@ -515,7 +515,7 @@ func (app *Application) getFormPage(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "edit-page.page.tmpl", &slidesFormData{
 		Form:      f,
 		Title:     slideshow.Title,
-		Accept:    app.accept(),
+		Accept:    app.accept(true),
 		IsHome:    app.galleryState.isHome(pageId),
 		MaxUpload: app.cfg.MaxUpload,
 	})
@@ -554,7 +554,7 @@ func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
 		app.render(w, r, "edit-page.page.tmpl", &slidesFormData{
 			Form:      f,
 			Title:     t,
-			Accept:    "image/*", // ## no videos for now
+			Accept:    app.accept(true),
 			IsHome:    app.galleryState.isHome(nPage),
 			MaxUpload: app.cfg.MaxUpload,
 		})
@@ -666,7 +666,7 @@ func (app *Application) getFormSlides(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 		Form:      f,
 		Title:     slideshow.Title, // ## could be in form, to allow editing
-		Accept:    app.accept(),
+		Accept:    app.accept(false),
 		MaxUpload: app.cfg.MaxUpload,
 	})
 }
@@ -732,7 +732,7 @@ func (app *Application) postFormSlides(w http.ResponseWriter, r *http.Request) {
 		app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 			Form:      f,
 			Title:     t,
-			Accept:    app.accept(),
+			Accept:    app.accept(false),
 			MaxUpload: app.cfg.MaxUpload,
 		})
 		return
@@ -845,7 +845,7 @@ func (app *Application) getFormTopic(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "edit-slides.page.tmpl", &slidesFormData{
 		Form:      f,
 		Title:     title,
-		Accept:    app.accept(),
+		Accept:    app.accept(false),
 		MaxUpload: app.cfg.MaxUpload,
 	})
 }
@@ -906,11 +906,16 @@ func (app *Application) postFormTopics(w http.ResponseWriter, r *http.Request) {
 }
 
 // accept returns the HTML specification of acceptable file types.
-func (app *Application) accept() string {
+func (app *Application) accept(docs bool) string {
 
 	a := "image/*"
 	if len(app.cfg.VideoTypes) > 0 {
 		a = a + ",video/*"
+	}
+	if docs {
+		for _, t := range(app.cfg.DocumentTypes) {
+			a = a + "," + t
+		}
 	}
 
 	return a

@@ -135,6 +135,8 @@ Options to change the operation of the website.
 
 **options** `club` set to `solo` to configure PicInch as an image-oriented website for a single owner, and set to `main-comp` for a standalone host for a public photo competition.
 
+**document-types** list of acceptable document types, such as `.pdf` and `.csv`, set as a YML list. For any additional types (e.g. for `.typ`), you can add 100px x 100px icons to `/srv/picinch/site/images/` as e.g. `typ.png`, otherwise the default icon `document.png` is shown.
+
 **video-types** list of acceptable video file types, such as `.mp4` and `.mov`, set as a YML list.
 
 ## For testing

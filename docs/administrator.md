@@ -30,7 +30,7 @@ A user with `curator` role, or an administrator, can edit the content for inform
 It is also possible to add static pages using templates. These take more effort to understand and change, but give full control over page layouts. See [Customisation]({{ site.baseurl }}{% link customisation.md %}).
 
 ## Page Layout
-Each page section has a block of text, or an image or video, or both. Markdown is supported for the text.
+Each page section has a block of text, or a media file, or both. Markdown is supported for the text. Media files can be images, videos or PDF documents.
 
 A section format specifies the layout of the section:
 

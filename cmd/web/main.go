@@ -53,7 +53,7 @@ import (
 
 // version and copyright
 const (
-	version = "1.4.4"
+	version = "1.4.5"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
@@ -118,13 +118,13 @@ type Configuration struct {
 
 	// total limits
 	MaxHighlightsParent int `yaml:"parent-highlights" env-default:"16"` // highlights for parent website
-	MaxHighlightsTotal  int `yaml:"highlights-page" env-default:"12"`    // highlights for home page, and user's page
-	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`   // slides in highights slideshow
-	MaxNextEvents       int `yaml:"events-page" env-default:"1"`         // next events per diary on home page
-	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`    // total slideshows on home page
+	MaxHighlightsTotal  int `yaml:"highlights-page" env-default:"12"`   // highlights for home page, and user's page
+	MaxHighlightsTopic  int `yaml:"highlights-topic" env-default:"32"`  // slides in highights slideshow
+	MaxNextEvents       int `yaml:"events-page" env-default:"1"`        // next events per diary on home page
+	MaxSlideshowsTotal  int `yaml:"slideshows-page" env-default:"16"`   // total slideshows on home page
 
 	// per user limits
-	MaxHighlights       int `yaml:"highlights-user" env-default:"2"`  // highlights on home page
+	MaxHighlights       int `yaml:"highlights-user" env-default:"2"`   // highlights on home page
 	MaxSlides           int `yaml:"slides-show" env-default:"50"`      // slides in a slideshow
 	MaxSlidesTopic      int `yaml:"slides-topic" env-default:"8"`      // slides in a topic contribution
 	MaxSlideshowsClub   int `yaml:"slideshows-club"  env-default:"2"`  // club slideshows on home page, per user
@@ -147,12 +147,13 @@ type Configuration struct {
 	VideoSnapshot     time.Duration   `yaml:"video-snapshot"  env-default:"3s"`                                // snapshot time within video. -ve for no snapshots.
 
 	// variants
-	DateFormat   string   `yaml:"date-format" env:"date-format" env-default:"2 January"`  // date format, using Go reference time 01/02 03:04:05PM '06
-	HomeSwitch   string   `yaml:"home-switch" env:"home-switch" env-default:""`           // switch home page to specified template, e.g when site disabled
-	MiscName     string   `yaml:"misc-name" env:"misc-name" env-default:"misc"`           // path in URL for miscellaneous files, as in "example.com/misc/file"
-	Options      string   `yaml:"options" env:"options" env-default:""`                   // site features: club, main-comp, or solo
-	VideoPackage string   `yaml:"video-package" env:"video-package" env-default:"ffmpeg"` // video processing package
-	VideoTypes   []string `yaml:"video-types" env:"video-types" env-default:""`           // video types (.mp4, .mov, etc.)
+	DateFormat    string   `yaml:"date-format" env:"date-format" env-default:"2 January"`  // date format, using Go reference time 01/02 03:04:05PM '06
+	DocumentTypes []string `yaml:"document-types" env:"document-types" env-default:".pdf"` // document types (.csv, .pdf, etc.)
+	HomeSwitch    string   `yaml:"home-switch" env:"home-switch" env-default:""`           // switch home page to specified template, e.g when site disabled
+	MiscName      string   `yaml:"misc-name" env:"misc-name" env-default:"misc"`           // path in URL for miscellaneous files, as in "example.com/misc/file"
+	Options       string   `yaml:"options" env:"options" env-default:""`                   // site features: club, main-comp, or solo
+	VideoPackage  string   `yaml:"video-package" env:"video-package" env-default:"ffmpeg"` // video processing package
+	VideoTypes    []string `yaml:"video-types" env:"video-types" env-default:""`           // video types (.mp4, .mov, etc.)
 
 	// email
 	EmailHost     string `yaml:"email-host" env:"email-host" env-default:""`
@@ -578,18 +579,19 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// setup media upload processing
 	app.uploader = &uploader.Uploader{
-		FilePath:     ImagePath,
-		MaxW:         app.cfg.MaxW,
-		MaxH:         app.cfg.MaxH,
-		MaxDecoded:   app.cfg.MaxDecoded * 1024 * 1024,
-		MaxSize:      app.cfg.MaxAV * 1024 * 1024,
-		ThumbW:       app.cfg.ThumbW,
-		ThumbH:       app.cfg.ThumbH,
-		DeleteAfter:  app.cfg.DropDelay,
-		MaxAge:       app.cfg.MaxUploadAge,
-		SnapshotAt:   app.cfg.VideoSnapshot,
-		VideoPackage: app.cfg.VideoPackage,
-		VideoTypes:   app.cfg.VideoTypes,
+		FilePath:      ImagePath,
+		MaxW:          app.cfg.MaxW,
+		MaxH:          app.cfg.MaxH,
+		MaxDecoded:    app.cfg.MaxDecoded * 1024 * 1024,
+		MaxSize:       app.cfg.MaxAV * 1024 * 1024,
+		ThumbW:        app.cfg.ThumbW,
+		ThumbH:        app.cfg.ThumbH,
+		DeleteAfter:   app.cfg.DropDelay,
+		MaxAge:        app.cfg.MaxUploadAge,
+		DocumentTypes: app.cfg.DocumentTypes,
+		SnapshotAt:    app.cfg.VideoSnapshot,
+		VideoPackage:  app.cfg.VideoPackage,
+		VideoTypes:    app.cfg.VideoTypes,
 	}
 	app.uploader.Initialise(app.errorLog, &app.galleryState, app.tm)
 

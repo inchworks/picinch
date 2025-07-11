@@ -462,7 +462,7 @@ func viewable(image string) string {
 	s := uploader.Status(image)
 
 	if s == 0 {
-		return "/static/images/no-photo.jpg" // not expected
+		return "/static/images/no-photos.jpg" // not expected
 	} else if s < 100 {
 		return "/static/images/working-lg.jpg"
 	} else {

@@ -1231,6 +1231,8 @@ func (app *Application) slideFormat(slide *form.SlideFormData, page bool) int {
 func slideMedia(mediaType int) int {
 
 	switch mediaType {
+	case uploader.MediaDocument:
+		return models.SlideDocument
 	case uploader.MediaImage:
 		return models.SlideImage
 	case uploader.MediaVideo:

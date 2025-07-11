@@ -39,10 +39,11 @@ const (
 	PageInfo  = 3
 
 	// slide formats
-	SlideTitle   = 1
-	SlideImage   = 2
-	SlideCaption = 4
-	SlideVideo   = 8
+	SlideTitle    = 1
+	SlideImage    = 2
+	SlideCaption  = 4
+	SlideVideo    = 8
+	SlideDocument = 16
 
 	SlideFormatShift = 8 // shift for manual formats (below)
 

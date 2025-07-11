@@ -13,15 +13,12 @@ Files in `images/` replace the default brand and favicon images for PicInch.
 - favicon-96x96.png
 - favicon.ico
 - favicon.svg
-- site.webmanifest
 - web-app-manifest-192x192.png
 - web-app-manifest-512x512.png
 
-The following may be left unchanged (although realfavicongenerator.net will make them for you):
-- browserconfig.xml
-- site.webmanifest
+site.webmanifest may be left unchanged, although realfavicongenerator.net will make it for you.
 
-You may also add add additional images you wish to include in customised templates to `/images`. They will be served as `static/images/*`. These files are intended to be unchanging; dynamic content should go in
+You may also add add additional images you wish to include in customised templates to `images/`. They will be served as `static/images/*`. These files are intended to be unchanging; dynamic content should go in
 `/srv/picinch/misc`.
 
 ### Configuration Parameters

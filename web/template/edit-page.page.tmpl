@@ -77,7 +77,7 @@
 									<input type='hidden' class="mediaVersion" name='mediaVersion' value='0'>
 									<div class="input-group">
 										<span class='input-group-text upload-name'>{{.MediaName}}</span>
-										<label class='form-control upload-text {{.ChildValid "mediaName"}}' for='U{{ .ChildIndex }}' role='button'>Choose an image or video...</label>
+										<label class='form-control upload-text {{.ChildValid "mediaName"}}' for='U{{ .ChildIndex }}' role='button'>Choose an image, video or document...</label>
 										<input class='upload-input d-none' type='file' id='U{{ .ChildIndex }}' accept='{{$.Accept}}'>
 										<label class='input-group-text upload-label' for='U{{ .ChildIndex }}' role='button'>Browse</label>
 										<div class='invalid-feedback bad-file'>{{ .ChildError "mediaName"}}</div>

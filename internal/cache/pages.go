@@ -392,7 +392,7 @@ func closeRow(r *Section) {
 
 // sectionFormat returns a section's auto format.
 func sectionFormat(fmt int) int {
-	return fmt & (models.SlideImage + models.SlideVideo)
+	return fmt & (models.SlideDocument + models.SlideImage + models.SlideVideo)
 }
 
 // sectionLayout returns a section's manual format.
@@ -403,7 +403,7 @@ func sectionLayout(fmt int) int {
 		return l
 
 	default:
-		if fmt&(models.SlideImage+models.SlideVideo) == 0 {
+		if fmt&(+models.SlideDocument+models.SlideImage+models.SlideVideo) == 0 {
 			return 0 // default layout with no media
 		}
 	}

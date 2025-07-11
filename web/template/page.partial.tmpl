@@ -63,6 +63,8 @@
         <img class="img-fluid px-4 mb-4" src="{{viewable .Media}}">
     {{else if eq .Format 8}}
         {{template "infoVideo" .Media}}
+    {{else if eq .Format 16}}
+        {{template "infoDocument" .Media}}
     {{end}}
 {{end}}
 
