@@ -49,6 +49,6 @@ For most single-user websites, no further action is needed. If desired:
 
 ## Public Competition Setup
 PicInch has an alternative use as a website for a public competition.
-See [Competition Setup]({{ site.baseurl }}{% link competition.md %})
+[&#8658; Competition Setup]({{ site.baseurl }}{% link competition.md %})
 
 [1]:	https://marketplace.digitalocean.com/apps/docker

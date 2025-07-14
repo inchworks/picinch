@@ -1,7 +1,8 @@
 ## Customise Your Website
-This section is intended to help users with a basic knowledge of CSS, HTML, and Go templates. It is not needed to make a working website. The first sections below need less knowledge than the later ones.
+This section is intended to help users with a basic knowledge of CSS, HTML, and Go templates. It is not needed to make a working website. The earlier sections below need less knowledge than the later ones.
 
-Add files in `/srv/picinch/site/` to customise your installation. Restart PicInch for changes to take effect. (See Commands.)
+Add files in `/srv/picinch/site/` to customise your installation. Restart PicInch for changes to take effect.
+[&#8658; Commands]({{ site.baseurl }}{% link install-3-commands.md %})
 
 ### Graphics
 Files in `images/` replace the default brand and favicon images for PicInch.

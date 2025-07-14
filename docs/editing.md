@@ -4,7 +4,7 @@ The administrator, or a user with `curator` role, can edit the content for infor
 A page is defined by a sequence of sections. Each page section has a block of text, and optionally a media file.
 
 ## Page Sections
-Markdown is supported for the text. Media files can be images, videos or PDF documents.
+[Markdown](https://en.wikipedia.org/wiki/Markdown) is supported for the text. Media files can be images, videos or PDF documents.
 
 A section format specifies the layout of the section:
 
