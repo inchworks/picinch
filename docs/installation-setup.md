@@ -4,7 +4,7 @@
 - Acquire a domain name, or add a sub-domain to a domain you already own. Set the `A` record for the domain or subdomain to the IP address of your server. This should be done BEFORE starting the PicInch service.
 
 ## Installation Steps
-These instructions assume a Ubuntu Server host with Docker installed. Other Linux distributions may be similar (but CentOS/RHEL 8 provides a different technology to Docker). A basic installation requires the creation of just two files on the server.
+These instructions assume a Ubuntu Server host with Docker installed. A basic installation requires the creation of just one file on the server. Other Linux distributions may be similar (but CentOS/RHEL 8 provides a different technology to Docker). 
 
 1. Add `/srv/picinch/docker-compose.yml`. This Docker Compose file specifies the PicInch and MariaDB containers to be downloaded from Docker Hub, the settings to run them on the host system, and essential application parameters.
 [&#8658; Docker Setup]({{ site.baseurl }}{% link install-1-docker-compose.md %})

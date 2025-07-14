@@ -1,6 +1,6 @@
-# Updates
+# Software Updates
 To pull updated images with fault fixes from Docker Hub:
-1. `docker compose pull` to fetch updated images from Docker Hub, without suspending service during the transfer.
+1. `docker compose pull` to fetch updated software from Docker Hub, without suspending service during the transfer.
 1. `docker compose up -d --remove-orphans` to restart the service if there are updated images.
 1. `docker image prune` to remove obsolete images.
 
@@ -16,6 +16,8 @@ For site changes to `configuration.yml` and templates, without an updated image,
 `1.2` Lists contributors with public slideshows on the public home page.
 
 `1.3` Adds a diary. Supports addition of information pages by the admin, and modification by the curator. Changes to customisation on previous versions are needed to use the new features. [&#8658; Upgrading]({{ site.baseurl }}{% link upgrading.md %})
+
+`1.4` Adds support for a solo website, i.e. without club members. Allows configuration of the items shown on the home page.
 
 ## MariaDB Database
 The original example `docker-compose.yml` specified `db:image` as `mariadb:10.4`.

@@ -2,6 +2,8 @@
 _The default copyright and privacy statements were not written by anyone with legal or data privacy expertise.
 You should review the text and decide if it is suitable for your use of the website._
 
+To replace them, create an information page with the menu path `.notices`. Alternatively:
+
 - You can replace the Copyright Notice that applies to website content by defining the template `copyrightNotice`.
 
 - You can replace the Privacy Notice by defining the template `dataPrivacyNotice`.

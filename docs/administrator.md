@@ -20,49 +20,6 @@ Typically a solo website has just the administrator. However it is possible to a
 
 Each user has a role. A `friend` can view slideshows limited to friends, but not add slideshows. A `curator` can edit slideshows, information pages and diary events. An `admin` has full control of the website, including adding or removing users, information pages, and diaries.
 
-## Additional Content
-As administrator you can add additional information pages and menu items with `Admin > Pages`. Specify the menu path for a page as `name` for a top-level menu item or `name.sub` for a dropdown menu item. A leading "`.`", i.e. `.name` specifies a page without a menu item. Pages are referenced by `https://<your-domain>/info/name` or `/info/name.sub`.
-
-Similarly, diaries can be added with `Admin > Diaries`. Typically just one diary is sufficient. By default the next upcoming event in each diary is shown automatically on the home page. Diaries are accessed by `https://<your-domain/diary/name` or `/diary/name.sub`.
-
-A user with `curator` role, or an administrator, can edit the content for information pages and diaries with `Curator > Information`. 
-
-It is also possible to add static pages using templates. These take more effort to understand and change, but give full control over page layouts. See [Customisation]({{ site.baseurl }}{% link customisation.md %}).
-
-## Page Layout
-Each page section has a block of text, or a media file, or both. Markdown is supported for the text. Media files can be images, videos or PDF documents.
-
-A section format specifies the layout of the section:
-
-**above** The section's image (if specified) is shown above the text.
-
-**below** The section's image is shown below the text.
-
-**card** The section is shown as one of a grid of cards. I.e. in two or more columns, depending on the width of the browser window.
-
-**left** The section's image is shown to the left of the text.
-
-**right** The section's image is shown to the right of the text.
-
-**events** This special section shows the next upcoming event for each diary.
-
-**highlights** This special section shows a panel of thumbnails for the most recent hightlight images.
-
-**slideshows** This special section shows a panel of thumbnails for the most recent slideshows.
-
-**subpages** This special section shows summary cards for the sub-pages of this page that do not have menu items.
-I.e. pages named `.name.sub`.
-
-The special section formats `events`, `highlights` and `slideshows` are intended to be used just once each, and by default they are added to the home page. They can be rearranged in order on the home page, or moved to separate pages. The section text appears above the special content and typically is just a heading.
-
-## Diary Layout
-A diary has a introduction text-only section, and a sequence of dairy events. Each event has a title that appears on the home page, and detail text.
-
-## Page Metadata
-Web pages need a title, to be shown in browser tabs, and search engine results. By default the title of each web page is the same as its heading, but you can change the title with `Admin > Pages -> Metadata`. Typically this is done when a shorter title is needed.
-
-Information and diary pages that are to appear in search engine results should have a description. Set the description with `Admin > Pages -> Metadata` and `Admin > Diaries -> Metadata`. Alternatively you can request that a page should not be indexed by search engines by setting the `Block search indexing` checkbox.
-
 ## Forgotten Passwords
 If a user forgets their password, set their status back to `known` so that they can sign-up again. Their slideshows are preserved. (PicInch uses secure hashing of passwords, so they are not available to the adminstrator.)
 
