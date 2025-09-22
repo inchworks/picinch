@@ -54,9 +54,10 @@ const (
 	SlideRight      = 4 // image right of text
 	SlideEvents     = 5 // next events
 	SlideHighlights = 6 // Lightbox
-	SlideSlideshows = 7 // recent slideshows
+	SlideSlideshows = 7 // recent main slideshows
 	SlideSubPages   = 8 // sub-pages
-	SlideFormatMax  = 8 // manual formats are [0..max] shifted
+	SlidePageShows  = 9 // slideshows for page
+	SlideFormatMax  = 9 // manual formats are [0..max] shifted
 
 	// slideshow type and visibility
 	SlideshowRemoved = -10 // deletion in progress but cached access allowed
@@ -73,7 +74,7 @@ const (
 	UserAdmin   = 4
 	UserSystem  = 10
 
-	// user status, not supported by webparts/v2/users
+	// user status, not supported by webstarter/users
 	UserSysInfo = -5
 	UserSysSolo = -1
 
@@ -90,7 +91,7 @@ var (
 	ErrDuplicateEmail     = errors.New("models: duplicate email")
 )
 
-var FormatOpts = []string{"above", "below", "card", "left", "right", "events", "highlights", "slideshows", "subpages"}
+var FormatOpts = []string{"above", "below", "card", "left", "right", "events", "highlights", "main-shows", "subpages", "page-shows"}
 
 var VisibleOpts = []string{"none", "club", "public"}
 
@@ -198,9 +199,7 @@ type SlideshowTagRef struct {
 }
 
 type SlideshowUser struct {
-	Id     int64
-	Title  string
-	Image  string
+	Slideshow
 	UserId int64
 	Name   string // user's display name
 }
@@ -208,7 +207,7 @@ type SlideshowUser struct {
 type SubPage struct {
 	Name    string `db:"menu"` // from page
 	Title   string // from slideshow
-	Caption string // from 1st section?
+	Caption string // from 1st section
 	Image   string // from 1st section
 }
 
@@ -229,6 +228,12 @@ type TopicSlide struct {
 	Caption string
 	Image   string
 	Name    string
+}
+
+type UserSummary struct {
+	Id          int64
+	Name        string
+	NSlideshows int
 }
 
 // Fields with newlines replaced by breaks, and HTML formatting allowed.

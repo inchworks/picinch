@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/inchworks/webparts/v2/users"
+	"codeberg.org/inchworks/webstarter/users"
 
 	"inchworks.com/picinch/internal/form"
 	"inchworks.com/picinch/internal/models"
@@ -54,7 +54,7 @@ func (app *Application) allowEnterClass(r *http.Request, showId int64) *models.S
 	}
 
 	// check that slideshow really is a competition topic
-	if show.Topic != 0 || show.Format != "C" {
+	if show.Topic != 0 || show.Format != "$C" {
 		return nil
 	}
 
@@ -127,7 +127,7 @@ func (app *Application) authenticatedUser(r *http.Request) int64 {
 func (app *Application) getUserIf(id int64) *users.User {
 
 	// This function exists to fix a mess. Most stores have a GetIf function that log database errors,
-	// so that the caller needn't care why the data is missing. But I defined the webparts/users
+	// so that the caller needn't care why the data is missing. But I defined the webstarter/users
 	// package with a slightly different interface to the store :-(.
 
 	u, err := app.userStore.Get(id)
@@ -209,17 +209,17 @@ func (app *Application) redirectWithFlash(w http.ResponseWriter, r *http.Request
 	// pages that are no-store
 	case "/assign-slideshows":
 
-	// put message on its own page	
+	// put message on its own page
 	default:
 		app.session.Put(r.Context(), "afterMsg", url)
 		url = "/next"
 	}
 	app.session.Put(r.Context(), "flash", flash)
-	http.Redirect(w, r, url, http.StatusSeeOther)	
+	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
 // refToContributor returns the contributor page for a slideshow or topic.
-func (app *Application) refToContributor(w http.ResponseWriter,r *http.Request, s *models.Slideshow, userId int64) string {
+func (app *Application) refToContributor(w http.ResponseWriter, r *http.Request, s *models.Slideshow, userId int64) string {
 
 	// ## The need for this function is a mess. We're displaying a slideshow or topic contribution
 	// ## from a contributors page and have to work out how to get back to the right version of that page.
@@ -252,7 +252,6 @@ func (app *Application) render2(w http.ResponseWriter, r *http.Request, name str
 	}
 
 	td.addDefaultData(app, r, strings.SplitN(name, ".", 2)[0], addSite)
-
 
 	// Retrieve the appropriate template set from the cache based on the page name
 	// (like `home.page.tmpl`).
@@ -313,7 +312,7 @@ func (app *Application) setCache(w http.ResponseWriter, id int64, visible int) {
 
 	// caching is limited to private cache for non-public pages
 	isPublic := visible == models.SlideshowPublic
-	cc := "max-age="+strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
+	cc := "max-age=" + strconv.Itoa(int(app.cfg.MaxCacheAge.Seconds()))
 	if !isPublic {
 		cc += ", private"
 	}

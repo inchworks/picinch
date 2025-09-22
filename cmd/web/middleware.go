@@ -30,9 +30,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/inchworks/usage"
-	"github.com/inchworks/webparts/v2/server"
-	"github.com/inchworks/webparts/v2/users"
+	"codeberg.org/inchworks/webparts/usage"
+	"codeberg.org/inchworks/webstarter/server"
+	"codeberg.org/inchworks/webstarter/users"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 

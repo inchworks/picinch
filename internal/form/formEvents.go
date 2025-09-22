@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/inchworks/webparts/v2/multiforms"
+	"codeberg.org/inchworks/webparts/multiforms"
 	"inchworks.com/picinch/internal/models"
 )
 

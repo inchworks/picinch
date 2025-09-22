@@ -28,18 +28,19 @@ import (
 	"path/filepath"
 	"time"
 
+	"codeberg.org/inchworks/webparts/etx"
+	"codeberg.org/inchworks/webparts/limithandler"
+	"codeberg.org/inchworks/webparts/multiforms"
+	"codeberg.org/inchworks/webparts/stack"
+	"codeberg.org/inchworks/webparts/uploader"
+	"codeberg.org/inchworks/webparts/usage"
+	"codeberg.org/inchworks/webstarter/server"
+	"codeberg.org/inchworks/webstarter/upmedia"
+	"codeberg.org/inchworks/webstarter/users"
 	"github.com/alexedwards/scs/mysqlstore"
 	"github.com/alexedwards/scs/v2"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/ilyakaznacheev/cleanenv"
-	"github.com/inchworks/usage"
-	"github.com/inchworks/webparts/v2/etx"
-	"github.com/inchworks/webparts/v2/limithandler"
-	"github.com/inchworks/webparts/v2/multiforms"
-	"github.com/inchworks/webparts/v2/server"
-	"github.com/inchworks/webparts/v2/stack"
-	"github.com/inchworks/webparts/v2/uploader"
-	"github.com/inchworks/webparts/v2/users"
 	"github.com/jmoiron/sqlx"
 	"github.com/justinas/nosurf"
 
@@ -53,12 +54,12 @@ import (
 
 // version and copyright
 const (
-	version = "1.4.6"
+	version = "1.5.0"
 	notice  = `
 	Copyright (C) Rob Burke inchworks.com, 2020.
 	This website software comes with ABSOLUTELY NO WARRANTY.
 	This is free software, and you are welcome to redistribute it under certain conditions.
-	For details see the license on https://github.com/inchworks/picinch.
+	For details see the license on https://codeberg.org/inchworks/picinch.
 `
 )
 
@@ -215,7 +216,6 @@ type Application struct {
 	GalleryStore   *mysql.GalleryStore
 	PageStore      *mysql.PageStore
 	redoStore      *mysql.RedoStore
-	redoV1Store    *mysql.RedoV1Store
 	SlideStore     *mysql.SlideStore
 	SlideshowStore *mysql.SlideshowStore
 	statisticStore *mysql.StatisticStore
@@ -315,12 +315,6 @@ func main() {
 
 	// redo any pending operations
 	infoLog.Print("Starting operation recovery")
-	if app.redoV1Store != nil {
-		if err := app.tm.RecoverV1(app.redoV1Store, &app.galleryState, app.uploader); err != nil {
-			errorLog.Fatal(err)
-		}
-		app.uploader.V1() // uploader should request timeouts
-	}
 	if err := app.tm.Recover(&app.galleryState, app.uploader); err != nil {
 		errorLog.Fatal(err)
 	}
@@ -477,31 +471,6 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 		optRoleDisabled = []bool{true}
 	}
 
-	// package templates
-	var pts []fs.FS
-
-	// templates for user management
-	pt, err := fs.Sub(users.WebFiles, "web/template")
-	pts = append(pts, pt)
-
-	// application templates
-	forApp, err := fs.Sub(web.Files, "template")
-	if err != nil {
-		errorLog.Fatal(err)
-	}
-
-	// option templates
-	forOpt, err := fs.Sub(web.Files, optDir)
-	if err != nil {
-		errorLog.Fatal(err)
-	}
-
-	// initialise template cache
-	templateCache, err := stack.NewTemplatesLayered(templateFuncs, pts, forApp, forOpt, os.DirFS(filepath.Join(SitePath, "templates")))
-	if err != nil {
-		errorLog.Fatal(err)
-	}
-
 	// access to items removed should be for longer than the cache time
 	if cfg.DropDelay < cfg.MaxCacheAge {
 		cfg.DropDelay = cfg.MaxCacheAge * 2
@@ -509,12 +478,11 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 
 	// dependency injection
 	app := &Application{
-		cfg:           cfg,
-		errorLog:      errorLog,
-		infoLog:       infoLog,
-		threatLog:     threatLog,
-		templateCache: templateCache,
-		db:            db,
+		cfg:       cfg,
+		errorLog:  errorLog,
+		infoLog:   infoLog,
+		threatLog: threatLog,
+		db:        db,
 	}
 
 	// embedded static files from packages
@@ -577,23 +545,47 @@ func initialise(cfg *Configuration, errorLog *log.Logger, infoLog *log.Logger, t
 	// setup extended transaction manager
 	app.tm = etx.New(app, app.redoStore)
 
-	// setup media upload processing
-	app.uploader = &uploader.Uploader{
-		FilePath:      ImagePath,
-		MaxW:          app.cfg.MaxW,
-		MaxH:          app.cfg.MaxH,
-		MaxDecoded:    app.cfg.MaxDecoded * 1024 * 1024,
-		MaxSize:       app.cfg.MaxAV * 1024 * 1024,
-		ThumbW:        app.cfg.ThumbW,
-		ThumbH:        app.cfg.ThumbH,
-		DeleteAfter:   app.cfg.DropDelay,
-		MaxAge:        app.cfg.MaxUploadAge,
-		DocumentTypes: app.cfg.DocumentTypes,
-		SnapshotAt:    app.cfg.VideoSnapshot,
-		VideoPackage:  app.cfg.VideoPackage,
-		VideoTypes:    app.cfg.VideoTypes,
+	// setup file upload handler
+	app.uploader = uploader.NewUploader(app.errorLog, &app.galleryState, app.tm, ImagePath)
+	app.uploader.DeleteAfter = app.cfg.DropDelay
+	app.uploader.MaxAge = app.cfg.MaxUploadAge
+
+	// add media processors for uploaded files
+	upmedia := upmedia.NewUpMedia(app.uploader, nil, app.cfg.DocumentTypes, app.cfg.VideoTypes, app.cfg.VideoPackage)
+	upmedia.ThumbW = app.cfg.ThumbW
+	upmedia.ThumbH = app.cfg.ThumbH
+	upmedia.AV.MaxSize = app.cfg.MaxAV * 1024 * 1024
+	upmedia.AV.SnapshotAt = app.cfg.VideoSnapshot
+	upmedia.Image.MaxDecoded = app.cfg.MaxDecoded * 1024 * 1024
+
+	// template functions for media processor
+	setTemplateCtx(app.uploader)
+
+	// package templates
+	var pts []fs.FS
+
+	// templates for user management
+	pt, err := fs.Sub(users.WebFiles, "web/template")
+	pts = append(pts, pt)
+
+	// application templates
+	forApp, err := fs.Sub(web.Files, "template")
+	if err != nil {
+		errorLog.Fatal(err)
 	}
-	app.uploader.Initialise(app.errorLog, &app.galleryState, app.tm)
+
+	// option templates
+	forOpt, err := fs.Sub(web.Files, optDir)
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+
+	// initialise template cache
+	templateCache, err := stack.NewTemplatesLayered(templateFuncs, pts, forApp, forOpt, os.DirFS(filepath.Join(SitePath, "templates")))
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+	app.templateCache = templateCache
 
 	// setup tagging
 	app.tagger.ErrorLog = app.errorLog
@@ -670,9 +662,6 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	app.tagger.TagRefStore = mysql.NewTagRefStore(app.db, &app.tx, app.errorLog)
 	app.userStore = mysql.NewUserStore(app.db, &app.tx, app.errorLog)
 
-	// this is to handle V1 transactions from before upgrade, to be deleted if not needed
-	app.redoV1Store = mysql.NewRedoV1Store(app.db, &app.tx, app.errorLog)
-
 	// setup new database and administrator, if needed, and get gallery record
 	g, err := mysql.Setup(app.GalleryStore, app.userStore, 1, cfg.AdminName, cfg.AdminPassword, cfg.Options)
 	if err != nil {
@@ -693,9 +682,6 @@ func (app *Application) initStores(cfg *Configuration) *models.Gallery {
 	// database changes from previous version(s) after v1.0
 	if err = mysql.MigrateRedo2(app.redoStore, app.SlideshowStore); err != nil {
 		app.errorLog.Fatal(err)
-	}
-	if !mysql.MigrateRedoV1(app.redoV1Store) {
-		app.redoV1Store = nil
 	}
 	if err = mysql.MigrateSessions(mysql.NewSessionStore(app.db, &app.tx, app.errorLog)); err != nil {
 		app.errorLog.Fatal(err)

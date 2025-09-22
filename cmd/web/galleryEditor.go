@@ -32,10 +32,11 @@ import (
 	"inchworks.com/picinch/internal/models"
 	"inchworks.com/picinch/internal/picinch"
 
-	"github.com/inchworks/webparts/v2/etx"
-	"github.com/inchworks/webparts/v2/multiforms"
-	"github.com/inchworks/webparts/v2/uploader"
-	"github.com/inchworks/webparts/v2/users"
+	"codeberg.org/inchworks/webparts/etx"
+	"codeberg.org/inchworks/webparts/multiforms"
+	"codeberg.org/inchworks/webparts/uploader"
+	"codeberg.org/inchworks/webstarter/upmedia"
+	"codeberg.org/inchworks/webstarter/users"
 	"inchworks.com/picinch/internal/tags"
 )
 
@@ -46,7 +47,7 @@ type userTags struct {
 }
 
 // ForAssignShows returns a form with data to assign slideshows to topics.
-func (s *GalleryState) ForAssignShows(tok string) (f *form.AssignShowsForm) {
+func (s *GalleryState) ForAssignShows(tok string) (f *form.AssignShowsForm, updating []*dataUpdating) {
 
 	// serialisation
 	defer s.updatesNone()()
@@ -58,23 +59,22 @@ func (s *GalleryState) ForAssignShows(tok string) (f *form.AssignShowsForm) {
 	var d = make(url.Values)
 	f = form.NewAssignShows(d, tok)
 
+	// slideshows that cannot be changed because updates are in progress
+	updating = make([]*dataUpdating, 0)
+
 	// add slideshows to form
 	for i, sh := range slideshows {
-		// warn if slideshow is already being assigned
-		// ## disable update somehow
-		var updating bool
-		var topic int64
+		// if slideshow is already being assigned, it cannot be updated again
 		if sh.Topic != 0 && sh.Visible != models.SlideshowTopic {
-			topic = 0
-			updating = true // removing from topic
+			// removing from topic
+			updating = append(updating, &dataUpdating{Status: "removing from topic " + strconv.FormatInt(sh.Topic, 10), Title: sh.Title, User: sh.Name})
 		} else if sh.Access != sh.Visible {
-			topic = sh.Topic
-			updating = true // adding to topic
+			// adding to topic
+			updating = append(updating, &dataUpdating{Status: "adding to topic " + strconv.FormatInt(sh.Topic, 10), Title: sh.Title, User: sh.Name})
 		} else {
-			topic = sh.Topic
+			// ok for update
+			f.Add(i, sh.Id, sh.Topic, sh.Shared != 0, sh.Title, sh.Name)
 		}
-
-		f.Add(i, sh.Id, topic, sh.Shared != 0, sh.Title, s.app.userStore.Name(sh.User.Int64), updating)
 	}
 
 	return
@@ -161,7 +161,7 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.AssignShowFormData) (int, etx
 	}
 
 	if nConflicts > 0 {
-		return http.StatusConflict, tx
+		return s.rollback(http.StatusConflict, nil), 0
 	} else {
 		return 0, tx
 	}
@@ -186,7 +186,7 @@ func (s *GalleryState) ForEditGallery(tok string) (f *multiforms.Form) {
 }
 
 // OnEditGallery processes the modification of a gallery. It returns an HTTP status or 0.
-func (s *GalleryState) OnEditGallery(organiser string, title string,  nMaxSlides int, nShowcased int) int {
+func (s *GalleryState) OnEditGallery(organiser string, title string, nMaxSlides int, nShowcased int) int {
 
 	// serialisation
 	defer s.updatesGallery()()
@@ -846,7 +846,7 @@ func (s *GalleryState) onEnterComp(classId int64, tx etx.TxId, name string, emai
 		Revised: t,
 		Title:   s.sanitize(title, ""),
 		Caption: s.sanitize(location, ""),
-		Format:  "E",
+		Format:  "$E",
 	}
 	if err = s.app.SlideshowStore.Update(show); err != nil {
 		return s.rollback(http.StatusBadRequest, err), -1
@@ -951,6 +951,34 @@ func (s *GalleryState) onUpdateUser(tx etx.TxId, from *users.User, to *users.Use
 			s.app.log(err)
 		}
 	}
+}
+
+// ShowsUpdating returns slideshows that cannot be assigned to topics because a change is in progress.
+func (s *GalleryState) ShowsUpdating() []*dataUpdating {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// slideshows that cannot be changed because updates are in progress
+	updating := make([]*dataUpdating, 0)
+
+	// slideshows that cannot be changed because updates are in progress
+	slideshows := s.app.SlideshowStore.AllForUsers()
+
+	// add slideshows to form
+	for _, sh := range slideshows {
+		// if slideshow is already being assigned, it cannot be updated again
+		if sh.Topic != 0 && sh.Visible != models.SlideshowTopic {
+			// removing from topic
+			updating = append(updating, &dataUpdating{Status: "removing from topic " + strconv.FormatInt(sh.Topic, 10), Title: sh.Title, User: sh.Name})
+		} else if sh.Access != sh.Visible {
+			// adding to topic
+			updating = append(updating, &dataUpdating{Status: "adding to topic " + strconv.FormatInt(sh.Topic, 10), Title: sh.Title, User: sh.Name})
+		}
+	}
+
+	return updating
+
 }
 
 // Get user's display name
@@ -1231,11 +1259,11 @@ func (app *Application) slideFormat(slide *form.SlideFormData, page bool) int {
 func slideMedia(mediaType int) int {
 
 	switch mediaType {
-	case uploader.MediaDocument:
+	case upmedia.MediaDocument:
 		return models.SlideDocument
-	case uploader.MediaImage:
+	case upmedia.MediaImage:
 		return models.SlideImage
-	case uploader.MediaVideo:
+	case upmedia.MediaVideo:
 		return models.SlideVideo
 	default:
 		return 0 // invalid media type

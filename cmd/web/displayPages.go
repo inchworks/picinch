@@ -103,21 +103,17 @@ func (s *GalleryState) DisplayHome(known bool) *DataInfo {
 			ds.Layout = models.SlideBelow
 
 		case models.SlideSlideshows:
-			if known {
-				ds.Slideshows = s.dataShowsPublished(
-					a.SlideshowStore.RecentPublished(models.SlideshowClub, s.usersHidden, a.cfg.MaxSlideshowsClub),
-						a.cfg.MaxSlideshowsClub, a.cfg.MaxSlideshowsTotal)
-			} else {
-				ds.Slideshows = s.dataShowsPublished(
-					a.SlideshowStore.RecentPublished(models.SlideshowPublic, s.usersHidden, a.cfg.MaxSlideshowsPublic),
-						a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
-			}
+			ds.Slideshows = s.dataPublished("", known)
 			ds.Layout = models.SlideBelow
 
 		case models.SlideSubPages:
 			// sub-pages
 			ds.SubPages = pg.SubPages
 			ds.Layout = models.SlideSubPages
+
+		case models.SlidePageShows:
+			ds.Slideshows = s.dataPublished("Home", known)
+			ds.Layout = models.SlideLeft
 		}
 	}
 	return d
@@ -167,15 +163,17 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 
 			case models.SlideSlideshows:
 				// No option for members, unlike home page, because we don't have members versions of info pages.
-				ds.Slideshows = s.dataShowsPublished(
-					a.SlideshowStore.RecentPublished(models.SlideshowPublic, s.usersHidden, a.cfg.MaxSlideshowsPublic),
-					a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
+				ds.Slideshows = s.dataPublished("", false)
 				ds.Layout = models.SlideBelow
 
 			case models.SlideSubPages:
 				// sub-pages
 				ds.SubPages = pg.SubPages
 				ds.Layout = models.SlideBelow
+
+			case models.SlidePageShows:
+				ds.Slideshows = s.dataPublished(name, false)
+				ds.Layout = models.SlideLeft
 			}
 		}
 
@@ -282,11 +280,26 @@ func (s *GalleryState) dataEventsNext(max int) []*DataEvent {
 	var dataEvs []*DataEvent
 	for _, ev := range evs {
 		dataEvs = append(dataEvs, &DataEvent{
-			Start:   ev.Revised.Local().Format(s.app.cfg.DateFormat),
-			Title:   models.Nl2br(ev.Title),
-			Diary:   s.publicPages.Paths[ev.Slideshow],
+			Start: ev.Revised.Local().Format(s.app.cfg.DateFormat),
+			Title: models.Nl2br(ev.Title),
+			Diary: s.publicPages.Paths[ev.Slideshow],
 		})
 	}
 
 	return dataEvs
+}
+
+// dataPublished returns published slideshows
+func (s *GalleryState) dataPublished(page string, knownUser bool) []*DataPublished {
+
+	a := s.app
+	if knownUser {
+		return s.dataShowsPublished(
+			a.SlideshowStore.RecentPublished(models.SlideshowClub, page, s.usersHidden, a.cfg.MaxSlideshowsClub),
+			a.cfg.MaxSlideshowsClub, a.cfg.MaxSlideshowsTotal)
+	} else {
+		return s.dataShowsPublished(
+			a.SlideshowStore.RecentPublished(models.SlideshowPublic, page, s.usersHidden, a.cfg.MaxSlideshowsPublic),
+			a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
+	}
 }

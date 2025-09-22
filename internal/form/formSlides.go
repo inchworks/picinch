@@ -20,7 +20,7 @@ package form
 import (
 	"net/url"
 
-	"github.com/inchworks/webparts/v2/multiforms"
+	"codeberg.org/inchworks/webparts/multiforms"
 	"inchworks.com/picinch/internal/models"
 )
 
@@ -32,7 +32,7 @@ type PublicCompForm struct {
 type SlidesForm struct {
 	*multiforms.Form
 	FormatOpts []string
-	Children []*SlideFormData
+	Children   []*SlideFormData
 }
 
 type SlideFormData struct {
@@ -65,9 +65,9 @@ func NewPublicComp(data url.Values, nSlides int, token string) *PublicCompForm {
 // NewSlides returns a form with the expected capacity.
 func NewSlides(data url.Values, nSlides int, token string) *SlidesForm {
 	return &SlidesForm{
-		Form:     multiforms.New(data, token),
+		Form:       multiforms.New(data, token),
 		FormatOpts: models.FormatOpts,
-		Children: make([]*SlideFormData, 0, nSlides+1),
+		Children:   make([]*SlideFormData, 0, nSlides+1),
 	}
 }
 
@@ -140,7 +140,7 @@ func (f *SlidesForm) GetSlides(vt ValidTypeFunc) (items []*SlideFormData, err er
 		if err != nil {
 			return nil, err
 		}
-		
+
 		format, err := f.ChildSelect("format", i, ix, len(models.FormatOpts))
 		if err != nil {
 			return nil, err

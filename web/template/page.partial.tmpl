@@ -76,7 +76,7 @@
                     <div class="card-body">
                         <a class="card-link" href="{{ .Path }}">
                             {{if .Media}}
-                                <img class="card-img-top mb-3" src="{{viewable .Media}}">
+                                <img class="card-img-top mb-3" src="{{thumbnail .Media}}">
                             {{end}}
                             <h5>{{ .Title }}</h5>
                             {{ .Description }}

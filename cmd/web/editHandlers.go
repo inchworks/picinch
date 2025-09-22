@@ -25,8 +25,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/inchworks/webparts/v2/etx"
-	"github.com/inchworks/webparts/v2/multiforms"
+	"codeberg.org/inchworks/webparts/etx"
+	"codeberg.org/inchworks/webparts/multiforms"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 
@@ -42,15 +42,16 @@ type RepUpload struct {
 
 func (app *Application) getFormAssignShows(w http.ResponseWriter, r *http.Request) {
 
-	f := app.galleryState.ForAssignShows(nosurf.Token(r))
+	f, upd := app.galleryState.ForAssignShows(nosurf.Token(r))
 	if f == nil {
 		httpServerError(w)
 		return
 	}
 
 	// display form
-	app.render(w, r, "assign-slideshows.page.tmpl", &assignShowsFormData{
-		Form: f,
+	app.render(w, r, "assign-slideshows.page.tmpl", &assignToTopicsFormData{
+		Form:     f,
+		Updating: upd,
 	})
 }
 
@@ -72,20 +73,88 @@ func (app *Application) postFormAssignShows(w http.ResponseWriter, r *http.Reque
 
 	// redisplay form if data invalid
 	if !f.Valid() {
-		app.render(w, r, "assign-slideshows.page.tmpl", &assignShowsFormData{
+		// add display field values
+		for _, c := range f.Children {
+			su := app.galleryState.SlideshowUser(c.NShow)
+			c.DisplayName = su.Name
+		}
+		app.render(w, r, "assign-slideshows.page.tmpl", &assignToTopicsFormData{
+			Form:     f,
+			Updating: app.galleryState.ShowsUpdating(),
+		})
+		return
+	}
+
+	// save changes
+	status, tx := app.galleryState.OnAssignShows(slideshows)
+	switch status {
+	case 0:
+		app.tm.Do(tx) // any deferred processing
+		app.redirectWithFlash(w, r, "/assign-slideshows", "Slideshow assignments saved.")
+
+	case http.StatusConflict:
+		app.redirectWithFlash(w, r, "/assign-slideshows", "Slideshow or topic deleted - check.")
+
+	default:
+		http.Error(w, http.StatusText(status), status)
+	}
+}
+
+// Form to assign slideshows to pages
+
+func (app *Application) getFormAssignToPages(w http.ResponseWriter, r *http.Request) {
+
+	f := app.galleryState.ForAssignToPages(nosurf.Token(r))
+	if f == nil {
+		httpServerError(w)
+		return
+	}
+
+	// display form
+	app.render(w, r, "assign-to-pages.page.tmpl", &assignToPagesFormData{
+		Form: f,
+	})
+}
+
+func (app *Application) postFormAssignToPages(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// process form data
+	f := form.NewAssignToPages(r.PostForm, nosurf.Token(r))
+	slideshows, err := f.GetAssignToPages()
+	if err != nil {
+		app.httpBadRequest(w, err)
+		return
+	}
+
+	// redisplay form if data invalid
+	if !f.Valid() {
+		// add display field values
+		for _, c := range f.Children {
+			su := app.galleryState.SlideshowUser(c.NShow)
+			c.Title = su.Title
+			c.User = su.Name
+		}
+
+		app.render(w, r, "assign-to-pages.page.tmpl", &assignToPagesFormData{
 			Form: f,
 		})
 		return
 	}
 
-	// save changes (no synchronous operations to be done)
-	status, _ := app.galleryState.OnAssignShows(slideshows)
+	// save changes (no asynchronous operations to be done)
+	status := app.galleryState.OnAssignToPages(slideshows)
 	switch status {
 	case 0:
-		app.redirectWithFlash(w, r, "/assign-slideshows", "Slideshow assignments saved.")
+		app.redirectWithFlash(w, r, "/assign-to-pages", "Slideshow assignments saved.")
 
 	case http.StatusConflict:
-		app.redirectWithFlash(w, r, "/assign-slideshows", "Slideshow or topic deleted - check.")
+		app.redirectWithFlash(w, r, "/assign-to-pages", "Slideshow deleted - check.")
 
 	default:
 		http.Error(w, http.StatusText(status), status)
@@ -287,8 +356,8 @@ func (app *Application) getFormDiaries(w http.ResponseWriter, r *http.Request) {
 
 	// display form
 	app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
-		Form: f,
-		Action: "/edit-diaries",
+		Form:    f,
+		Action:  "/edit-diaries",
 		Heading: "Diaries",
 	})
 }
@@ -356,9 +425,9 @@ func (app *Application) getFormInfo(w http.ResponseWriter, r *http.Request) {
 
 	// display form
 	app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
-		Form: f,
-		Action: "/edit-info",
-		Heading: "Information Pages",
+		Form:     f,
+		Action:   "/edit-info",
+		Heading:  "Information Pages",
 		HomeName: app.galleryState.gallery.Organiser,
 		HomePage: strconv.FormatInt(app.galleryState.homeId(), 36),
 	})
@@ -447,7 +516,7 @@ func (app *Application) getFormMetadata(w http.ResponseWriter, r *http.Request) 
 	// display form
 	app.render(w, r, "edit-metadata.page.tmpl", &metaFormData{
 		Title: page.Title,
-		Form: f,
+		Form:  f,
 	})
 }
 
@@ -477,7 +546,7 @@ func (app *Application) postFormMetadata(w http.ResponseWriter, r *http.Request)
 
 		app.render(w, r, "edit-metadata.page.tmpl", &metaFormData{
 			Title: t,
-			Form: f,
+			Form:  f,
 		})
 		return
 	}
@@ -490,7 +559,7 @@ func (app *Application) postFormMetadata(w http.ResponseWriter, r *http.Request)
 		app.redirectWithFlash(w, r, url, "Page metadata saved.")
 
 	} else if status < 0 {
-			http.Redirect(w, r, url, http.StatusSeeOther)
+		http.Redirect(w, r, url, http.StatusSeeOther)
 
 	} else {
 		http.Error(w, http.StatusText(status), status)
@@ -570,7 +639,7 @@ func (app *Application) postFormPage(w http.ResponseWriter, r *http.Request) {
 
 		// claim updated media, now that update is committed
 		app.tm.Do(tx)
-		
+
 		app.redirectWithFlash(w, r, "/pages", warnings(
 			"Page content saved.",
 			"Menu conflict, for admin: ",
@@ -605,8 +674,8 @@ func (app *Application) postFormPages(w http.ResponseWriter, r *http.Request, fo
 	// redisplay form if data invalid
 	if !f.Valid() {
 		app.render(w, r, "edit-pages.page.tmpl", &pagesFormData{
-			Form: f,
-			Action: action,
+			Form:    f,
+			Action:  action,
 			Heading: heading,
 		})
 		return
@@ -913,7 +982,7 @@ func (app *Application) accept(docs bool) string {
 		a = a + ",video/*"
 	}
 	if docs {
-		for _, t := range(app.cfg.DocumentTypes) {
+		for _, t := range app.cfg.DocumentTypes {
 			a = a + "," + t
 		}
 	}

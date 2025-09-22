@@ -57,6 +57,7 @@ const (
 	slideshowsWhereTopicOrder = slideshowSelect + ` WHERE topic = ? AND visible >= -1` + slideshowOrderGallery
 	slideshowsWhereTopicUser  = slideshowSelect + ` WHERE topic = ? AND user = ? AND visible >= -1`
 	slideshowsWhereUser       = slideshowSelect + ` WHERE user = ? AND visible >= ?` + slideshowOrderRevised
+	slideshowsWhereUserMain   = slideshowSelect + ` WHERE user = ? AND format = ""` + slideshowOrderTitle
 
 	slideshowWhereShared = slideshowSelect + ` WHERE shared = ? AND visible >= -1`
 
@@ -83,9 +84,25 @@ const (
 		WHERE slideshow.topic = ? AND visible >= -1 AND slideshow.user = ? AND topic.visible >= ?
 	`
 
+	// slideshow or topic with user name
+	slideshowWithUser = `
+		SELECT slideshow.*, user.id AS userid, user.name
+		FROM slideshow
+		LEFT JOIN user ON user.id = slideshow.user
+		WHERE id = ?`
+
+	// all slideshows and topics for pages
+	slideshowsForPages = `
+		SELECT slideshow.*, user.id AS userid, user.name
+		FROM slideshow
+		LEFT JOIN user ON user.id = slideshow.user
+		WHERE slideshow.topic = 0 AND format NOT LIKE "$%"
+		ORDER BY title, format, user.name
+	`
+
 	// all slideshows excluding system ones and topics
 	slideshowsNotTopics = `
-		SELECT slideshow.* FROM slideshow
+		SELECT slideshow.*, user.id AS userid, user.name FROM slideshow
 		INNER JOIN user ON user.id = slideshow.user
 		WHERE gallery = ? AND visible > 0 AND user.status > 0
 		ORDER BY title, id
@@ -160,7 +177,7 @@ const (
 									ORDER BY created DESC, id
 							) AS rnk
 			FROM slideshow
-			WHERE gallery = ? AND visible >= ? AND slideshow.image <> ""
+			WHERE gallery = ? AND visible >= ? AND format = ? AND slideshow.image <> ""
 		)
 		SELECT s1.id, visible, user, title, caption, format, image
 		FROM s1
@@ -169,7 +186,7 @@ const (
 		ORDER BY s1.created DESC
 	`
 	slideshowsTopicPublished = `
-		SELECT slideshow.id, slideshow.title, slideshow.image, user.id AS userid, user.name 
+		SELECT slideshow.*, user.id AS userid, user.name 
 		FROM slideshow
 		INNER JOIN user ON user.id = slideshow.user
 		WHERE slideshow.topic = ? AND slideshow.visible = -1 AND slideshow.image <> "" AND user.status > 0
@@ -209,10 +226,22 @@ func (st *SlideshowStore) All() []*models.Slideshow {
 	return slideshows
 }
 
-// AllForUsers returns all slideshows except topics.
-func (st *SlideshowStore) AllForUsers() []*models.Slideshow {
+// AllForPages returns all slideshows assignable to pages.
+func (st *SlideshowStore) AllForPages() []*models.SlideshowUser {
 
-	var slideshows []*models.Slideshow
+	var slideshows []*models.SlideshowUser
+
+	if err := st.DBX.Select(&slideshows, slideshowsForPages, st.GalleryId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
+}
+
+// AllForUsers returns all slideshows except topics.
+func (st *SlideshowStore) AllForUsers() []*models.SlideshowUser {
+
+	var slideshows []*models.SlideshowUser
 
 	if err := st.DBX.Select(&slideshows, slideshowsNotTopics, st.GalleryId); err != nil {
 		st.logError(err)
@@ -439,6 +468,18 @@ func (st *SlideshowStore) ForUser(userId int64, visible int) []*models.Slideshow
 	return slideshows
 }
 
+// ForUserNonMain returns all main slideshows for user, i.e. not to a page.
+func (st *SlideshowStore) ForUserMain(userId int64) []*models.Slideshow {
+
+	var slideshows []*models.Slideshow
+
+	if err := st.DBX.Select(&slideshows, slideshowsWhereUserMain, userId); err != nil {
+		st.logError(err)
+		return nil
+	}
+	return slideshows
+}
+
 // All published slideshows for user, in published order, including topics
 
 func (st *SlideshowStore) ForUserPublished(userId int64, visible int) []*models.Slideshow {
@@ -496,13 +537,28 @@ func (st *SlideshowStore) GetIfShared(shared int64) *models.Slideshow {
 	return &r
 }
 
+// GetWithUser returns a slideshow or topic with the user name.
+func (st *SlideshowStore) GetWithUser(id int64) *models.SlideshowUser {
+
+	var r models.SlideshowUser
+
+	if err := st.DBX.Get(&r, slideshowWithUser); err != nil {
+		if st.convertError(err) != models.ErrNoRecord {
+			st.logError(err)
+		}
+		return nil
+	}
+
+	return &r
+}
+
 // Most recent shows, up to N per user, and including topics, in descending publication date
 
-func (st *SlideshowStore) RecentPublished(visible int, usersHidden int, max int) []*models.Slideshow {
+func (st *SlideshowStore) RecentPublished(visible int, format string, usersHidden int, max int) []*models.Slideshow {
 
 	var slideshows []*models.Slideshow
 
-	if err := st.DBX.Select(&slideshows, slideshowsRecentPublished, st.GalleryId, visible, usersHidden, max); err != nil {
+	if err := st.DBX.Select(&slideshows, slideshowsRecentPublished, st.GalleryId, visible, format, usersHidden, max); err != nil {
 		st.logError(err)
 		return nil
 	}

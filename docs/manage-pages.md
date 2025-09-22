@@ -15,7 +15,11 @@ Sub-pages can be accessed in three ways:
 
 1. Pages can be referenced by `https://<your-domain>/info/name.sub` from other websites or by `/info/name.sub` in links from local pages. Omit the leading `.` for a sub-page without a menu item.
 
-Note that when a top level menu item has drop-down menu items it has no main page.
+Note:
+
+1. When a top level menu item has drop-down menu items it has no main page.
+
+1. For a sub-page of the home page use `Home.sub`.
 
 It is also possible to add static pages using Go templates. These take more effort to understand and change, but give full control over page layouts. [&#8658; Customisation]({{ site.baseurl }}{% link customisation.md %}).
 

@@ -17,11 +17,9 @@
 
 package main
 
-// Display usage statistics
+import "codeberg.org/inchworks/webparts/usage"
 
-import (
-	"github.com/inchworks/usage"
-)
+// Display usage statistics
 
 // Daily and monthly usage statistics
 

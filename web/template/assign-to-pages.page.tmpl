@@ -1,5 +1,5 @@
 {{/*
-  Copyright © Rob Burke inchworks.com, 2020.
+  Copyright © Rob Burke inchworks.com, 2025.
 
   This file is part of PicInch.
   
@@ -19,7 +19,7 @@
 
 {{template "gallery" .}}
 
-{{define "title"}}Assign Sideshows to Topics{{end}}
+{{define "title"}}Assign Sideshows to Pages{{end}}
 
 {{define "pagemeta"}}
     <meta name="robots" content="noindex">
@@ -28,9 +28,9 @@
 {{define "page"}}
 
 	<div class="container">
-		<h1>Assign Slideshows to Topics</h1>
+		<h1>Assign Slideshows to Pages</h1>
 
-		<form action='/assign-slideshows' method='POST'>
+		<form action='/assign-to-pages' method='POST'>
             <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
  			{{with .Form}}
 				<div id="formChildren">
@@ -40,17 +40,15 @@
 							<input type='hidden' name='nShow' value='{{.NShow }}'>								
 							<div class="row mb-2">
 								<div class="col-xl-6 col-lg-5 col-md-4 col-sm-3">
-									<label class="visually-hidden">Title</label>
-									<input type='text' class='form-control {{.ChildValid "title"}}' placeholder='Title' name='title' value='{{ .Title }}'>
-									<div class='invalid-feedback'>{{.ChildError "title"}}</div>
+									<span class="input-group-text">{{ .Title }}</span>
 								</div>
 								<div class="col-xl-3 col-lg-3 col-md-3 col-sm-3">
-									<span class="input-group-text">{{ .DisplayName }}</span>
+									<span class="input-group-text">{{ .Name }}</span>
 								</div>
-								<div class="col-xl-1 col-lg-2 col-md-2 col-sm-3">
-									<label class="visually-hidden">Topic</label>
-									<input type='text' class='form-control {{.ChildValid "topic"}}' placeholder='Topic' name='topic' value='{{ .NTopic }}'>
-									<div class='invalid-feedback'>{{.ChildError "topic"}}</div>
+								<div class="col-xl-3 col-lg-3 col-md-3 col-sm-3">
+									<label class="visually-hidden">Page</label>
+									<input type='text' class='form-control {{.ChildValid "page"}}' placeholder='Page' name='page' value='{{ .Page }}'>
+									<div class='invalid-feedback'>{{.ChildError "page"}}</div>
 								</div>
 							</div>
 						</div>
@@ -63,15 +61,6 @@
 				</div>
 			{{end}}
 		</form>
-		{{if .Updating}}
-			<h2>Updating</h2>
-			<p>Updates are in progress for these slideshows:</p>
-			<ul>
-				{{range .Updating}}
-					<le>{{.Title}} for {{.User}}, {{.Status}}</le>
-				{{end}}
-			</ul>
-		{{end}}
 	</div>	
 {{end}}
 

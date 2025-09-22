@@ -73,7 +73,7 @@ type Section struct {
 type SubPage struct {
 	Path        string        // from page
 	Title       string        // from slideshow
-	Description template.HTML // from 1st section? ####
+	Description template.HTML // from 1st section caption
 	Media       string        // from 1st section
 }
 
@@ -399,11 +399,11 @@ func sectionFormat(fmt int) int {
 func sectionLayout(fmt int) int {
 	l := fmt >> models.SlideFormatShift
 	switch l {
-	case models.SlideCard, models.SlideEvents, models.SlideSlideshows, models.SlideHighlights, models.SlideSubPages:
+	case models.SlideCard, models.SlideEvents, models.SlideSlideshows, models.SlideHighlights, models.SlideSubPages, models.SlidePageShows:
 		return l
 
 	default:
-		if fmt&(+models.SlideDocument+models.SlideImage+models.SlideVideo) == 0 {
+		if fmt&(models.SlideDocument+models.SlideImage+models.SlideVideo) == 0 {
 			return 0 // default layout with no media
 		}
 	}

@@ -20,7 +20,7 @@ package form
 import (
 	"net/url"
 
-	"github.com/inchworks/webparts/v2/multiforms"
+	"codeberg.org/inchworks/webparts/multiforms"
 
 	"inchworks.com/picinch/internal/models"
 )

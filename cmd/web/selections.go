@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/inchworks/webparts/v2/multiforms"
+	"codeberg.org/inchworks/webparts/multiforms"
 	"inchworks.com/picinch/internal/models"
 )
 
@@ -69,7 +69,7 @@ func (s *GalleryState) displayInspection(from time.Time, lastId int64) (data *Da
 		Title:       "Recent Slides",
 		AfterHRef:   after,
 		BeforeHRef:  "/",
-		DisplayName: "Slides After " + from.Format("15:04, 2 January 2006"), 
+		DisplayName: "Slides After " + from.Format("15:04, 2 January 2006"),
 		Slides:      ds,
 		DataCommon: DataCommon{
 			ParentHRef: "/",
@@ -360,10 +360,15 @@ func (app *Application) dataTags(tags []*models.Tag, level int, rootId int64, us
 // visibility returns the name for a visibility code
 func visibility(v int) string {
 	switch v {
-	case models.SlideshowTopic: return "topic"
-	case models.SlideshowPrivate: return "private"
-	case models.SlideshowClub: return "club"
-	case models.SlideshowPublic: return "public"
-	default: return "unknown"
+	case models.SlideshowTopic:
+		return "topic"
+	case models.SlideshowPrivate:
+		return "private"
+	case models.SlideshowClub:
+		return "club"
+	case models.SlideshowPublic:
+		return "public"
+	default:
+		return "unknown"
 	}
 }

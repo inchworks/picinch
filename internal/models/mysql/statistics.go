@@ -23,7 +23,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/inchworks/usage"
+	"codeberg.org/inchworks/webparts/usage"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -58,7 +58,7 @@ const (
 )
 
 type StatisticStore struct {
-	GalleryId int64
+	GalleryId  int64
 	rollbackTx bool
 	store
 }

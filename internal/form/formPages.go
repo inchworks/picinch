@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/inchworks/webparts/v2/multiforms"
+	"codeberg.org/inchworks/webparts/multiforms"
 
 	"inchworks.com/picinch/internal/models"
 )
@@ -36,7 +36,7 @@ type PageFormData struct {
 	multiforms.Child
 	Name  string
 	Title string
-	Page  string // page ID, base 36, not trusted and only for a URL 
+	Page  string // page ID, base 36, not trusted and only for a URL
 }
 
 // NewPages returns a form to edit pages.
@@ -63,7 +63,7 @@ func (f *PagesForm) Add(index int, name string, title string, pageId int64) {
 func (f *PagesForm) AddTemplate() {
 
 	f.Children = append(f.Children, &PageFormData{
-		Child:   multiforms.Child{Parent: f.Form, ChildIndex: -1},
+		Child: multiforms.Child{Parent: f.Form, ChildIndex: -1},
 	})
 }
 
@@ -83,7 +83,7 @@ func (f *PagesForm) GetPages() (items []*PageFormData, err error) {
 			Child: multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			Name:  f.ChildText("name", i, ix, 1, models.MaxTitle),
 			Title: f.ChildText("title", i, ix, 1, models.MaxTitle),
-			Page: f.ChildText("page", i, ix, 0, 12),
+			Page:  f.ChildText("page", i, ix, 0, 12),
 		})
 	}
 

@@ -171,9 +171,11 @@ func (app *Application) Routes() http.Handler {
 	router.Handler("POST", "/edit-slideshows/:nUser", ownerHs.ThenFunc(app.postFormSlideshows))
 	router.Handler("GET", "/edit-topic/:nId/:nUser", ownerNoStoreHs.ThenFunc(app.getFormTopic))
 
-	// edit topics
+	// assign slideshows, to topics and pages
 	router.Handler("GET", "/assign-slideshows", curatorNoStoreHs.ThenFunc(app.getFormAssignShows))
 	router.Handler("POST", "/assign-slideshows", curatorHs.ThenFunc(app.postFormAssignShows))
+	router.Handler("GET", "/assign-to-pages", curatorNoStoreHs.ThenFunc(app.getFormAssignToPages))
+	router.Handler("POST", "/assign-to-pages", curatorHs.ThenFunc(app.postFormAssignToPages))
 
 	// upload media files
 	router.Handler("POST", "/upload", dynHs.ThenFunc(app.postFormMedia))

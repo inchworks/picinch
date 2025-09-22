@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"codeberg.org/inchworks/webstarter/users"
 	"github.com/go-sql-driver/mysql"
-	"github.com/inchworks/webparts/v2/users"
 	"github.com/jmoiron/sqlx"
 
 	"inchworks.com/picinch/internal/models"
@@ -194,8 +194,7 @@ var cmds = [...]string{
 		(1,	2, 2, "", "This is a photo gallery.", false, "");`,
 }
 
-var cmdClub = 
-	`INSERT INTO slide (slideshow, format, show_order, created, revised, title, caption, image) VALUES
+var cmdClub = `INSERT INTO slide (slideshow, format, show_order, created, revised, title, caption, image) VALUES
 		(%d, 1, 1, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', 'This is our photo gallery.', ''),
 		(%d, 1284, 2, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Next Meeting', ''),
 		(%d, 1540, 3, '2025-01-22 17:35:42', '2025-01-22 17:35:42', '', '## Highlights', ''),
@@ -232,7 +231,7 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 
 				case "main-comp":
 					// no default content
-					
+
 				case "club":
 					fallthrough
 				default:
@@ -244,13 +243,12 @@ func Setup(stGallery *GalleryStore, stUser *UserStore, galleryId int64, adminNam
 				}
 
 				// gallery
-				 if g, err = stGallery.GetTx(galleryId); err != nil {
+				if g, err = stGallery.GetTx(galleryId); err != nil {
 					return nil, stGallery.logError(err)
-				 }
+				}
 			}
 		}
 	}
-
 
 	// look for admin user
 	stUser.GalleryId = g.Id
@@ -318,7 +316,7 @@ func MigrateRedo2(stRedo *RedoStore, stSlideshow *SlideshowStore) error {
 			optype int(11) NOT NULL,
 			operation JSON NOT NULL,
 			PRIMARY KEY (id));`,
-	
+
 		`ALTER TABLE slideshow
 			ADD COLUMN access smallint(6) NOT NULL,
 			ADD COLUMN etag varchar(64) NOT NULL;`,
@@ -346,13 +344,6 @@ func MigrateRedo2(stRedo *RedoStore, stSlideshow *SlideshowStore) error {
 	return nil
 }
 
-// MigrateRedoV1 checks to see if we have a V1 redo table with records, as created before version 1.1.0.
-func MigrateRedoV1(stRedoV1 *RedoV1Store) bool {
-
-	n, err := stRedoV1.Count()
-	return err == nil && n > 0
-}
-
 // MigrateSessions adds a sessions table. Needed for version 1.2.1.
 func MigrateSessions(stSession *SessionStore) error {
 
@@ -361,7 +352,7 @@ func MigrateSessions(stSession *SessionStore) error {
 			token CHAR(43) PRIMARY KEY,
 			data BLOB NOT NULL,
 			expiry TIMESTAMP(6) NOT NULL);`,
-	
+
 		`CREATE INDEX sessions_expiry_idx ON sessions (expiry);`,
 	}
 
@@ -378,13 +369,13 @@ func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageSto
 		`ALTER TABLE gallery
 			ADD COLUMN title varchar(60) NOT NULL,
 			ADD COLUMN events varchar(128) NOT NULL;`,
-		
+
 		`UPDATE gallery SET title=CONCAT('| ', organiser), events='Next Event' WHERE id=1;`,
-	
+
 		`ALTER TABLE slide MODIFY COLUMN caption varchar(4096) NOT NULL;`,
-	
+
 		`ALTER TABLE slideshow MODIFY COLUMN caption varchar(4096) NOT NULL;`,
-	
+
 		`CREATE TABLE page (
 			id int(11) NOT NULL AUTO_INCREMENT,
 			slideshow int(11) NOT NULL,
@@ -396,7 +387,7 @@ func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageSto
 			PRIMARY KEY (id),
 			KEY IDX_SLIDESHOW (slideshow),
 			CONSTRAINT FK_PAGE_SLIDESHOW FOREIGN KEY (slideshow) REFERENCES slideshow (id) ON DELETE CASCADE);`,
-	
+
 		`INSERT INTO user (parent, username, name, role, status, password, created) VALUES
 			(1, 'SystemInfo', 'System Info', 10, -2, '', '2024-12-01 15:52:42');`,
 	}
@@ -432,8 +423,8 @@ func MigrateInfo(stUser *UserStore, stSlideshow *SlideshowStore, stPage *PageSto
 
 func sysPage(showId int64, format int, desc string) *models.Page {
 	return &models.Page{
-		Slideshow: showId,
-		Format:    format,
+		Slideshow:   showId,
+		Format:      format,
 		Description: desc,
 	}
 }
@@ -517,12 +508,12 @@ func MigrateOptions(stGallery *GalleryStore, stPage *PageStore, g *models.Galler
 // MigrateSole adds the user for the solo option. Needed for version 1.4.0.
 func MigrateSolo(stGallery *GalleryStore, stUser *UserStore, g *models.Gallery) error {
 
-	var cmds = [...]string {
+	var cmds = [...]string{
 		`UPDATE user SET status=-5 WHERE username='SystemInfo';`,
 
 		`INSERT INTO user (parent, username, name, role, status, password, created) VALUES
 			(1, 'SystemSolo', 'System Solo', 10, -1, '', '2025-03-23 15:52:42');`,
-		}
+	}
 
 	if g.Version != 2 {
 		return nil // not version 2

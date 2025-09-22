@@ -22,10 +22,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/inchworks/usage"
-	"github.com/inchworks/webparts/v2/multiforms"
-	"github.com/inchworks/webparts/v2/uploader"
-	"github.com/inchworks/webparts/v2/users"
+	"codeberg.org/inchworks/webparts/multiforms"
+	"codeberg.org/inchworks/webparts/uploader"
+	"codeberg.org/inchworks/webparts/usage"
+	"codeberg.org/inchworks/webstarter/users"
 	"github.com/justinas/nosurf"
 
 	"inchworks.com/picinch/internal/cache"
@@ -165,7 +165,7 @@ type DataPublished struct {
 	DataCommon
 }
 
-type DataSection struct { 
+type DataSection struct {
 	cache.Section
 
 	// sub-pages for page, if section includes them
@@ -201,6 +201,19 @@ type DataSlide struct {
 	DisplayName string
 	Image       string
 	Format      int
+}
+
+type DataSlideshowPage struct {
+	Page  string // "" if same as previous slideshow
+	User  string
+	NShow int64
+	Title string
+}
+
+type DataSlideshowsByPage struct {
+	Slideshows []*DataSlideshowPage
+	Users      []*models.UserSummary
+	DataCommon
 }
 
 type DataTagged struct {
@@ -255,10 +268,20 @@ type dataValidated struct {
 
 // template data for forms
 
-type assignShowsFormData struct {
-	Form  *form.AssignShowsForm
-	User  string
-	NUser int64
+type assignToPagesFormData struct {
+	Form *form.AssignToPagesForm
+	DataCommon
+}
+
+type dataUpdating struct {
+	Status string
+	Title  string
+	User   string
+}
+
+type assignToTopicsFormData struct {
+	Form     *form.AssignShowsForm
+	Updating []*dataUpdating
 	DataCommon
 }
 
@@ -306,6 +329,13 @@ type slidesFormData struct {
 	DataCommon
 }
 
+type slideshowPageFormData struct {
+	Form  *multiforms.Form
+	Title string
+	User  string
+	DataCommon
+}
+
 type slideshowsFormData struct {
 	Form  *form.SlideshowsForm
 	User  string
@@ -343,6 +373,22 @@ type usersFormData struct {
 	DataCommon
 }
 
+// Context for functions called from template.
+
+type templateCtx struct {
+	uploader *uploader.Uploader
+}
+
+// setTemplateCtx adds template functions that need a context.
+func setTemplateCtx(up *uploader.Uploader) {
+
+	// "method values" are preferable to saving the context as a global value.
+	ctx := templateCtx{uploader: up}
+	templateFuncs["isWorking"] = ctx.isWorking
+	templateFuncs["thumbnail"] = ctx.thumbnail
+	templateFuncs["viewable"] = ctx.viewable
+}
+
 // Define functions callable from a template
 
 var templateFuncs = template.FuncMap{
@@ -351,10 +397,7 @@ var templateFuncs = template.FuncMap{
 	"htmlDate":     htmlDate,
 	"htmlDateTime": htmlDateTime,
 	"humanDate":    humanDate,
-	"isWorking":    isWorking,
-	"thumbnail":    thumbnail,
 	"userStatus":   userStatus,
-	"viewable":     viewable,
 }
 
 // cardCols returns the column classes for a row of cards.
@@ -418,21 +461,21 @@ func humanDate(t time.Time) string {
 }
 
 // isWorking returns true if a media file is not ready to be viewed.
-func isWorking(image string) bool {
-	return uploader.Status(image) < 100
+func (ctx *templateCtx) isWorking(image string) bool {
+	return ctx.uploader.Status(image) < 100
 }
 
 // thumbnail returns a path to a thumbnail image
-func thumbnail(image string) string {
+func (ctx *templateCtx) thumbnail(image string) string {
 
-	s := uploader.Status(image)
+	s := ctx.uploader.Status(image)
 
 	if s == 0 {
 		return "/static/images/no-photos.jpg"
 	} else if s < 100 {
 		return "/static/images/working.jpg"
 	} else {
-		return "/photos/" + uploader.Thumbnail(image)
+		return "/photos/" + ctx.uploader.Thumbnail(image)
 	}
 }
 
@@ -457,9 +500,9 @@ func userStatus(n int) (s string) {
 }
 
 // viewable returns the version of a media file that is ready to be viewed.
-func viewable(image string) string {
+func (ctx *templateCtx) viewable(image string) string {
 
-	s := uploader.Status(image)
+	s := ctx.uploader.Status(image)
 
 	if s == 0 {
 		return "/static/images/no-photos.jpg" // not expected

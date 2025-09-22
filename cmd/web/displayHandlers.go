@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/inchworks/usage"
+	"codeberg.org/inchworks/webparts/usage"
 	"github.com/julienschmidt/httprouter"
 
 	"inchworks.com/picinch/internal/models"
@@ -319,7 +319,7 @@ func (app *Application) logout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	// flash message to confirm logged out
 	app.redirectWithFlash(w, r, "/", "You are logged out.")
 }
@@ -328,7 +328,7 @@ func (app *Application) logout(w http.ResponseWriter, r *http.Request) {
 func (app *Application) next(w http.ResponseWriter, r *http.Request) {
 
 	// data for message
-	data := &DataCommon{ 
+	data := &DataCommon{
 		ParentHRef: app.session.PopString(r.Context(), "afterMsg"),
 	}
 

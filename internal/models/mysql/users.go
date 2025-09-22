@@ -22,7 +22,7 @@ package mysql
 import (
 	"log"
 
-	"github.com/inchworks/webparts/v2/users"
+	"codeberg.org/inchworks/webstarter/users"
 	"github.com/jmoiron/sqlx"
 
 	"inchworks.com/picinch/internal/models"
@@ -297,7 +297,6 @@ func (st *UserStore) getSystem(username string) (*users.User, error) {
 func (st *UserStore) getSystemTx(username string) (*users.User, error) {
 
 	var u users.User
-
 
 	if err := (*st.ptx).Get(&u, userWhereSystem, st.GalleryId, username); err != nil {
 		return nil, st.convertError(err)

@@ -1,4 +1,4 @@
-// Copyright © Rob Burke inchworks.com, 2020.
+// Copyright © Rob Burke inchworks.com, 2025.
 
 // This file is part of PicInch.
 //
@@ -25,44 +25,48 @@ import (
 	"inchworks.com/picinch/internal/models"
 )
 
-type AssignShowsForm struct {
+type AssignToPagesForm struct {
 	*multiforms.Form
-	Children []*AssignShowFormData
+	Children []*AssignToPagesFormData
 }
 
-type AssignShowFormData struct {
+type AssignToPagesFormData struct {
 	// form fields
 	multiforms.Child
-	Title  string
-	NShow  int64
-	NTopic int64
+	NShow int64
+	Page  string
 
 	// display fields
-	DisplayName string
+	Title string
+	User  string
 }
 
-// NewAssignShows returns a form to assign slideshows to topics.
-func NewAssignShows(data url.Values, token string) *AssignShowsForm {
-	return &AssignShowsForm{
+// NewAssignToPages returns a form to assign slideshows to pages.
+func NewAssignToPages(data url.Values, token string) *AssignToPagesForm {
+	return &AssignToPagesForm{
 		Form:     multiforms.New(data, token),
-		Children: make([]*AssignShowFormData, 0, 16),
+		Children: make([]*AssignToPagesFormData, 0, 16),
 	}
 }
 
 // Add appends a slideshow entry to the assignment form.
-func (f *AssignShowsForm) Add(index int, id int64, topicId int64, isShared bool, title string, user string) {
+func (f *AssignToPagesForm) Add(index int, id int64, page string, title string, user string) {
 
-	f.Children = append(f.Children, &AssignShowFormData{
-		Child:       multiforms.Child{Parent: f.Form, ChildIndex: index},
-		Title:       title,
-		NShow:       id,
-		NTopic:      topicId,
-		DisplayName: user,
+	if user == "" {
+		user = "*topic*"
+	}
+
+	f.Children = append(f.Children, &AssignToPagesFormData{
+		Child: multiforms.Child{Parent: f.Form, ChildIndex: index},
+		NShow: id,
+		Page:  page,
+		Title: title,
+		User:  user,
 	})
 }
 
 // GetAssignShows returns form data as structs. They are sent as arrays of values for each field name.
-func (f *AssignShowsForm) GetAssignShows() (items []*AssignShowFormData, err error) {
+func (f *AssignToPagesForm) GetAssignToPages() (items []*AssignToPagesFormData, err error) {
 
 	nItems := f.NChildItems()
 
@@ -75,14 +79,12 @@ func (f *AssignShowsForm) GetAssignShows() (items []*AssignShowFormData, err err
 
 		// optional topic assignment with show ID
 		showId := int64(f.ChildPositive("nShow", i, ix))
-		topicId := int64(f.ChildPositive("topic", i, ix))
 
-		items = append(items, &AssignShowFormData{
+		items = append(items, &AssignToPagesFormData{
 
-			Child:  multiforms.Child{Parent: f.Form, ChildIndex: ix},
-			NShow:  showId,
-			NTopic: topicId,
-			Title:  f.ChildText("title", i, ix, 1, models.MaxTitle),
+			Child: multiforms.Child{Parent: f.Form, ChildIndex: ix},
+			NShow: showId,
+			Page:  f.ChildText("page", i, ix, 1, models.MaxName),
 		})
 	}
 

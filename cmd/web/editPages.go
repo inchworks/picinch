@@ -31,9 +31,72 @@ import (
 	"inchworks.com/picinch/internal/form"
 	"inchworks.com/picinch/internal/models"
 
-	"github.com/inchworks/webparts/v2/etx"
-	"github.com/inchworks/webparts/v2/multiforms"
+	"codeberg.org/inchworks/webparts/etx"
+	"codeberg.org/inchworks/webparts/multiforms"
 )
+
+// ForAssignToPages returns a form with data to assign slideshows to pages.
+func (s *GalleryState) ForAssignToPages(tok string) (f *form.AssignToPagesForm) {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	// get slideshows
+	slideshows := s.app.SlideshowStore.AllForPages()
+
+	// form
+	var d = make(url.Values)
+	f = form.NewAssignToPages(d, tok)
+
+	// add slideshows to form
+	for i, sh := range slideshows {
+		f.Add(i, sh.Id, sh.Format, sh.Title, sh.Name)
+	}
+
+	return
+}
+
+// OnAssignToPages processes updates when slideshows are assigned to pages.
+func (s *GalleryState) OnAssignToPages(rsSrc []*form.AssignToPagesFormData) int {
+
+	// #### Validate that slideshows are ones that can be assigned (format and not a topic).
+
+	// serialisation
+	defer s.updatesGallery()()
+
+	nConflicts := 0
+	nSrc := len(rsSrc)
+
+	// skip template
+	i := 1
+
+	for i < nSrc {
+
+		// get current slideshow
+		rSrc := rsSrc[i]
+		rDest := s.app.SlideshowStore.GetIf(rSrc.NShow)
+		if rDest == nil {
+			nConflicts++ // just deleted by user
+
+		} else {
+			// check if details changed
+			if rSrc.Page != rDest.Format {
+
+				// #### sanitise format (i.e. no "$")
+
+				rDest.Format = rSrc.Page
+				s.app.SlideshowStore.Update(rDest) // #### handle error
+			}
+		}
+		i++
+	}
+
+	if nConflicts > 0 {
+		return http.StatusConflict
+	} else {
+		return 0
+	}
+}
 
 // ForEditDiary returns data to edit events.
 func (s *GalleryState) ForEditDiary(diaryId int64, tok string) (f *form.DiaryForm, diary *models.PageSlideshow) {
@@ -240,7 +303,6 @@ func (s *GalleryState) OnEditMetadata(showId int64, title string, desc string, n
 	return 0, path
 }
 
-
 // ForEditPages returns the form data to edit all information pages.
 func (s *GalleryState) ForEditPages(fmt int, tok string) (f *form.PagesForm) {
 
@@ -302,15 +364,15 @@ func (s *GalleryState) OnEditPages(fmt int, rsSrc []*form.PageFormData) (int, et
 
 			// no more destination pages - add new one
 			r := models.PageSlideshow{
-				Name: rsSrc[iSrc].Name,
+				Name:       rsSrc[iSrc].Name,
 				PageFormat: fmt,
 				Slideshow: models.Slideshow{
-					Access:       models.SlideshowPublic,
-					Visible:      models.SlideshowPublic,
-					User:         sql.NullInt64{Int64: s.app.userStore.Info.Id, Valid: true},
-					Created:      now,
-					Revised:      now,
-					Title:        rsSrc[iSrc].Title,
+					Access:  models.SlideshowPublic,
+					Visible: models.SlideshowPublic,
+					User:    sql.NullInt64{Int64: s.app.userStore.Info.Id, Valid: true},
+					Created: now,
+					Revised: now,
+					Title:   rsSrc[iSrc].Title,
 				},
 			}
 			s.app.PageStore.UpdateWith(&r)

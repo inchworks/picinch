@@ -24,7 +24,7 @@ import (
 
 	"inchworks.com/picinch/internal/models"
 
-	"github.com/inchworks/webparts/v2/etx"
+	"codeberg.org/inchworks/webparts/etx"
 	"github.com/jmoiron/sqlx"
 )
 

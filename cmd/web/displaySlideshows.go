@@ -41,7 +41,7 @@ func (s *GalleryState) DisplayClasses(_ bool) *dataCompetition {
 	// ## restrict to published categories
 	// ## could have unrestricted list for members
 	dShows := s.dataShowsPublished(
-		a.SlideshowStore.AllTopicsFormatted("C%"), a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
+		a.SlideshowStore.AllTopicsFormatted("$C%"), a.cfg.MaxSlideshowsPublic, a.cfg.MaxSlideshowsTotal)
 
 	// template and its data
 	return &dataCompetition{
@@ -535,6 +535,26 @@ func (s *GalleryState) SlideshowTitle(showId int64) string {
 	return r.Title
 }
 
+// SlideshowUser returns a slideshow or topic with a user name.
+func (s *GalleryState) SlideshowUser(showId int64) *models.SlideshowUser {
+
+	// serialisation
+	defer s.updatesNone()()
+
+	su := s.app.SlideshowStore.GetWithUser(showId)
+	if su == nil {
+		return &models.SlideshowUser{
+			Slideshow: models.Slideshow{Title: "*deleted*"},
+		}
+	}
+	if su.Name == "" {
+		su.Name = "*topic*"
+	}
+
+	return su
+}
+
+
 // dataHighlightSlides returns the latest slides for a topic.
 func (s *GalleryState) dataHighlightSlides(topic *models.Slideshow, from string, perUser int) *DataSlideshow {
 
@@ -627,10 +647,10 @@ func (s *GalleryState) dataSection(topic *models.Slideshow, section *models.Slid
 	var dataSlides []*DataSlide
 	for _, slide := range slides {
 		dataSlides = append(dataSlides, &DataSlide{
-			Title:       slide.TitleBr(),
-			Caption:     slide.CaptionBr(),
-			Image:       slide.Image,
-			Format:      slide.Format,
+			Title:   slide.TitleBr(),
+			Caption: slide.CaptionBr(),
+			Image:   slide.Image,
+			Format:  slide.Format,
 		})
 	}
 

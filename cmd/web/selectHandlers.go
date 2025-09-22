@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/inchworks/webparts/v2/multiforms"
+	"codeberg.org/inchworks/webparts/multiforms"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/nosurf"
 
@@ -71,7 +71,7 @@ func (app *Application) postFormInspection(w http.ResponseWriter, r *http.Reques
 	}
 
 	// display slides
-	http.Redirect(w, r, "/inspect/" + from + ":00/0", http.StatusSeeOther)
+	http.Redirect(w, r, "/inspect/"+from+":00/0", http.StatusSeeOther)
 }
 
 // getFormTagSlideshow serves a form to change slideshow tags.
