@@ -443,9 +443,9 @@ func (s *GalleryState) DisplayTopicContributors(id int64, forPath func(s *models
 		dShows = append(dShows, &DataPublished{
 			NTopic:      id,
 			Id:          s.Id,
-			Ref:         fmt.Sprintf("/topic-user/%d/%d", id, s.UserId),
+			Ref:         fmt.Sprintf("/topic-user/%d/%d", id, s.User.Int64),
 			Title:       s.Title,
-			NUser:       s.UserId,
+			NUser:       s.User.Int64,
 			Image:       s.Image,
 			DisplayName: s.Name,
 		})

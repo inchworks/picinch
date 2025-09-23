@@ -97,9 +97,7 @@ func (s *GalleryState) OnAssignShows(rsSrc []*form.AssignShowFormData) (int, etx
 	nConflicts := 0
 	nSrc := len(rsSrc)
 
-	// skip template
-	i := 1
-
+	i := 0
 	for i < nSrc {
 
 		// get current slideshow

@@ -57,6 +57,7 @@ type Info struct {
 }
 
 type Page struct {
+	Name        string
 	MetaTitle   string
 	Description string
 	NoIndex     bool
@@ -190,6 +191,7 @@ func (pc *PageCache) SetDiary(page *models.PageSlideshow, _ []*models.Slide) {
 
 	d := &Diary{
 		Page: Page{
+			Name:        page.Name,
 			MetaTitle:   page.MetaTitle,
 			Description: page.Description,
 			NoIndex:     page.NoIndex,
@@ -217,6 +219,7 @@ func (pc *PageCache) SetInformation(page *models.PageSlideshow, sections []*mode
 
 	p := &Info{
 		Page: Page{
+			Name:        page.Name,
 			MetaTitle:   page.MetaTitle,
 			Description: page.Description,
 			NoIndex:     page.NoIndex,

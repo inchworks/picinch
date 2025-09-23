@@ -172,7 +172,7 @@ func (s *GalleryState) DisplayInfo(name string) (template string, data TemplateD
 				ds.Layout = models.SlideBelow
 
 			case models.SlidePageShows:
-				ds.Slideshows = s.dataPublished(name, false)
+				ds.Slideshows = s.dataPublished(pg.Name, false) // using menu name, not path name
 				ds.Layout = models.SlideLeft
 			}
 		}

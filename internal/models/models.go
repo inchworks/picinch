@@ -200,7 +200,6 @@ type SlideshowTagRef struct {
 
 type SlideshowUser struct {
 	Slideshow
-	UserId int64
 	Name   string // user's display name
 }
 

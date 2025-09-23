@@ -84,7 +84,7 @@ func (f *AssignToPagesForm) GetAssignToPages() (items []*AssignToPagesFormData, 
 
 			Child: multiforms.Child{Parent: f.Form, ChildIndex: ix},
 			NShow: showId,
-			Page:  f.ChildText("page", i, ix, 1, models.MaxName),
+			Page:  f.ChildText("page", i, ix, 0, models.MaxName),
 		})
 	}
 

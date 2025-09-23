@@ -86,17 +86,17 @@ const (
 
 	// slideshow or topic with user name
 	slideshowWithUser = `
-		SELECT slideshow.*, user.id AS userid, user.name
+		SELECT slideshow.*, user.name
 		FROM slideshow
 		LEFT JOIN user ON user.id = slideshow.user
-		WHERE id = ?`
+		WHERE slideshow.id = ?`
 
-	// all slideshows and topics for pages
+	// all slideshows for pages
 	slideshowsForPages = `
-		SELECT slideshow.*, user.id AS userid, user.name
+		SELECT slideshow.*, user.name
 		FROM slideshow
-		LEFT JOIN user ON user.id = slideshow.user
-		WHERE slideshow.topic = 0 AND format NOT LIKE "$%"
+		INNER JOIN user ON user.id = slideshow.user
+		WHERE gallery = ? AND topic = 0 AND user.status > -2 AND format NOT LIKE "$%"
 		ORDER BY title, format, user.name
 	`
 
@@ -186,7 +186,7 @@ const (
 		ORDER BY s1.created DESC
 	`
 	slideshowsTopicPublished = `
-		SELECT slideshow.*, user.id AS userid, user.name 
+		SELECT slideshow.*, user.name 
 		FROM slideshow
 		INNER JOIN user ON user.id = slideshow.user
 		WHERE slideshow.topic = ? AND slideshow.visible = -1 AND slideshow.image <> "" AND user.status > 0
@@ -538,11 +538,11 @@ func (st *SlideshowStore) GetIfShared(shared int64) *models.Slideshow {
 }
 
 // GetWithUser returns a slideshow or topic with the user name.
-func (st *SlideshowStore) GetWithUser(id int64) *models.SlideshowUser {
+func (st *SlideshowStore) GetWithUser(showId int64) *models.SlideshowUser {
 
 	var r models.SlideshowUser
 
-	if err := st.DBX.Get(&r, slideshowWithUser); err != nil {
+	if err := st.DBX.Get(&r, slideshowWithUser, showId); err != nil {
 		if st.convertError(err) != models.ErrNoRecord {
 			st.logError(err)
 		}
