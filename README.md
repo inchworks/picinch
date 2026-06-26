@@ -24,4 +24,4 @@ PicInch is written in Go and ready to be deployed to a virtual machine using Doc
 
 [![Project Status: Moved to https://codeberg.org/inchworks/picinch – The project has been moved to a new location, and the version at that location should be considered authoritative.](https://www.repostatus.org/badges/latest/moved.svg)](https://www.repostatus.org/#moved) to [https://codeberg.org/inchworks/picinch](https://codeberg.org/inchworks/picinch)
 
-For more information, including setup and configuration, see https://picinch.com.
+For more information, including setup and configuration, see https://inchworks.com/info/picinch.
