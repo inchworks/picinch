@@ -2,7 +2,7 @@
 
 <div align="center">
   <h3>
-    <a href="https://picinch.com">Documentation</a>
+    <a href="https://inchworks.com/info/picinch">Documentation</a>
     <span> | </span>
     <a href="https://sconephoto.club">Working Site</a>
     <span> | </span>
